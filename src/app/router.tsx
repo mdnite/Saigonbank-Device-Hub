@@ -12,6 +12,7 @@ import { DashboardPage } from '@/modules/dashboard/presentation/DashboardPage';
 import { DeviceCatalogPage } from '@/modules/device/presentation/DeviceCatalogPage';
 import { AssetFormPage } from '@/modules/device/presentation/AssetFormPage';
 import { AllocateRecoverPage } from '@/modules/device/presentation/AllocateRecoverPage';
+import { UserSettingsPage } from '@/modules/user/presentation/UserSettingsPage';
 
 /** Wraps the auth screens in the split illustration layout. */
 function AuthShell() {
@@ -43,7 +44,7 @@ export const router = createBrowserRouter([
           { path: '/devices', element: <DeviceCatalogPage /> },
           { path: '/devices/new', element: <AssetFormPage /> },
           { path: '/allocation', element: <AllocateRecoverPage /> },
-          { path: '/users', element: <ComingSoonPage title="Người dùng" /> },
+          { path: '/users', element: <UserSettingsPage /> },
           { path: '/transfers', element: <ComingSoonPage title="Điều chuyển" /> },
           { path: '/audit', element: <ComingSoonPage title="Kiểm kê" /> },
           { path: '/settings', element: <ComingSoonPage title="Cài đặt" /> },

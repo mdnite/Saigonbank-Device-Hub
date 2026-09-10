@@ -1,10 +1,44 @@
-# IDSM — Frontend Context
+# IDSM — Context & Conventions
 
-> Bản đồ codebase hiện tại của **IDSM** (phần mềm quản lý thiết bị nội bộ SaigonBank).
+> Bản đồ codebase + quy ước làm việc cho **IDSM** (phần mềm quản lý thiết bị nội bộ SaigonBank).
 > Frontend được dựng từ một bản Figma **cũ**; bản Figma mới đã thay đổi nhiều và sẽ được
 > cập nhật dần theo từng module. Tài liệu này mô tả *trạng thái đang có*, không phải mục tiêu.
 >
-> Cập nhật lần cuối: 2026-09-10 (sau khi thêm module `user`).
+> Cập nhật lần cuối: 2026-09-11 (sau khi tách repo thành workspace `frontend/` + `backend/` + `database/`).
+
+> **Bố cục repo (npm workspace):** `frontend/` (React app, đã dựng) · `backend/` (API, chưa
+> build) · `database/` (migration + ERD). **Mọi đường dẫn code trong tài liệu này đều tính từ
+> `frontend/`** — ví dụ `src/app/router.tsx` = `frontend/src/app/router.tsx`. Chạy lệnh:
+> `npm install` rồi `npm run dev` **từ gốc repo** (alias sang `-w frontend`).
+
+---
+
+## 0. Quy ước làm việc
+
+### Nguồn sự thật
+- Giao diện: Figma `OuDy5KuU8mWCWiFvdrU0jZ`. Đọc frame qua node-id được đưa, không tự bịa
+  layout, không tự thêm màn.
+- Dữ liệu: ERD trong `docs/`. Không tự thêm bảng/cột. Thiếu thì hỏi.
+
+### Kiến trúc (pragmatic DDD — 4 lớp mỗi module)
+`frontend/src/modules/<context>/`: `domain/` (model + rule thuần, có test) · `application/`
+(port repository + service) · `infrastructure/` (repo mock + `container.ts`) · `presentation/`
+(page/hook React). Dùng chung: `frontend/src/shared/{ui,layout,lib}/`.
+`presentation` import service **từ `container.ts`**, không bao giờ `new` repository.
+`domain`/`application` không import React, `infrastructure`, `presentation`.
+
+### Quy tắc bắt buộc
+1. Trước khi tạo component mới, tìm trong `src/shared/ui/`, `src/shared/layout/` và
+   `presentation/` của module xem đã có chưa (xem mục 2). Có thì dùng lại.
+2. KHÔNG hardcode dữ liệu trong component. Mọi dữ liệu đi qua repository/service:
+   page → hook → service (`container.ts`) → repository. Chưa có API thì thêm method vào port
+   `application/` và trả mock trong `infrastructure/InMemory<X>Repository.ts`, đánh dấu `// MOCK`.
+3. Mọi nút phải có handler thật. Không để onClick rỗng, không để `href="#"`.
+4. Trường có dấu `*` trong Figma là bắt buộc — validate ở `domain/` (hàm `validate<X>`) và
+   chặn trước khi submit.
+5. Sau mỗi task, liệt kê những chỗ còn là placeholder và lý do (bổ sung vào mục 4). Không im
+   lặng bỏ qua.
+6. Không chắc thì HỎI, đừng đoán.
 
 ---
 
@@ -28,6 +62,7 @@
 ### Cấu trúc thư mục
 
 ```
+frontend/                    npm workspace — the React app (paths below are under frontend/src/)
 src/
   main.tsx                     Entry — SessionProvider > RouterProvider
   app/                         Composition root
@@ -49,7 +84,7 @@ src/
   test/setup.ts                import '@testing-library/jest-dom/vitest'
 ```
 
-Alias: **`@/` -> `src/`** (khai báo ở cả `vite.config.ts` và `tsconfig.app.json`).
+Alias: **`@/` -> `frontend/src/`** (khai báo ở cả `frontend/vite.config.ts` và `frontend/tsconfig.app.json`).
 
 ### Quy tắc kiến trúc (pragmatic DDD)
 
@@ -78,7 +113,9 @@ Page → hook (useAsyncData / useX) → service (container.ts) → InMemoryXRepo
 
 ### Script
 
-`npm run dev` · `npm test` (vitest run) · `npm run build` (tsc -b && vite build) · `npm run lint` (tsc -b --noEmit).
+Chạy **từ gốc repo** (mỗi lệnh là alias sang `-w frontend`): `npm run dev` · `npm test`
+(vitest run) · `npm run build` (tsc -b && vite build) · `npm run lint` (tsc -b --noEmit).
+Cài thêm package cho frontend: `npm install <pkg> -w frontend`.
 
 ---
 
@@ -263,7 +300,7 @@ từ ảnh 800px, không đọc từ Figma variable.
 
 - Không có comment `TODO`/`FIXME` nào trong `src/`.
 - Có các comment `ponytail:` đánh dấu chỗ cố tình làm tối giản: mock repo ở `auth`/`dashboard`/`user`, và 2 tab tự thiết kế của `user`.
-- `tsconfig.app.tsbuildinfo` bị commit vào repo (`.gitignore` chưa loại trừ) — rác build.
+- `*.tsbuildinfo` đã được `.gitignore` loại trừ và gỡ khỏi repo (2026-09-11).
 
 ---
 

@@ -1,7 +1,36 @@
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
+*.tsbuildinfo
+
+# Env & secrets — never commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
 *.local
-.DS_Store
+
+# Test / coverage
 coverage
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Editor / OS / tooling
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
 .vite
+.claude/settings.local.json

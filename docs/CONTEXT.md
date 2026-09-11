@@ -1,10 +1,13 @@
 # IDSM — Context & Conventions
 
 > Bản đồ codebase + quy ước làm việc cho **IDSM** (phần mềm quản lý thiết bị nội bộ SaigonBank).
-> Frontend được dựng từ một bản Figma **cũ**; bản Figma mới đã thay đổi nhiều và sẽ được
-> cập nhật dần theo từng module. Tài liệu này mô tả *trạng thái đang có*, không phải mục tiêu.
+> Phần lớn frontend vẫn được dựng từ bộ ảnh Figma **cũ** (15 PNG export, xem mục 3); module
+> **auth đã được đồng bộ lại từ Figma mới** (đọc trực tiếp qua node-id — quyền đọc Figma đã
+> hoạt động từ 2026-09-11, xem mục 5). Các module còn lại (dashboard/device/user) sẽ được đồng
+> bộ dần khi tới lượt. Tài liệu này mô tả *trạng thái đang có*, không phải mục tiêu.
 >
-> Cập nhật lần cuối: 2026-09-11 (sau khi tách repo thành workspace `frontend/` + `backend/` + `database/`).
+> Cập nhật lần cuối: 2026-09-11 (sau khi tách repo thành workspace `frontend/` + `backend/` +
+> `database/`, và sau khi cập nhật module Xác thực theo Figma mới — xem mục 3, 4).
 
 > **Bố cục repo (npm workspace):** `frontend/` (React app, đã dựng) · `backend/` (API, chưa
 > build) · `database/` (migration + ERD). **Mọi đường dẫn code trong tài liệu này đều tính từ
@@ -160,6 +163,7 @@ Cài thêm package cho frontend: `npm install <pkg> -w frontend`.
 | `cn` | `lib/cn.ts` | `cn(...classes) => string` (lọc falsy, join space). |
 | `useAsyncData` | `lib/useAsyncData.ts` | `useAsyncData<T>(loader: () => Promise<T>, deps?: unknown[]) => { data: T\|null, loading, error }`. |
 | `useAsyncAction` | `lib/useAsyncAction.ts` | `useAsyncAction<Args>(action: (...a: Args) => Promise<void>) => { run, pending, error }`. |
+| `useCountdown` | `lib/useCountdown.ts` | `useCountdown(initialSeconds: number) => { remaining, restart(next?) }`. Đếm ngược mỗi giây. Hiện chỉ dùng ở OTP resend, nhưng đặt ở `shared/lib` vì đủ chung để tái dùng. |
 
 ### Component cục bộ (KHÔNG shared — cân nhắc nâng lên khi tái dùng)
 
@@ -193,10 +197,10 @@ Route khai báo trong `src/app/router.tsx`.
 
 | Route | File | Dữ liệu | Trạng thái |
 |---|---|---|---|
-| `/login` | `modules/auth/presentation/LoginPage.tsx` | `authService.login` → **mock**: nhận mọi username/password không rỗng, trả session `displayName = username \|\| 'Han'`. | Hoạt động. Redirect về `state.from` hoặc `/dashboard`. |
-| `/forgot-password` | `ForgotPasswordPage.tsx` | `authService.requestPasswordReset` → **mock**: sinh mã 4 số, **`console.info`** ra mã. | Hoạt động. Sang `/verify-otp?email=...`. |
-| `/verify-otp` | `OtpPage.tsx` | `authService.verifyResetCode` → so mã với `Map` in-memory. | Hoạt động. Ô nhập 4 số tự nhảy focus. Sang `/reset-password?email=...`. |
-| `/reset-password` | `ResetPasswordPage.tsx` | `authService.resetPassword` → **mock chỉ xoá mã, KHÔNG lưu mật khẩu mới**. | Form validate khớp + độ dài (ở service). Xong → `/login`. |
+| `/login` | `modules/auth/presentation/LoginPage.tsx` | `authService.login` → **mock**: nhận mọi username/password không rỗng, trả session `displayName = username \|\| 'Han'`. | Hoạt động. Redirect về `state.from` hoặc `/dashboard`. Đã đối chiếu Figma mới (node `2:25`) — khớp 100%, không sửa gì. |
+| `/forgot-password` | `ForgotPasswordPage.tsx` | `authService.requestPasswordReset` → **mock**: sinh mã 4 số, **`console.info`** ra mã. | Hoạt động. Sang `/verify-otp?email=...`. Đã đối chiếu Figma mới (node `125:116`) — khớp 100%, không sửa gì. |
+| `/verify-otp` | `OtpPage.tsx` | `authService.verifyResetCode` → so mã với `Map` in-memory. | Hoạt động, đã cập nhật theo Figma mới (node `132:201`) 2026-09-11: ô nhập tự nhảy focus **+ dán cả mã 1 lần** (`onPaste`) **+ đếm ngược 60s** (`shared/lib/useCountdown.ts`) — hết hạn thì dòng đếm đổi thành link "Gửi lại mã" (gọi lại `authService.requestPasswordReset`, mã cũ bị ghi đè nên tự hết hiệu lực). Sang `/reset-password?email=...`. |
+| `/reset-password` | `ResetPasswordPage.tsx` | `authService.resetPassword` → **mock chỉ xoá mã, KHÔNG lưu mật khẩu mới**. | Hoạt động, đã cập nhật theo Figma mới (node `134:19`) 2026-09-11: validate khớp 2 ô mật khẩu **"sống"** khi gõ (tái dùng `validatePasswordReset` ở domain) — nút "Lưu mật khẩu" **disable + hiện lỗi đỏ ngay** khi chưa khớp, không phải chỉ báo lỗi sau khi bấm như trước. Xong → `/login`. |
 
 ### Nhóm App — khung `AppShell`, bọc `RequireAuth` (cần đăng nhập)
 
@@ -213,11 +217,19 @@ Route khai báo trong `src/app/router.tsx`.
 | `/settings` | `<ComingSoonPage title="Cài đặt" />` | — | Placeholder. |
 | `*` | `app/NotFoundPage.tsx` | — | 404. |
 
-Nguồn thiết kế: bản Figma cũ export ra **15 PNG** 800×512 (`Group 1..16`, thiếu 6).
-Map: 1=Login, 3=Quên MK, 4=OTP, 5=Đổi MK, 2=Dashboard, 7/8/9=User settings, 10=Danh mục
-thiết bị, 11=DS đơn cấp phát, 12=Tạo đơn cấp phát, 13=Approvals Center, 14+15=Thêm tài sản,
-16=Cấp phát-Thu hồi. Bảng màu/spacing trong `tailwind.config.js` là **ước lượng bằng mắt**
-từ ảnh 800px, không đọc từ Figma variable.
+Nguồn thiết kế — **2 nguồn khác nhau tuỳ module**:
+- **auth** (4 màn ở trên): đọc trực tiếp từ Figma sống qua `get_design_context`, node-id
+  `2:25` (Login), `125:116` (Quên MK), `132:201` (OTP), `134:19` (Đặt MK mới) — quyền đọc
+  Figma đã hoạt động từ 2026-09-11 (trước đó tài khoản chỉ có View seat, bị chặn).
+- **dashboard/device/user** (chưa đồng bộ lại): vẫn dựa trên bản Figma cũ export ra **15 PNG**
+  800×512 (`Group 1..16`, thiếu 6). Map: 1=Login(cũ), 3=Quên MK(cũ), 4=OTP(cũ), 5=Đổi MK(cũ),
+  2=Dashboard, 7/8/9=User settings, 10=Danh mục thiết bị, 11=DS đơn cấp phát, 12=Tạo đơn cấp
+  phát, 13=Approvals Center, 14+15=Thêm tài sản, 16=Cấp phát-Thu hồi.
+
+Bảng màu/spacing trong `tailwind.config.js` vẫn là **ước lượng bằng mắt**, kể cả sau khi auth
+đọc được Figma sống — vì các node đọc được dùng hex/rgba trực tiếp trên từng lớp, không phải
+Figma variable đặt tên, nên không có gì để đồng bộ tự động. Khi cần màu chính xác, phải tự so
+bằng mắt với screenshot mà `get_design_context` trả về.
 
 ---
 
@@ -244,7 +256,7 @@ từ ảnh 800px, không đọc từ Figma variable.
 | **Không có chế độ sửa** | `AssetFormPage` chỉ tạo mới. Không có `/devices/:id/edit`. |
 | **`AllocateRecoverPage` không có luồng thật** | Không có bước chọn thiết bị → chọn nhân viên → sinh biên bản → thu hồi. Chỉ là form tạo tài sản rút gọn. |
 | **`href="#"`** | Không tìm thấy `href="#"` nào (các link đều dùng `<Link to=...>` thật). |
-| **OTP không có "Gửi lại mã"** | Chỉ có link "Quay lại". |
+| **Đếm ngược OTP là hằng số client-side** | `RESEND_SECONDS = 60` hardcode trong `OtpPage.tsx`, không đồng bộ với thời gian sống thật của mã ở backend (vì chưa có backend). Khi có API thật, thời hạn nên do server trả về. |
 | **Dashboard** | Không refresh, không lọc theo kỳ, thẻ không bấm được. |
 | **Bảng (`DataTable`)** | Không sort, không phân trang, không chọn dòng. Dữ liệu nhiều sẽ chỉ tràn/cuộn. |
 
@@ -281,7 +293,7 @@ từ ảnh 800px, không đọc từ Figma variable.
 | Login | Ở **service** (`validateCredentials`): username không rỗng, mật khẩu ≥ 6. Không có lỗi inline theo từng ô — chỉ 1 dòng lỗi chung. | |
 | Quên mật khẩu | `Email.of()` ném lỗi ở service nếu email sai định dạng → hiện ở `Field error`. | Không chặn trước khi submit. |
 | OTP | Nút disabled tới khi đủ 4 số; service kiểm regex `^\d{4}$` + so mã. | |
-| Đổi mật khẩu | `validatePasswordReset`: khớp + độ dài ≥ 6 (ở service). Checkbox "Hiện mật khẩu" hoạt động. | Không kiểm độ mạnh. |
+| Đổi mật khẩu | `validatePasswordReset` (domain, tái dùng trực tiếp ở `presentation` để validate "sống"): khớp + độ dài ≥ 6. Checkbox "Hiện mật khẩu" hoạt động. **Nút "Lưu mật khẩu" disable tới khi 2 ô khớp** (2026-09-11, trước đó chỉ báo lỗi sau khi bấm). | Không kiểm độ mạnh mật khẩu (chỉ độ dài). |
 | Thêm tài sản / Cấp phát-Thu hồi | `validateAssetDraft` (domain): 6 trường bắt buộc + khi `allocated` thì thêm 2 trường. Lỗi hiện theo từng `Field`. **Hoạt động.** | "Hạn bảo hành" không tự tính từ số tháng/năm. |
 | User — Thông tin chung | `validateUserSettings`: 5 trường bắt buộc + định dạng email. Lỗi theo `Field`. Submit sai → nhảy về tab 1. **Hoạt động.** | |
 | User — Thông báo / Bảo mật | Không có trường bắt buộc. | Bộ field là **phỏng đoán** (Figma cũ Group 8/9 chỉ lặp lại mock của tab 1), đánh dấu `ponytail:` trong file. |
@@ -299,7 +311,7 @@ từ ảnh 800px, không đọc từ Figma variable.
 ### 4.7 TODO / dấu vết trong code
 
 - Không có comment `TODO`/`FIXME` nào trong `src/`.
-- Có các comment `ponytail:` đánh dấu chỗ cố tình làm tối giản: mock repo ở `auth`/`dashboard`/`user`, và 2 tab tự thiết kế của `user`.
+- Có các comment `ponytail:` đánh dấu chỗ cố tình làm tối giản: mock repo ở `auth`/`dashboard`/`user`, 2 tab tự thiết kế của `user`, và `shared/lib/useCountdown.ts` (đếm bằng `setTimeout` theo tick, có thể trôi vài trăm ms — chấp nhận được cho cooldown UI).
 - `*.tsbuildinfo` đã được `.gitignore` loại trừ và gỡ khỏi repo (2026-09-11).
 
 ---
@@ -317,8 +329,12 @@ từ ảnh 800px, không đọc từ Figma variable.
    chắc chắn sẽ phải thay theo Figma mới.
 
 3. **Giá trị palette / spacing / radius / shadow** trong `tailwind.config.js` là ước lượng
-   bằng mắt từ PNG 800×512, **không** lấy từ Figma variable (tài khoản chỉ có seat View,
-   không mở được Dev Mode). Bản mới có thể lệch màu/khoảng cách đáng kể.
+   bằng mắt, chưa lấy từ Figma variable. Cập nhật 2026-09-11: quyền đọc Figma qua
+   `get_design_context` **đã hoạt động** (trước đó bị chặn do tài khoản chỉ có seat View) —
+   nhưng các node đọc được (auth) dùng hex/rgba trực tiếp trên layer, không phải variable đặt
+   tên, nên vẫn không có gì để đồng bộ tự động; vẫn phải so bằng mắt với screenshot trả về.
+   Các module chưa đọc lại từ Figma sống (dashboard/device/user) vẫn có thể lệch màu/khoảng
+   cách đáng kể so với bản Figma mới.
 
 4. **Luồng "Cấp phát - Thu hồi" đúng ra phải làm gì** — hiện `AllocateRecoverPage` gần như
    trùng form thêm tài sản. Nghiệp vụ thật (chọn thiết bị trong kho → gán nhân viên/phòng ban

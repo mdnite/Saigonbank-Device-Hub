@@ -4,6 +4,7 @@ import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/inputs';
 import { Checkbox } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
+import { validatePasswordReset } from '../domain/credentials';
 import { authService } from '../infrastructure/container';
 
 export function ResetPasswordPage() {
@@ -13,6 +14,9 @@ export function ResetPasswordPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
+
+  const liveErrors = confirm.length > 0 ? validatePasswordReset(password, confirm) : [];
+  const canSubmit = password.length > 0 && confirm.length > 0 && liveErrors.length === 0;
 
   const { run, pending, error } = useAsyncAction(async () => {
     await authService.resetPassword(email, password, confirm);
@@ -41,6 +45,7 @@ export function ResetPasswordPage() {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
         />
+        {liveErrors[0] && <p className="text-xs text-status-dangerFg">{liveErrors[0]}</p>}
         <Checkbox
           id="show-pw"
           label="Hiện mật khẩu"
@@ -52,7 +57,7 @@ export function ResetPasswordPage() {
       {error && <p className="mt-3 text-sm text-status-dangerFg">{error}</p>}
 
       <div className="mt-6 flex justify-end">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || !canSubmit}>
           {pending ? 'Đang lưu…' : 'Lưu mật khẩu'}
         </Button>
       </div>

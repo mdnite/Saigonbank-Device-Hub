@@ -27,9 +27,13 @@ printed to the browser console by the mock adapter.
 | `auth` | Login, Quên mật khẩu, OTP, Đổi mật khẩu | Group 1, 3, 4, 5 |
 | `dashboard` | Tổng quan (4 thẻ thống kê) | Group 2 |
 | `device` | Danh mục thiết bị, Thêm tài sản, Cấp phát - Thu hồi | Group 10, 14, 15, 16 |
+| `user` | Người dùng / Cài đặt cá nhân (3 tab) | Group 7, 8, 9 |
 
-Not yet built (routed to a "đang phát triển" placeholder): Người dùng, Điều chuyển, Kiểm kê,
-Cài đặt, Danh sách đơn cấp phát (Group 11–13, 7–9).
+Not yet built (routed to a "đang phát triển" placeholder): Điều chuyển, Kiểm kê, Cài đặt.
+Not routed at all: Danh sách/Tạo đơn cấp phát, Approvals Center (Group 11–13).
+
+All modules still use in-memory mocks; the real API lives in [`../backend/`](../backend/) but is not
+wired up yet.
 
 ## Architecture — pragmatic DDD
 

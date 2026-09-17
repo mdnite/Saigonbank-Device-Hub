@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: idms
+      POSTGRES_PASSWORD: idms_dev
+      POSTGRES_DB: internal_device_management
+    ports:
+      - "5432:5432"
+    volumes:
+      - idms_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U idms -d internal_device_management"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  idms_pgdata:

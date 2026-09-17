@@ -1,0 +1,146 @@
+// ============================================================================
+// IDMS - schema.prisma (v3: 4 bảng phục vụ luồng Đăng nhập / Đăng xuất /
+// Quên mật khẩu, đã chốt theo quyết định của Sato ngày 17/09/2026)
+// Khớp 1:1 với ERD đã duyệt trong BCTT-HKTT (3.2.1/3.2.2) cho 3 bảng
+// Role/Department/User, đọc trực tiếp từ ảnh dbdiagram.io (media/image1.png)
+// trong file docx. PasswordResetToken là bảng MỚI, KHÔNG có trên ERD gốc đó.
+// Quy ước: field Prisma dùng camelCase (chuẩn TypeScript/NestJS), map thẳng
+// sang đúng tên cột PascalCase đã có trên ERD bằng @map/@@map, để code vẫn
+// idiomatic mà DB thật khớp 100% với hình ERD trong báo cáo.
+//
+// THAY ĐỔI so với v2 (chốt lại ngày 17/09/2026, phiên làm việc thứ hai):
+//   - UC-02 (Quên mật khẩu) được ĐƯA TRỞ LẠI phạm vi code thật — đảo ngược
+//     quyết định "CẮT" trước đó. Sẽ gửi OTP/link reset qua email thật.
+//   - Do đó bảng PasswordResetToken được thêm mới (không có trên ERD gốc
+//     trong docx, vì lúc vẽ ERD UC-02 còn đang bị cắt) — CẦN CẬP NHẬT LẠI
+//     hình ERD 3.2.1 trong báo cáo BCTT-HKTT để thêm bảng này, giữ đồng bộ
+//     giữa báo cáo và code thật.
+//   - Đăng xuất (logout) xử lý thuần phía client (xóa access token đang lưu
+//     ở FE) — không cần bảng/API riêng ở BE, giữ đúng quyết định JWT
+//     stateless hoàn toàn đã chốt trước đó (không có RefreshToken/Session).
+//
+// 4 quyết định đã chốt ở phiên trước (giữ nguyên trong v3 này):
+//   1. JWT: stateless hoàn toàn — chỉ access token, KHÔNG có bảng
+//      RefreshToken/Session nào trong DB.
+//   2. Trạng thái "Chưa được xác minh" (thấy trong SD Login và UC-04): tách
+//      thành cột boolean riêng "isVerified", KHÔNG gộp chung vào Status.
+//   3. UC-06 (Xóa người dùng): luôn xóa MỀM — không bao giờ DELETE row User
+//      thật, chỉ đổi Status. Không cần cột/bảng gì thêm, chỉ là quy ước ở
+//      tầng service/repository (chặn hard delete).
+//   4. (Mới) OTP/token trong PasswordResetToken lưu dưới dạng ĐÃ HASH
+//      (tokenHash), không lưu plaintext — cùng nguyên tắc bảo mật như cột
+//      Password của User.
+//
+// CHƯA đưa vào: Notification, Device và các bảng khác (chưa cần cho luồng
+// đăng nhập/đăng xuất/quên mật khẩu) — sẽ bổ sung ở đợt sau.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7 không còn nhận `url` trong schema (lỗi P1012) — DATABASE_URL được
+// khai báo ở prisma.config.ts (cho Migrate) và qua adapter pg (cho PrismaClient).
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Role -------------------------------------------------------------
+// ERD: Id (PK, int), RoleName (varchar)
+model Role {
+  id       Int    @id @default(autoincrement()) @map("Id")
+  roleName String @map("RoleName") @db.VarChar(100)
+
+  users User[]
+
+  @@map("Role")
+}
+
+// --- Department ---------------------------------------------------------
+// ERD: Id (PK, int), DepartmentCode (varchar, có icon khóa trên ERD => giả
+// định là unique — vẫn CẦN SATO XÁC NHẬN, chưa có câu trả lời rõ ràng cho
+// điểm này), DepartmentName (varchar)
+model Department {
+  id             Int    @id @default(autoincrement()) @map("Id")
+  departmentCode String @unique @map("DepartmentCode") @db.VarChar(50)
+  departmentName String @map("DepartmentName") @db.VarChar(150)
+
+  users User[]
+
+  @@map("Department")
+}
+
+// --- User -----------------------------------------------------------------
+// ERD gốc: Id (PK), RoleId (FK NOT NULL), DepartmentId (FK, nullable),
+// Username, Password, FullName, Email, Status (tất cả varchar).
+// "isVerified" là cột MỚI, KHÔNG có trên ERD gốc trong docx — cần cập nhật
+// lại ảnh ERD trong báo cáo (3.2.1) để khớp với DB thật.
+//
+// ĐÃ CHỐT (xác nhận ngày 17/09/2026, sau khi Claude Code chạy Prompt 1):
+//   - Username và Email đều UNIQUE — xác nhận bằng lời, không còn là giả định.
+//   - Đăng nhập (POST /auth/login) chấp nhận cả email lẫn username.
+//   - Password lưu chuỗi đã hash (bcrypt/argon2) — đúng như UC-08 mô tả —
+//     cột vẫn tên "Password" để khớp ERD, KHÔNG đổi tên thành passwordHash.
+//   - Status CHỈ có đúng 3 giá trị, đã chốt: "Đang hoạt động" | "Ngừng hoạt
+//     động" | "Đã xóa". Hành vi ở bước đăng nhập theo từng giá trị (áp dụng
+//     trong AuthService, KHÔNG phải constraint ở DB): "Đang hoạt động" ->
+//     cho đăng nhập bình thường; "Ngừng hoạt động" -> 403 "Tài khoản đã bị
+//     khoá" (business rule mới thấy trong SD/AD UC-01, chưa có trong text
+//     UC-01, cần bổ sung vào báo cáo); "Đã xóa" -> xử lý y hệt như KHÔNG tìm
+//     thấy tài khoản, trả 401 "Sai tên đăng nhập hoặc mật khẩu" giống hệt
+//     trường hợp sai mật khẩu (không được lộ rằng tài khoản này từng tồn
+//     tại rồi bị xóa).
+//   - createdAt/updatedAt: ERD gốc không có (chỉ Notification mới có
+//     CreatedDate) — thêm cho tiện quản lý, có thể bỏ nếu muốn bám sát tuyệt
+//     đối ERD gốc.
+model User {
+  id           Int      @id @default(autoincrement()) @map("Id")
+  roleId       Int      @map("RoleId")
+  departmentId Int?     @map("DepartmentId")
+  username     String   @unique @map("Username") @db.VarChar(100)
+  password     String   @map("Password") @db.VarChar(255)
+  fullName     String   @map("FullName") @db.VarChar(150)
+  email        String   @unique @map("Email") @db.VarChar(150)
+  status       String   @default("Đang hoạt động") @map("Status") @db.VarChar(50)
+  isVerified   Boolean  @default(false) @map("IsVerified")
+  createdAt    DateTime @default(now()) @map("CreatedAt")
+  updatedAt    DateTime @updatedAt @map("UpdatedAt")
+
+  role                Role                 @relation(fields: [roleId], references: [id])
+  department          Department?          @relation(fields: [departmentId], references: [id])
+  passwordResetTokens PasswordResetToken[]
+
+  @@map("User")
+}
+
+// --- PasswordResetToken (MỚI, cho UC-02 Quên mật khẩu) --------------------
+// KHÔNG có trên ERD gốc trong docx — cần vẽ bổ sung vào 3.2.1 khi cập nhật
+// báo cáo. Mỗi lần user bấm "Quên mật khẩu" tạo 1 row mới; token/OTP lưu
+// dạng hash (tokenHash), không lưu plaintext. usedAt null nghĩa là token
+// còn hiệu lực (chưa dùng) và chưa hết hạn (so với expiresAt).
+//
+// ĐÃ CHỐT (xác nhận ngày 17/09/2026, sau khi Claude Code chạy Prompt 1):
+//   - OTP số 4 chữ số, hết hạn sau 5 phút (expiresAt = createdAt + 5 phút).
+//   - Dịch vụ gửi email: Resend.
+//   - Luồng xác thực OTP tách thành 1 API verify-otp riêng (POST
+//     /auth/verify-otp) trước API reset-password, theo đúng Activity
+//     Diagram UC-02 (xem Prompt 1/3/5 trong file prompts bàn giao).
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement()) @map("Id")
+  userId    Int       @map("UserId")
+  tokenHash String    @map("TokenHash") @db.VarChar(255)
+  expiresAt DateTime  @map("ExpiresAt")
+  usedAt    DateTime? @map("UsedAt")
+  createdAt DateTime  @default(now()) @map("CreatedAt")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([tokenHash])
+  @@map("PasswordResetToken")
+}
+
+// ============================================================================
+// CHỦ ĐỘNG KHÔNG THÊM (đã quyết định, không phải còn treo):
+//   - Bảng refresh token / session cho JWT — JWT stateless hoàn toàn, và
+//     logout xử lý thuần phía client, không cần lưu trạng thái gì ở server.
+// ============================================================================

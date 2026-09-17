@@ -6,11 +6,13 @@
 > hoạt động từ 2026-09-11, xem mục 5). Các module còn lại (dashboard/device/user) sẽ được đồng
 > bộ dần khi tới lượt. Tài liệu này mô tả *trạng thái đang có*, không phải mục tiêu.
 >
-> Cập nhật lần cuối: 2026-09-11 (sau khi tách repo thành workspace `frontend/` + `backend/` +
-> `database/`, và sau khi cập nhật module Xác thực theo Figma mới — xem mục 3, 4).
+> Cập nhật lần cuối: 2026-09-17 (backend `identity` đã dựng, bỏ thư mục `database/` — migration
+> chuyển về `backend/prisma/migrations`). Trước đó 2026-09-11: tách repo thành `frontend/` +
+> `backend/`, cập nhật module Xác thực theo Figma mới — xem mục 3, 4.
 
-> **Bố cục repo (npm workspace):** `frontend/` (React app, đã dựng) · `backend/` (API, chưa
-> build) · `database/` (migration + ERD). **Mọi đường dẫn code trong tài liệu này đều tính từ
+> **Bố cục repo:** `frontend/` (React app, npm workspace, vẫn chạy mock — chưa nối backend) ·
+> `backend/` (NestJS + Prisma, project pnpm riêng, xem `backend/README.md`; schema + migration ở
+> `backend/prisma/`). **Mọi đường dẫn code trong tài liệu này đều tính từ
 > `frontend/`** — ví dụ `src/app/router.tsx` = `frontend/src/app/router.tsx`. Chạy lệnh:
 > `npm install` rồi `npm run dev` **từ gốc repo** (alias sang `-w frontend`).
 
@@ -21,7 +23,8 @@
 ### Nguồn sự thật
 - Giao diện: Figma `OuDy5KuU8mWCWiFvdrU0jZ`. Đọc frame qua node-id được đưa, không tự bịa
   layout, không tự thêm màn.
-- Dữ liệu: ERD trong `docs/`. Không tự thêm bảng/cột. Thiếu thì hỏi.
+- Dữ liệu: ERD 3.2.1 trong báo cáo BCTT-HKTT (ngoài repo); bản thực thi là
+  `backend/prisma/schema.prisma`. Không tự thêm bảng/cột. Thiếu thì hỏi.
 
 ### Kiến trúc (pragmatic DDD — 4 lớp mỗi module)
 `frontend/src/modules/<context>/`: `domain/` (model + rule thuần, có test) · `application/`

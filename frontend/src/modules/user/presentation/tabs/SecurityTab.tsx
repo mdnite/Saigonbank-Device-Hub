@@ -4,7 +4,7 @@ import { PrefToggle } from '../PrefToggle';
 import type { TabProps } from './GeneralInfoTab';
 
 /** ponytail: no Figma frame for this tab (Group 9 reuses the general-info mock). Password change
- *  reuses the existing /reset-password flow rather than re-implementing it here. */
+ *  reuses the forgot-password → OTP → reset flow (reset needs an OTP) until a change-password API exists. */
 export function SecurityTab({ draft, onChange }: TabProps) {
   const navigate = useNavigate();
 
@@ -18,7 +18,7 @@ export function SecurityTab({ draft, onChange }: TabProps) {
               <p className="text-sm font-medium text-ink">Mật khẩu</p>
               <p className="text-xs text-ink-muted">Đổi lần cuối hơn 90 ngày trước.</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/reset-password')}>
+            <Button variant="outline" size="sm" onClick={() => navigate('/forgot-password')}>
               Đổi mật khẩu
             </Button>
           </div>

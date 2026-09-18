@@ -40,6 +40,27 @@ async function main() {
   console.log(
     `Seed xong: role=${role.id}, department=${department.id}, user=${admin.username}`,
   );
+
+  // User để test luồng quên mật khẩu: Resend (onboarding@resend.dev) chỉ gửi được tới email chủ tài khoản.
+  // Email lấy từ .env để không commit email cá nhân vào repo.
+  const devEmail = process.env.DEV_USER_EMAIL?.trim().toLowerCase();
+  if (devEmail) {
+    const dev = await prisma.user.upsert({
+      where: { username: 'dev' },
+      update: { email: devEmail },
+      create: {
+        username: 'dev',
+        email: devEmail,
+        password: await hashPassword('Dev@1234'),
+        fullName: 'Người dùng thử nghiệm',
+        roleId: role.id,
+        departmentId: department.id,
+        status: USER_STATUS.ACTIVE,
+        isVerified: true,
+      },
+    });
+    console.log(`Seed user dev: ${dev.username} <${dev.email}>`);
+  }
 }
 
 main()

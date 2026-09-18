@@ -17,8 +17,17 @@ npm run build      # tsc + vite build
 
 CI runs from the repo root: `npm ci` then `npm run build -w frontend`.
 
-Login accepts **any** non-empty username/password (mock auth). Password-reset codes are
-printed to the browser console by the mock adapter.
+**Auth talks to the real backend** — start it first (`backend/`, see
+[`../backend/README.md`](../backend/README.md)), otherwise login shows "Không kết nối được máy chủ".
+The API base URL comes from `VITE_API_URL` (default `http://localhost:3000`); copy
+`.env.example` to `.env` to change it. Dev accounts come from the backend seed:
+`admin` / `Admin@123` (+ optional `dev` user for the forgot-password flow).
+
+If the browser still holds a session from the old mock build, delete
+`localStorage["idsm.session"]` once — otherwise the app thinks you are logged in.
+
+Tests run on Node 25 with `--no-experimental-webstorage` (set in `vite.config.ts`), because
+Node's own global `localStorage` shadows jsdom's.
 
 ## What's in this pass
 
@@ -32,8 +41,9 @@ printed to the browser console by the mock adapter.
 Not yet built (routed to a "đang phát triển" placeholder): Điều chuyển, Kiểm kê, Cài đặt.
 Not routed at all: Danh sách/Tạo đơn cấp phát, Approvals Center (Group 11–13).
 
-All modules still use in-memory mocks; the real API lives in [`../backend/`](../backend/) but is not
-wired up yet.
+`auth` is wired to the real API in [`../backend/`](../backend/) (login, forgot password → OTP
+email → reset, logout = client-side token removal). `dashboard`, `device` and `user` still use
+in-memory mocks.
 
 ## Architecture — pragmatic DDD
 
@@ -42,7 +52,7 @@ Each bounded context under `src/modules/<context>/` has four layers:
 ```
 domain/          Pure models + rules. No React, no fetch. Unit-tested.
 application/     Use-case services + repository *interfaces* (ports).
-infrastructure/  Repository implementations (currently in-memory) + container.ts (DI wiring).
+infrastructure/  Repository implementations (HTTP for auth, in-memory elsewhere) + container.ts (DI wiring).
 presentation/    React pages, hooks, and UI-only mappings.
 ```
 
@@ -52,7 +62,10 @@ Rules:
   `new`s a repository itself.
 - `domain` and `application` never import from `presentation`, `infrastructure`, or React.
 - Swapping the mock for a real backend = write an `HttpXRepository implements XRepository`
-  and change one line in `container.ts`. Nothing else moves.
+  and change one line in `container.ts`. Nothing else moves. Reference implementation:
+  `modules/auth/infrastructure/HttpAuthRepository.ts` on top of `shared/lib/apiClient.ts`
+  (`apiPost` unwraps the backend's `{ success, data, error, message }` envelope and throws the
+  Vietnamese `message` on error).
 
 `src/shared/` holds the design-system UI kit (`ui/`), layout chrome (`layout/`), and
 framework-agnostic helpers (`lib/`). `src/app/` is the composition root: router + session

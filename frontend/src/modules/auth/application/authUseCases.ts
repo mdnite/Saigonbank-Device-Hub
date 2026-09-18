@@ -29,10 +29,15 @@ export function makeAuthService(repo: AuthRepository) {
       return repo.verifyResetCode(Email.of(rawEmail).value, code);
     },
 
-    async resetPassword(rawEmail: string, password: string, confirm: string): Promise<void> {
+    async resetPassword(
+      rawEmail: string,
+      code: string,
+      password: string,
+      confirm: string,
+    ): Promise<void> {
       const errors = validatePasswordReset(password, confirm);
       if (errors.length) throw new AuthError(errors[0]);
-      return repo.resetPassword(Email.of(rawEmail).value, password);
+      return repo.resetPassword(Email.of(rawEmail).value, code, password);
     },
   };
 }

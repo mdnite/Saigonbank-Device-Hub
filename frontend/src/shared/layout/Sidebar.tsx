@@ -1,6 +1,11 @@
-import { NavLink } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useSession } from '@/app/session/SessionContext';
 import { cn } from '@/shared/lib/cn';
 import { PRIMARY_NAV, SETTINGS_NAV, type NavItem } from './navItems';
+
+const ITEM_BASE = 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition';
+const ITEM_IDLE = 'text-ink-muted hover:bg-surface-sunken hover:text-ink';
 
 function Item({ item }: { item: NavItem }) {
   const Icon = item.icon;
@@ -8,12 +13,7 @@ function Item({ item }: { item: NavItem }) {
     <NavLink
       to={item.to}
       className={({ isActive }) =>
-        cn(
-          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition',
-          isActive
-            ? 'bg-surface-sunken text-ink'
-            : 'text-ink-muted hover:bg-surface-sunken hover:text-ink',
-        )
+        cn(ITEM_BASE, isActive ? 'bg-surface-sunken text-ink' : ITEM_IDLE)
       }
     >
       <Icon className="h-[18px] w-[18px] shrink-0" />
@@ -23,6 +23,15 @@ function Item({ item }: { item: NavItem }) {
 }
 
 export function Sidebar() {
+  const { signOut } = useSession();
+  const navigate = useNavigate();
+
+  // JWT stateless: đăng xuất = xoá session (có token) khỏi state + localStorage, không gọi BE.
+  const logout = () => {
+    signOut();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <aside className="flex w-[232px] shrink-0 flex-col border-r border-line bg-white">
       <div className="flex items-center gap-2.5 px-5 py-5">
@@ -39,8 +48,12 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="px-3 py-4">
+      <div className="space-y-1 px-3 py-4">
         <Item item={SETTINGS_NAV} />
+        <button type="button" onClick={logout} className={cn(ITEM_BASE, ITEM_IDLE, 'w-full')}>
+          <LogOut className="h-[18px] w-[18px] shrink-0" />
+          <span className="truncate">Đăng xuất</span>
+        </button>
       </div>
     </aside>
   );

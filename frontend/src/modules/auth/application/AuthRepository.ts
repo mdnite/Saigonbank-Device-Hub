@@ -8,8 +8,8 @@ export interface AuthRepository {
   requestPasswordReset(email: string): Promise<void>;
   /** Verifies the emailed code. Rejects on mismatch. */
   verifyResetCode(email: string, code: string): Promise<void>;
-  /** Sets a new password for a verified reset request. */
-  resetPassword(email: string, newPassword: string): Promise<void>;
+  /** Sets a new password. The backend re-verifies `code`, so it must be sent again here. */
+  resetPassword(email: string, code: string, newPassword: string): Promise<void>;
 }
 
 export class AuthError extends Error {

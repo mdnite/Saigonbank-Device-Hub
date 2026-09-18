@@ -23,13 +23,25 @@ Cần role `idms` / `idms_dev` và database `internal_device_management` (khớp
 ### 2. App
 
 ```bash
-cp .env.example .env            # điền RESEND_API_KEY thật
+cp .env.example .env            # điền RESEND_API_KEY thật (+ DEV_USER_EMAIL nếu muốn test quên mật khẩu)
 pnpm install
 npx prisma migrate dev          # áp dụng prisma/migrations (4 bảng Role, Department, User, PasswordResetToken)
-npx prisma db seed              # dev-only: user admin / Admin@123
-pnpm start:dev                  # http://localhost:3000
+npx prisma db seed              # dev-only: admin / Admin@123 (+ dev / Dev@1234 nếu có DEV_USER_EMAIL)
+pnpm start:dev                  # http://localhost:3000 — frontend (localhost:5173) gọi vào đây
 pnpm test
 ```
+
+Không có `pnpm` cài global thì thay `pnpm` bằng `npx -y pnpm@10`.
+
+- **Seed:** idempotent, chạy lại không đổi mật khẩu user đã có (user `dev` chỉ được cập nhật email).
+  `DEV_USER_EMAIL` nên là email chủ tài khoản Resend (xem Quy ước), đọc từ `.env` để không commit
+  email cá nhân vào repo.
+- **Test (`pnpm test`):** `auth.spec.ts` dựng module thật (controller, service, validation, JWT, bcrypt,
+  envelope) nhưng thay `PrismaService` bằng DB giả trong RAM và `MailService` bằng `jest.fn()` —
+  không cần Postgres, không gửi mail thật. Tích hợp với Postgres + Resend thật được kiểm tay.
+- **CORS:** chỉ cho phép `CORS_ORIGIN` (mặc định `http://localhost:5173`).
+- **Tắt server chạy nền:** nếu `EADDRINUSE :3000`, còn tiến trình Nest cũ giữ cổng — tắt nó
+  (`Get-NetTCPConnection -LocalPort 3000 -State Listen` để tìm PID trên Windows).
 
 ## Migration
 
@@ -41,7 +53,9 @@ pnpm test
 
 ## API
 
-Mọi response có dạng `{ success, data, error, message }`.
+Mọi response có dạng `{ success, data, error, message }` — FE bóc `data` và hiện `message` khi lỗi
+(`frontend/src/shared/lib/apiClient.ts`). Chưa có endpoint nào yêu cầu JWT; chưa có API quản lý
+người dùng (tạo/sửa/khoá tài khoản) — hiện chỉ tạo qua seed.
 
 | Endpoint | Body | Thành công | Lỗi |
 |---|---|---|---|
@@ -52,6 +66,9 @@ Mọi response có dạng `{ success, data, error, message }`.
 
 ## Quy ước
 
+- Đăng xuất: không có endpoint, không có bảng Session/RefreshToken — FE xoá token khỏi
+  `localStorage["idsm.session"]`. Thêm `/auth/logout` (vd. cho audit/blacklist) phải hỏi trước vì
+  phá quyết định JWT stateless.
 - Không bao giờ xoá cứng `User` (UC-06 xoá mềm qua `Status`); token reset chỉ đánh dấu `usedAt`.
 - OTP lưu dạng SHA-256, hết hạn 5 phút, chỉ mã mới nhất có hiệu lực, tối đa 5 lần nhập sai mỗi mã.
 - Resend với `onboarding@resend.dev` chỉ gửi được tới email chủ tài khoản Resend; gửi cho người khác cần verify domain.

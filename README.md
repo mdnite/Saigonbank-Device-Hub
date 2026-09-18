@@ -4,10 +4,13 @@ Internal IT device / asset management app for SaigonBank. Two top-level apps:
 
 | Folder | What it is | Status |
 |--------|-----------|--------|
-| [`frontend/`](frontend/) | React + Vite + TypeScript + Tailwind web app (pragmatic DDD), npm workspace | Implemented against in-memory mocks |
+| [`frontend/`](frontend/) | React + Vite + TypeScript + Tailwind web app (pragmatic DDD), npm workspace | Auth wired to the backend; other modules on in-memory mocks |
 | [`backend/`](backend/) | NestJS 11 + Prisma 7 + PostgreSQL API, standalone pnpm project | Module `identity` (auth) implemented |
 
 ## Run
+
+Login needs both apps running: PostgreSQL → backend (`:3000`) → frontend (`:5173`), each in its own
+terminal. Dev account after `npx prisma db seed`: `admin` / `Admin@123`.
 
 ### Frontend
 
@@ -27,10 +30,15 @@ inside `backend/`; see [`backend/README.md`](backend/README.md).
 
 ```bash
 cd backend
+cp .env.example .env       # fill in RESEND_API_KEY (and DEV_USER_EMAIL for the forgot-password flow)
 pnpm install
 npx prisma migrate dev     # applies backend/prisma/migrations
+npx prisma db seed         # dev accounts
 pnpm start:dev             # http://localhost:3000
+pnpm test                  # jest (Prisma + mail faked, no DB needed)
 ```
+
+No global pnpm? Use `npx -y pnpm@10 <cmd>` instead of `pnpm <cmd>`.
 
 ## Database
 

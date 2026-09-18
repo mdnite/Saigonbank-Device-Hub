@@ -8,7 +8,8 @@ import { useCountdown } from '@/shared/lib/useCountdown';
 import { authService } from '../infrastructure/container';
 
 const LENGTH = 4;
-const RESEND_SECONDS = 60;
+// Khớp OTP_TTL_MS ở backend (src/shared/security/otp.ts) — hết giờ thì mã thật sự hết hạn.
+const OTP_TTL_SECONDS = 5 * 60;
 
 function formatMMSS(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
@@ -22,7 +23,7 @@ export function OtpPage() {
   const navigate = useNavigate();
   const [digits, setDigits] = useState<string[]>(Array(LENGTH).fill(''));
   const inputs = useRef<Array<HTMLInputElement | null>>([]);
-  const { remaining, restart } = useCountdown(RESEND_SECONDS);
+  const { remaining, restart } = useCountdown(OTP_TTL_SECONDS);
 
   const setDigit = (i: number, v: string) => {
     const d = v.replace(/\D/g, '').slice(-1);
@@ -45,8 +46,10 @@ export function OtpPage() {
   };
 
   const { run, pending, error } = useAsyncAction(async () => {
-    await authService.verifyResetCode(email, digits.join(''));
-    navigate(`/reset-password?email=${encodeURIComponent(email)}`);
+    const otp = digits.join('');
+    await authService.verifyResetCode(email, otp);
+    // State thay vì query: mã OTP không nằm trên URL / lịch sử trình duyệt.
+    navigate('/reset-password', { state: { email, otp } });
   });
 
   const resend = useAsyncAction(async () => {

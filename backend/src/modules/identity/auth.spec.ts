@@ -1,100 +1,23 @@
 import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import type { PasswordResetToken, User } from '@prisma/client';
+import type { User } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../../app.module';
 import { setupApp } from '../../app.setup';
 import { MailService } from '../../shared/mail/mail.service';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { hashPassword } from '../../shared/security/password';
+import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { MAX_OTP_ATTEMPTS } from './password-reset.service';
 import { USER_STATUS } from './user-status';
 
 // Test chạy toàn bộ pipeline Nest (ValidationPipe, interceptor, filter, JWT); chỉ Prisma và Resend là giả lập trong RAM.
 // Khi có Postgres thật, nên chạy thêm bản test này trên DB thật để bắt khác biệt ngữ nghĩa query.
 
-type Where = Record<string, unknown>;
-const matches = (row: object, where: Where) =>
-  Object.entries(where).every(
-    ([k, v]) => (row as Record<string, unknown>)[k] === v,
-  );
-
-function createFakePrisma() {
-  const users: User[] = [];
-  const tokens: PasswordResetToken[] = [];
-  const forbidden = () => {
-    throw new Error('Không được xoá cứng dữ liệu');
-  };
-  const prisma = {
-    users,
-    tokens,
-    user: {
-      findFirst: jest.fn(
-        async ({ where }: { where: { OR: Where[] } }) =>
-          users.find((u) => where.OR.some((c) => matches(u, c))) ?? null,
-      ),
-      findUnique: jest.fn(
-        async ({ where }: { where: Where }) =>
-          users.find((u) => matches(u, where)) ?? null,
-      ),
-      update: jest.fn(
-        async ({ where, data }: { where: Where; data: Partial<User> }) =>
-          Object.assign(
-            users.find((u) => matches(u, where))!,
-            data,
-          ),
-      ),
-      delete: jest.fn(forbidden),
-      deleteMany: jest.fn(forbidden),
-    },
-    passwordResetToken: {
-      create: jest.fn(
-        async ({
-          data,
-        }: {
-          data: Pick<PasswordResetToken, 'userId' | 'tokenHash' | 'expiresAt'>;
-        }) => {
-          const row = {
-            id: tokens.length + 1,
-            usedAt: null,
-            createdAt: new Date(),
-            ...data,
-          };
-          tokens.push(row);
-          return row;
-        },
-      ),
-      findFirst: jest.fn(
-        async ({ where }: { where: Where }) =>
-          [...tokens].reverse().find((t) => matches(t, where)) ?? null,
-      ),
-      updateMany: jest.fn(
-        async ({
-          where,
-          data,
-        }: {
-          where: Where;
-          data: Partial<PasswordResetToken>;
-        }) => {
-          const hit = tokens.filter((t) => matches(t, where));
-          hit.forEach((t) => Object.assign(t, data));
-          return { count: hit.length };
-        },
-      ),
-      delete: jest.fn(forbidden),
-      deleteMany: jest.fn(forbidden),
-    },
-    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn(prisma),
-    ),
-  };
-  return prisma;
-}
-
 describe('Identity: /auth', () => {
   let app: INestApplication;
-  let prisma: ReturnType<typeof createFakePrisma>;
+  let prisma: FakePrisma;
   const mail = {
     sendOtpEmail: jest.fn<Promise<void>, [string, string, number]>(),
   };
@@ -106,14 +29,14 @@ describe('Identity: /auth', () => {
   function addUser(username: string, status: string) {
     const user: User = {
       id: prisma.users.length + 1,
-      roleId: 7,
+      roleId: 3,
       departmentId: null,
       username,
       password: secretHash,
       fullName: `User ${username}`,
       email: `${username}@saigonbank.com.vn`,
       status,
-      isVerified: true,
+      isVerified: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -176,11 +99,12 @@ describe('Identity: /auth', () => {
       expect(res.body.data.user).toMatchObject({
         id: 1,
         username: 'active',
-        roleId: 7,
+        roleId: 3,
       });
+      expect(res.body.data.user.roleName).toBe('Nhân viên');
       expect(res.body.data.user).not.toHaveProperty('password');
       const payload = app.get(JwtService).verify(res.body.data.accessToken);
-      expect(payload).toMatchObject({ userId: 1, roleId: 7 });
+      expect(payload).toMatchObject({ userId: 1, roleId: 3 });
     });
 
     it('đăng nhập bằng email: 200', async () => {
@@ -415,6 +339,7 @@ describe('Identity: /auth', () => {
 
       expect(prisma.tokens).toHaveLength(1);
       expect(prisma.tokens[0].usedAt).toBeInstanceOf(Date);
+      expect(prisma.users[0].isVerified).toBe(true);
       await http()
         .post('/auth/login')
         .send({ identifier: 'active', password: 'Secret@123' })

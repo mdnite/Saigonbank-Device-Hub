@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
+import { RequireAdmin } from './session/RequireAdmin';
 import { RequireAuth } from './session/RequireAuth';
 import { NotFoundPage } from './NotFoundPage';
 import { AppShell } from '@/shared/layout/AppShell';
@@ -13,6 +14,8 @@ import { DeviceCatalogPage } from '@/modules/device/presentation/DeviceCatalogPa
 import { AssetFormPage } from '@/modules/device/presentation/AssetFormPage';
 import { AllocateRecoverPage } from '@/modules/device/presentation/AllocateRecoverPage';
 import { UserSettingsPage } from '@/modules/user/presentation/UserSettingsPage';
+import { UserListPage } from '@/modules/user/presentation/UserListPage';
+import { CreateUserPage } from '@/modules/user/presentation/CreateUserPage';
 
 /** Wraps the auth screens in the split illustration layout. */
 function AuthShell() {
@@ -44,10 +47,16 @@ export const router = createBrowserRouter([
           { path: '/devices', element: <DeviceCatalogPage /> },
           { path: '/devices/new', element: <AssetFormPage /> },
           { path: '/allocation', element: <AllocateRecoverPage /> },
-          { path: '/users', element: <UserSettingsPage /> },
+          {
+            element: <RequireAdmin />,
+            children: [
+              { path: '/users', element: <UserListPage /> },
+              { path: '/users/new', element: <CreateUserPage /> },
+            ],
+          },
+          { path: '/settings', element: <UserSettingsPage /> },
           { path: '/transfers', element: <ComingSoonPage title="Điều chuyển" /> },
           { path: '/audit', element: <ComingSoonPage title="Kiểm kê" /> },
-          { path: '/settings', element: <ComingSoonPage title="Cài đặt" /> },
         ],
       },
     ],

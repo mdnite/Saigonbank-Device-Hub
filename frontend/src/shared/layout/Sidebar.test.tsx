@@ -2,12 +2,19 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { expect, it } from 'vitest';
 import { SessionProvider } from '@/app/session/SessionContext';
+import { fakeJwt, inOneHour } from '@/test/fakeJwt';
 import { Sidebar } from './Sidebar';
 
 it('Đăng xuất xoá session (token) khỏi localStorage và về /login', () => {
   localStorage.setItem(
     'idsm.session',
-    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: 'jwt' }),
+    JSON.stringify({
+      userId: '1',
+      displayName: 'A',
+      email: 'a@b.vn',
+      token: fakeJwt(inOneHour()),
+      roleName: 'Nhân viên',
+    }),
   );
   render(
     <SessionProvider>

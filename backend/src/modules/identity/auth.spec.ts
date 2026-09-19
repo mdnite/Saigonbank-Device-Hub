@@ -36,7 +36,7 @@ describe('Identity: /auth', () => {
       fullName: `User ${username}`,
       email: `${username}@saigonbank.com.vn`,
       status,
-      isVerified: true,
+      isVerified: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -101,6 +101,7 @@ describe('Identity: /auth', () => {
         username: 'active',
         roleId: 3,
       });
+      expect(res.body.data.user.roleName).toBe('Nhân viên');
       expect(res.body.data.user).not.toHaveProperty('password');
       const payload = app.get(JwtService).verify(res.body.data.accessToken);
       expect(payload).toMatchObject({ userId: 1, roleId: 3 });
@@ -338,6 +339,7 @@ describe('Identity: /auth', () => {
 
       expect(prisma.tokens).toHaveLength(1);
       expect(prisma.tokens[0].usedAt).toBeInstanceOf(Date);
+      expect(prisma.users[0].isVerified).toBe(true);
       await http()
         .post('/auth/login')
         .send({ identifier: 'active', password: 'Secret@123' })

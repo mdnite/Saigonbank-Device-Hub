@@ -67,7 +67,11 @@ export class PasswordResetService {
         data: { usedAt: new Date() },
       });
       if (count !== 1) throw new BadRequestException(INVALID_OTP);
-      await tx.user.update({ where: { id: token.userId }, data: { password } });
+      // Đặt lại mật khẩu thành công = chủ tài khoản đã chứng minh sở hữu email.
+      await tx.user.update({
+        where: { id: token.userId },
+        data: { password, isVerified: true },
+      });
     });
     this.failedAttempts.delete(token.id);
   }

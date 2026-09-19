@@ -27,6 +27,7 @@ export class AuthService {
     const id = identifier.trim();
     const user = await this.prisma.user.findFirst({
       where: { OR: [{ username: id }, { email: id }] },
+      include: { role: true },
     });
 
     // "Đã xóa" trả y hệt tài khoản không tồn tại — không lộ việc tài khoản từng tồn tại.
@@ -50,6 +51,7 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         roleId: user.roleId,
+        roleName: user.role.roleName,
         departmentId: user.departmentId,
         status: user.status,
         isVerified: user.isVerified,

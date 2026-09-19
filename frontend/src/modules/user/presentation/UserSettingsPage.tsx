@@ -61,7 +61,6 @@ export function UserSettingsPage() {
       <PageHeader
         breadcrumb={[
           { label: 'Trang chủ', to: '/dashboard' },
-          { label: 'Người dùng', to: '/users' },
           { label: 'Cài đặt' },
         ]}
         title={activeLabel}

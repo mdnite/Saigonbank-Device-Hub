@@ -34,7 +34,7 @@ function LineField({
 export function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn } = useSession();
+  const { signIn, notice } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = (location.state as { from?: string } | null)?.from ?? '/dashboard';
@@ -64,6 +64,7 @@ export function LoginPage() {
         <LineField label="Password" type="password" value={password} onChange={setPassword} />
       </div>
 
+      {notice && !error && <p className="mt-3 text-sm text-status-warnFg">{notice}</p>}
       {error && <p className="mt-3 text-sm text-status-dangerFg">{error}</p>}
 
       <div className="mt-2 flex justify-end">

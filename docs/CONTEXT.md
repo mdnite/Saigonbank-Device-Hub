@@ -6,10 +6,12 @@
 > hoạt động từ 2026-09-11, xem mục 5). Các module còn lại (dashboard/device/user) sẽ được đồng
 > bộ dần khi tới lượt. Tài liệu này mô tả *trạng thái đang có*, không phải mục tiêu.
 >
-> Cập nhật lần cuối: 2026-09-18 (module **auth FE đã nối backend thật**, bỏ mock auth; thêm nút
-> Đăng xuất ở sidebar — xem mục 1, 3, 6). Trước đó 2026-09-17: backend `identity` đã dựng, bỏ thư
-> mục `database/`. 2026-09-11: tách repo thành `frontend/` + `backend/`, cập nhật module Xác thực
-> theo Figma mới.
+> Cập nhật lần cuối: 2026-09-19 (module **user management** đã nối backend thật: `/users` (danh
+> sách + tạo mới, chỉ Quản trị viên) và `/settings` (hồ sơ cá nhân, vẫn mock) tách riêng; FE tự
+> đăng xuất khi token hết hạn hoặc BE trả 401 — xem mục 1, 2, 3, 6). Trước đó 2026-09-18: module
+> auth FE đã nối backend thật, bỏ mock auth; thêm nút Đăng xuất ở sidebar. 2026-09-17: backend
+> `identity` đã dựng, bỏ thư mục `database/`. 2026-09-11: tách repo thành `frontend/` + `backend/`,
+> cập nhật module Xác thực theo Figma mới.
 
 > **Bố cục repo:** `frontend/` (React app, npm workspace; **auth gọi backend thật**, các module
 > khác vẫn chạy mock) ·
@@ -65,7 +67,7 @@
 | Fonts | Google Fonts CDN trong `index.html` — **Inter** (body), **Poppins** (display) |
 | Test | **Vitest 2** + jsdom + `@testing-library/react` + `@testing-library/jest-dom`. Config chạy fork với `--no-experimental-webstorage` (Node ≥ 25 có `localStorage` toàn cục hỏng, che mất bản của jsdom). Test component dùng `MemoryRouter`, không dùng data router (lỗi `AbortSignal` trên jsdom + Node 25). |
 | State mgmt | React local state + **1 Context** (`SessionContext`). Không có Redux/Zustand/RTK. |
-| Data fetching | `fetch` gốc qua `shared/lib/apiClient.ts` (`apiPost`), base URL = `VITE_API_URL` (mặc định `http://localhost:3000`, xem `frontend/.env.example`). **Chỉ module `auth`** dùng; các module khác vẫn là repository mock in-memory. Không có axios. |
+| Data fetching | `fetch` gốc qua `shared/lib/apiClient.ts` (`apiRequest` + `apiGet/apiPost/apiPatch/apiDelete`), base URL = `VITE_API_URL` (mặc định `http://localhost:3000`, xem `frontend/.env.example`). Module `auth` và `user` (`/users` — danh sách/tạo/khoá/xoá) dùng; `dashboard`/`device` và `/settings` (hồ sơ cá nhân) vẫn là repository mock in-memory. Không có axios. |
 
 ### Cấu trúc thư mục
 
@@ -79,6 +81,7 @@ src/
     session/
       SessionContext.tsx       useSession() — session + signIn/signOut, lưu localStorage "idsm.session"
       RequireAuth.tsx          Guard: chưa đăng nhập -> <Navigate to="/login">
+      RequireAdmin.tsx         Guard: role khác Quản trị viên -> <Navigate to="/dashboard"> (đặt trong RequireAuth, bọc /users, /users/new)
   shared/                      Dùng chung toàn app
     ui/                        Design-system kit (xem mục 2)
     layout/                    Khung màn hình (AppShell, AuthLayout, Sidebar, PageHeader, ComingSoonPage, navItems)
@@ -107,15 +110,19 @@ Alias: **`@/` -> `frontend/src/`** (khai báo ở cả `frontend/vite.config.ts`
 Hai kiểu luồng dữ liệu:
 
 ```
-auth:            Page → service (container.ts) → HttpAuthRepository → apiPost → backend NestJS → PostgreSQL
-dashboard/device/user:  Page → hook (useAsyncData / useX) → service (container.ts) → InMemoryXRepository → setTimeout(...) → dữ liệu seed cứng
+auth, /users (quản lý):  Page → service (container.ts) → Http*Repository → apiGet/Post/Patch/Delete → backend NestJS → PostgreSQL
+dashboard/device, /settings (cá nhân):  Page → hook (useAsyncData / useX) → service (container.ts) → InMemoryXRepository → setTimeout(...) → dữ liệu seed cứng
 ```
 
-- `apiPost<T>(path, body)` — POST JSON, **bóc envelope** `{ success, data, error, message }` của backend và
-  trả `data`. Lỗi (HTTP ≠ 2xx hoặc `success: false`) → ném `Error(message)` với message tiếng Việt từ
-  backend; không gọi được máy chủ → "Không kết nối được máy chủ, vui lòng thử lại sau". Page chỉ việc
-  hiện `error` của `useAsyncAction`.
-- Chưa gửi header `Authorization`: backend chưa có endpoint nào cần token.
+- `apiRequest<T>(method, path, body?)` (và `apiGet/apiPost/apiPatch/apiDelete` gọi lại nó) — gửi
+  JSON, **bóc envelope** `{ success, data, error, message }` của backend và trả `data`. Lỗi (HTTP ≠
+  2xx hoặc `success: false`) → ném `Error(message)` với message tiếng Việt từ backend; không gọi
+  được máy chủ → "Không kết nối được máy chủ, vui lòng thử lại sau". Page chỉ việc hiện `error` của
+  `useAsyncAction`.
+- Gửi header `Authorization: Bearer <token>` khi `SessionContext` có token (`configureApiSession`
+  đăng ký `getToken`/`onUnauthorized`). BE trả 401 **và** request đã gửi token → tự động
+  `signOut('expired')` (401 của `/auth/login` sai mật khẩu không có token nên không kích hoạt).
+  Xem mục 6.
 - `useAsyncData(loader, deps)` — load 1 lần, trả `{ data, loading, error }`, chạy lại khi `deps` đổi.
 - `useAsyncAction(fn)` — bọc submit async, trả `{ run, pending, error }`.
 - Mọi repository mock đều `await new Promise(r => setTimeout(r, 250–400))` để giả lập độ trễ.
@@ -176,7 +183,8 @@ Cài thêm package cho frontend: `npm install <pkg> -w frontend`.
 | Helper | File | Chữ ký |
 |---|---|---|
 | `cn` | `lib/cn.ts` | `cn(...classes) => string` (lọc falsy, join space). |
-| `apiPost` | `lib/apiClient.ts` | `apiPost<T>(path: string, body: unknown) => Promise<T>`. POST JSON tới `VITE_API_URL`, trả `data` của envelope backend, lỗi ném `Error(message)`. Xem mục 1 "Cách gọi API". |
+| `apiGet/apiPost/apiPatch/apiDelete` | `lib/apiClient.ts` | `apiGet<T>(path, query?)`, `apiPost/apiPatch<T>(path, body)`, `apiDelete<T>(path)` — đều gọi `apiRequest<T>(method, path, body?)`. Tự gắn header `Authorization` nếu có token, trả `data` của envelope backend, lỗi ném `Error(message)`. Xem mục 1 "Cách gọi API". |
+| `configureApiSession` | `lib/apiClient.ts` | `configureApiSession({ getToken, onUnauthorized }) => void`. `SessionProvider` gọi mỗi render để `apiClient` luôn thấy token mới nhất và biết gọi `signOut('expired')` khi BE trả 401. |
 | `useAsyncData` | `lib/useAsyncData.ts` | `useAsyncData<T>(loader: () => Promise<T>, deps?: unknown[]) => { data: T\|null, loading, error }`. |
 | `useAsyncAction` | `lib/useAsyncAction.ts` | `useAsyncAction<Args>(action: (...a: Args) => Promise<void>) => { run, pending, error }`. |
 | `useCountdown` | `lib/useCountdown.ts` | `useCountdown(initialSeconds: number) => { remaining, restart(next?) }`. Đếm ngược mỗi giây, **tính theo mốc `Date.now()`** (không trừ dần theo tick) nên tab bị ẩn/timer bị làm chậm vẫn hiện đúng thời gian còn lại. Hiện chỉ dùng ở trang OTP. Có test `useCountdown.test.ts`. |
@@ -227,10 +235,11 @@ Route khai báo trong `src/app/router.tsx`.
 | `/devices` | `modules/device/presentation/DeviceCatalogPage.tsx` | `deviceService.list(query)` → **seed 8 máy Dell** trong `InMemoryDeviceRepository`. | Bảng + tìm kiếm + lọc trạng thái **hoạt động** (lọc client trong repo). Xem mục 4 cho các nút chết. |
 | `/devices/new` | `modules/device/presentation/AssetFormPage.tsx` | Tạo mới qua `deviceService.create` → thêm vào mảng in-memory. | Form 6 section, validate **hoạt động**, lưu xong → `/devices`. Chỉ tạo mới, không sửa. |
 | `/allocation` | `modules/device/presentation/AllocateRecoverPage.tsx` | Như trên (`deviceService.create`). | "Cấp phát - Thu hồi" nhưng thực chất = form tạo tài sản rút gọn (Thông tin chung + Linh kiện). Chưa có luồng cấp phát/thu hồi thật. |
-| `/users` | `modules/user/presentation/UserSettingsPage.tsx` | `userSettingsService.get/save` → **seed 1 hồ sơ** (Hàn Nguyễn, SGB-IT-0142). | Rail dọc + 3 tab, 1 cặp nút Hủy/Lưu, gating theo `dirty`. Lưu chỉ vào in-memory (mất khi F5). Tab 2/3 tự thiết kế. |
+| `/users` | `modules/user/presentation/UserListPage.tsx` | `userAdminService.list(query)` → `GET /users` (BE thật). Bọc trong `RequireAdmin` — chỉ Quản trị viên vào được, role khác bị `<Navigate to="/dashboard">`. | Bảng người dùng: tìm kiếm + lọc trạng thái/vai trò/phòng ban (query gửi lên BE, không lọc client), khoá/mở khoá (`PATCH /users/:id/status`), xoá mềm (`DELETE /users/:id`) — confirm bằng `window.confirm` (native, chưa có Modal). Không tự thao tác trên chính mình hay user đã xoá. Không phân trang, không sửa thông tin user. |
+| `/users/new` | `modules/user/presentation/CreateUserPage.tsx` | `userAdminService.create(dto)` → `POST /users` (BE thật). Dropdown vai trò/phòng ban đọc `GET /roles`, `GET /departments`. | Bọc trong `RequireAdmin`. Validate ở `domain` + BE (trùng username/email → lỗi). Tạo xong → `/users`. |
 | `/transfers` | `<ComingSoonPage title="Điều chuyển" />` | — | Placeholder. |
 | `/audit` | `<ComingSoonPage title="Kiểm kê" />` | — | Placeholder. |
-| `/settings` | `<ComingSoonPage title="Cài đặt" />` | — | Placeholder. |
+| `/settings` | `modules/user/presentation/UserSettingsPage.tsx` | `userSettingsService.get/save` → **seed 1 hồ sơ** (Hàn Nguyễn, SGB-IT-0142), mock. | Hồ sơ cá nhân — rail dọc + 3 tab, 1 cặp nút Hủy/Lưu, gating theo `dirty`. Lưu chỉ vào in-memory (mất khi F5). Tab 2/3 tự thiết kế. |
 | `*` | `app/NotFoundPage.tsx` | — | 404. |
 
 Nguồn thiết kế — **2 nguồn khác nhau tuỳ module**:

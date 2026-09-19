@@ -4,15 +4,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import type { JwtPayload } from '../../shared/auth/auth.guard';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { comparePassword } from '../../shared/security/password';
 import { LoginDto } from './auth.dto';
 import { USER_STATUS } from './user-status';
-
-export interface JwtPayload {
-  userId: number;
-  roleId: number;
-}
 
 const INVALID_CREDENTIALS = 'Sai tên đăng nhập hoặc mật khẩu';
 

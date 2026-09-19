@@ -4,15 +4,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import type { JwtPayload } from '../../shared/auth/auth.guard';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { comparePassword } from '../../shared/security/password';
 import { LoginDto } from './auth.dto';
 import { USER_STATUS } from './user-status';
-
-export interface JwtPayload {
-  userId: number;
-  roleId: number;
-}
 
 const INVALID_CREDENTIALS = 'Sai tên đăng nhập hoặc mật khẩu';
 
@@ -27,6 +23,7 @@ export class AuthService {
     const id = identifier.trim();
     const user = await this.prisma.user.findFirst({
       where: { OR: [{ username: id }, { email: id }] },
+      include: { role: true },
     });
 
     // "Đã xóa" trả y hệt tài khoản không tồn tại — không lộ việc tài khoản từng tồn tại.
@@ -50,6 +47,7 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         roleId: user.roleId,
+        roleName: user.role.roleName,
         departmentId: user.departmentId,
         status: user.status,
         isVerified: user.isVerified,

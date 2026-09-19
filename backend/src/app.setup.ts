@@ -5,7 +5,8 @@ import { ResponseInterceptor } from './shared/http/response.interceptor';
 
 /** Cấu hình dùng chung cho main.ts và test, để test chạy đúng pipeline như production. */
 export function setupApp(app: INestApplication) {
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  // transform: query string → number cho các DTO có @Type(() => Number).
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalInterceptors(new ResponseInterceptor(app.get(Reflector)));
   app.useGlobalFilters(new ApiExceptionFilter());
 }

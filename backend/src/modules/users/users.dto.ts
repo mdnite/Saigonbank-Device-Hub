@@ -6,7 +6,9 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 import { PASSWORD_MIN_LENGTH } from '../identity/auth.dto';
@@ -14,6 +16,8 @@ import { USER_STATUS } from '../identity/user-status';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
+// Cột Int của Postgres là int4: số lớn hơn khiến Prisma ném lỗi (500) thay vì báo sai dữ liệu.
+export const MAX_INT32 = 2_147_483_647;
 const STATUS_MESSAGE = 'Trạng thái không hợp lệ';
 
 export class ListUsersQuery {
@@ -28,11 +32,15 @@ export class ListUsersQuery {
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'Vai trò không hợp lệ' })
+  @Min(1, { message: 'Vai trò không hợp lệ' })
+  @Max(MAX_INT32, { message: 'Vai trò không hợp lệ' })
   roleId?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'Phòng ban không hợp lệ' })
+  @Min(1, { message: 'Phòng ban không hợp lệ' })
+  @Max(MAX_INT32, { message: 'Phòng ban không hợp lệ' })
   departmentId?: number;
 }
 
@@ -63,10 +71,14 @@ export class CreateUserDto {
   password!: string;
 
   @IsInt({ message: 'Vui lòng chọn vai trò' })
+  @Min(1, { message: 'Vai trò không hợp lệ' })
+  @Max(MAX_INT32, { message: 'Vai trò không hợp lệ' })
   roleId!: number;
 
   @IsOptional()
   @IsInt({ message: 'Phòng ban không hợp lệ' })
+  @Min(1, { message: 'Phòng ban không hợp lệ' })
+  @Max(MAX_INT32, { message: 'Phòng ban không hợp lệ' })
   departmentId?: number;
 }
 

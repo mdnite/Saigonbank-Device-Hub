@@ -4,6 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 interface ApiEnvelope<T> {
   success: boolean;
   data: T;
+  error: string | null;
   message: string;
 }
 
@@ -40,7 +41,14 @@ export async function apiRequest<T>(method: Method, path: string, body?: unknown
   }
 
   // Chỉ coi là hết phiên khi đã gửi token — 401 của /auth/login (sai mật khẩu) không có token.
-  if (res.status === 401 && token) session.onUnauthorized();
+  if (res.status === 401 && token) {
+    // Hook lỗi không được nuốt mất message của BE bên dưới.
+    try {
+      session.onUnauthorized();
+    } catch {
+      /* bỏ qua */
+    }
+  }
 
   const envelope = (await res.json().catch(() => null)) as ApiEnvelope<T> | null;
   if (!res.ok || !envelope?.success) {

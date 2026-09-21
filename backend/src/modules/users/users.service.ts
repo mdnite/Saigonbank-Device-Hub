@@ -8,7 +8,7 @@ import { Department, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { hashPassword } from '../../shared/security/password';
 import { USER_STATUS } from '../identity/user-status';
-import { CreateUserDto, ListUsersQuery } from './users.dto';
+import { CreateUserDto, ListUsersQuery, MAX_INT32 } from './users.dto';
 
 export const USER_NOT_FOUND = 'Người dùng không tồn tại';
 const WITH_RELATIONS = { role: true, department: true } as const;
@@ -149,6 +149,8 @@ export class UsersService {
   }
 
   private async findLiveUser(id: number) {
+    // Id ngoài phạm vi int4: Prisma ném lỗi (500) — coi như người dùng không tồn tại.
+    if (Math.abs(id) > MAX_INT32) throw new NotFoundException(USER_NOT_FOUND);
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user || user.status === USER_STATUS.DELETED) {
       throw new NotFoundException(USER_NOT_FOUND);

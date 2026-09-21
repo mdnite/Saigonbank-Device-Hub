@@ -381,4 +381,50 @@ describe('Users: /users, /roles, /departments', () => {
         .expect(404);
     });
   });
+
+  // Id/khoá ngoại vượt phạm vi Int (int4) của Postgres: Prisma ném lỗi => 500 nếu không chặn.
+  describe('số nguyên vượt phạm vi int32', () => {
+    const HUGE = 9_999_999_999;
+
+    it('PATCH/DELETE với id quá lớn: 404, không truy vấn DB', async () => {
+      const queriedHugeId = () =>
+        prisma.user.findUnique.mock.calls.some(
+          ([args]) => (args.where as { id?: number }).id === HUGE,
+        );
+
+      await http()
+        .delete(`/users/${HUGE}`)
+        .set('Authorization', tokenOf(admin))
+        .expect(404);
+      expect(queriedHugeId()).toBe(false);
+
+      const res = await http()
+        .patch(`/users/${HUGE}/status`)
+        .set('Authorization', tokenOf(admin))
+        .send({ status: USER_STATUS.INACTIVE })
+        .expect(404);
+      expect(res.body.message).toBe('Người dùng không tồn tại');
+      expect(queriedHugeId()).toBe(false);
+    });
+
+    it('roleId / departmentId quá lớn: 400', async () => {
+      await http()
+        .get(`/users?roleId=${HUGE}`)
+        .set('Authorization', tokenOf(admin))
+        .expect(400);
+
+      const res = await http()
+        .post('/users')
+        .set('Authorization', tokenOf(admin))
+        .send({
+          username: 'huge',
+          email: 'huge@saigonbank.com.vn',
+          fullName: 'Huge',
+          password: 'Secret@123',
+          roleId: HUGE,
+        })
+        .expect(400);
+      expect(res.body.message).toBe('Vai trò không hợp lệ');
+    });
+  });
 });

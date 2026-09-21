@@ -55,3 +55,12 @@ it('apiGet dựng query, bỏ giá trị rỗng/undefined', async () => {
   await apiGet('/users', { search: 'an', status: '', roleId: 2, departmentId: undefined });
   expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:3000/users?search=an&roleId=2');
 });
+
+it('onUnauthorized ném lỗi: vẫn ném đúng message của BE', async () => {
+  token = 'jwt-old';
+  onUnauthorized.mockImplementation(() => {
+    throw new Error('signOut lỗi');
+  });
+  stubFetch(401, expired);
+  await expect(apiGet('/users')).rejects.toThrow(expired.message);
+});

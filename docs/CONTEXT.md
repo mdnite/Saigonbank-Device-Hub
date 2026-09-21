@@ -281,8 +281,8 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 | **`AllocateRecoverPage` không có luồng thật** | Không có bước chọn thiết bị → chọn nhân viên → sinh biên bản → thu hồi. Chỉ là form tạo tài sản rút gọn. |
 | **`href="#"`** | Không tìm thấy `href="#"` nào (các link đều dùng `<Link to=...>` thật). |
 | **Thời hạn OTP khai báo 2 nơi** | `OTP_TTL_SECONDS = 5 * 60` trong `OtpPage.tsx` phải khớp tay với `OTP_TTL_MS` ở `backend/src/shared/security/otp.ts`. Backend chưa trả thời hạn trong response; đổi 1 bên thì phải đổi bên kia. |
-| **Chưa có trang quản lý người dùng** | Admin chưa thêm/sửa/khoá được tài khoản nhân viên qua UI hay API. Tài khoản chỉ tạo được bằng `backend/prisma/seed.ts` hoặc thêm tay vào DB (cột `Password` phải là hash bcrypt). |
-| **Không có "đổi mật khẩu khi đang đăng nhập"** | Nút "Đổi mật khẩu" ở tab Bảo mật (`/users`) dẫn sang `/forgot-password` (luồng OTP qua email). Backend chưa có endpoint đổi mật khẩu bằng mật khẩu cũ. |
+| **Không sửa được thông tin người dùng** | `/users` đã có tạo / khoá / mở khoá / xoá mềm, nhưng không có màn sửa (họ tên, email, vai trò, phòng ban) — cố ý bỏ ngoài phạm vi đợt 2026-09-19. Cũng chưa phân trang. |
+| **Không có "đổi mật khẩu khi đang đăng nhập"** | Nút "Đổi mật khẩu" ở tab Bảo mật (`/settings`) dẫn sang `/forgot-password` (luồng OTP qua email). Backend chưa có endpoint đổi mật khẩu bằng mật khẩu cũ. |
 | **Dashboard** | Không refresh, không lọc theo kỳ, thẻ không bấm được. |
 | **Bảng (`DataTable`)** | Không sort, không phân trang, không chọn dòng. Dữ liệu nhiều sẽ chỉ tràn/cuộn. |
 
@@ -308,8 +308,8 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 |---|---|
 | Chạy FE cần backend | Không còn mock auth: muốn đăng nhập phải chạy backend (`backend/`, cổng 3000) + PostgreSQL. |
 | Session mock cũ | Trình duyệt từng chạy bản mock có thể còn `localStorage["idsm.session"]` với token giả `mock.*`. `RequireAuth` chỉ kiểm có session hay không, nên vẫn cho vào app → xoá tay khoá này 1 lần. |
-| Token hết hạn | JWT sống `JWT_EXPIRES_IN` (1 ngày). FE **chưa** kiểm hạn token và chưa tự đăng xuất khi API trả 401 — chưa có endpoint nào cần token nên chưa phát sinh. |
-| Sau đăng nhập | Dashboard / Tài sản / Người dùng **vẫn là mock**; token chưa được gửi kèm request nào. |
+| Token hết hạn | JWT sống `JWT_EXPIRES_IN` (1 ngày). FE kiểm `exp` khi mở app và tự `signOut` khi BE trả 401 trên request **có token** → về `/login` kèm "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại". Không có refresh token. |
+| Sau đăng nhập | `/users` (chỉ Quản trị viên) gọi BE thật kèm `Authorization: Bearer`; Dashboard / Tài sản / `/settings` **vẫn là mock**. |
 
 ### 4.5 Form / validate
 
@@ -327,12 +327,12 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 
 | Điểm | Trạng thái |
 |---|---|
-| Chuyển tab ở `/users` | **Hoạt động** (`useState<TabId>`), title H2 đổi theo tab. |
+| Chuyển tab ở `/settings` | **Hoạt động** (`useState<TabId>`), title H2 đổi theo tab. |
 | `shared/ui/Tabs` (tab ngang dùng chung) | Component có sẵn, **hiện chưa màn nào dùng**. |
 | Modal | **Không có** — chưa màn nào cần, chưa có component. |
 | "Đổi mật khẩu" trong tab Bảo mật | Điều hướng sang `/forgot-password` (luồng OTP qua email; `/reset-password` bắt buộc có OTP nên không vào thẳng được). |
 | Đăng xuất | Nút cuối sidebar → xoá session → `/login` (xem mục 6). |
-| `ComingSoonPage` (`/transfers`, `/audit`, `/settings`) | Chỉ chữ, không tương tác. |
+| `ComingSoonPage` (`/transfers`, `/audit`) | Chỉ chữ, không tương tác. |
 
 ### 4.7 TODO / dấu vết trong code
 
@@ -344,11 +344,10 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 
 ## 5. Những điểm KHÔNG chắc
 
-1. **`/users` = "hồ sơ cá nhân" hay "quản lý danh sách người dùng"?**
-   Nhãn sidebar là "Người dùng" (gợi ý danh sách nhân viên / CRUD), nhưng Figma cũ Group 7–9
-   lại là *cài đặt tài khoản cá nhân* với breadcrumb "Người dùng / Cài đặt", và frame highlight
-   mục "User". Bản Figma mới nhiều khả năng tách 2 thứ này. Hiện `/users` đang trỏ vào màn
-   *cài đặt cá nhân*; `/settings` vẫn là placeholder. Cần bản mới xác nhận route nào là gì.
+1. ~~**`/users` = "hồ sơ cá nhân" hay "quản lý danh sách người dùng"?**~~ — **Đã giải quyết
+   2026-09-19**: tách đôi theo quyết định của người dùng — `/users` + `/users/new` là màn **quản lý**
+   (chỉ Quản trị viên), hồ sơ cá nhân chuyển sang `/settings`. Hai màn quản lý code thẳng bằng UI kit
+   sẵn có, không dựng từ Figma.
 
 2. **Nội dung thật của tab "Thông báo" và "Bảo mật & Quyền riêng tư"** — Figma cũ không mô tả
    (Group 8, 9 chỉ dùng lại ảnh của Group 7). Các field hiện tại là suy đoán hợp lý, gần như
@@ -415,8 +414,11 @@ Chỉ cân nhắc lại (và phải hỏi trước) nếu cần ghi audit "ai đ
 - Token bị lộ vẫn dùng được tới khi hết hạn (`JWT_EXPIRES_IN`, hiện 1 ngày).
 - Token trong `localStorage` đọc được nếu dính XSS. Chuyển sang cookie httpOnly cần sửa cả backend.
 
-**Chưa làm:** đồng bộ đăng xuất giữa nhiều tab (sự kiện `storage`), tự đăng xuất khi API trả 401,
-hộp xác nhận trước khi đăng xuất (chưa có Modal).
+**Đã làm 2026-09-19:** tự đăng xuất khi BE trả 401 trên request có token, và kiểm `exp` của JWT khi
+mở app (`readStored`) — cả hai đều đưa về `/login` kèm thông báo hết phiên.
+
+**Chưa làm:** đồng bộ đăng xuất giữa nhiều tab (sự kiện `storage`), hộp xác nhận trước khi đăng
+xuất (chưa có Modal).
 
 **Tài khoản dev** (tạo bởi `npx prisma db seed` trong `backend/`): `admin` / `Admin@123`; thêm
 user `dev` nếu `.env` có `DEV_USER_EMAIL` (mật khẩu seed `Dev@1234`) — dùng để test luồng quên

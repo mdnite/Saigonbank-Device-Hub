@@ -85,4 +85,6 @@ Table PasswordResetToken {
 ```
 
 ## 6. Còn treo
-- `Department.DepartmentCode` đang để **unique** theo giả định (icon khoá trên ERD) — chưa xác nhận.
+- `Department.DepartmentCode`: **chốt giữ unique** (2026-09-21). Schema `backend/prisma/schema.prisma`
+  và DB thật đã có ràng buộc này từ migration `20260917140549_init_user_login`, khớp icon khoá trên
+  ERD — không đổi, không cần migration mới.

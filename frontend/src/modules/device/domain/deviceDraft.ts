@@ -1,3 +1,5 @@
+import type { Device } from './device';
+
 export interface DeviceAccessoryDraft {
   accessoryCode: string;
   accessoryName: string;
@@ -44,6 +46,41 @@ export function emptyDeviceDraft(): DeviceDraft {
     allocated: false,
     allocatedOn: '',
     accessories: [],
+  };
+}
+
+/**
+ * Device (đọc từ API) → DeviceDraft (dạng form) để nạp sẵn trang sửa.
+ * API trả ngày dạng ISO datetime ("2026-09-22T00:00:00.000Z"); <input type="date"> chỉ nhận
+ * "yyyy-MM-dd", giá trị khác bị trình duyệt làm rỗng — nên cắt 10 ký tự đầu ngay tại đây.
+ */
+export function deviceToDraft(d: Device): DeviceDraft {
+  const dateOnly = (v: string | null) => v?.slice(0, 10) ?? '';
+  return {
+    deviceCode: d.deviceCode,
+    deviceName: d.deviceName,
+    serialNumber: d.serialNumber ?? '',
+    specDetail: d.specDetail,
+    unit: d.unit,
+    deviceTypeId: d.deviceType.id,
+    location: d.location ?? '',
+    purchaseDate: dateOnly(d.purchaseDate),
+    supplier: d.supplier ?? '',
+    warrantyMonths: d.warrantyMonths != null ? String(d.warrantyMonths) : '',
+    warrantyCondition: d.warrantyCondition ?? '',
+    warrantyExpiresOn: dateOnly(d.warrantyExpiresOn),
+    departmentId: d.department?.id ?? null,
+    currentUserId: d.currentUser?.id ?? null,
+    // Backend suy trạng thái "Đã cấp phát" từ người sở hữu, allocatedOn là tuỳ chọn —
+    // chỉ nhìn allocatedOn sẽ bỏ tick ô cấp phát của thiết bị đã có người sở hữu.
+    allocated: d.currentUser != null || d.allocatedOn != null,
+    allocatedOn: dateOnly(d.allocatedOn),
+    accessories: d.accessories.map(({ accessoryCode, accessoryName, accessoryType, unit }) => ({
+      accessoryCode,
+      accessoryName,
+      accessoryType,
+      unit,
+    })),
   };
 }
 

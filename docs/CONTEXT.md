@@ -6,12 +6,15 @@
 > hoạt động từ 2026-09-11, xem mục 5). Các module còn lại (dashboard/device/user) sẽ được đồng
 > bộ dần khi tới lượt. Tài liệu này mô tả *trạng thái đang có*, không phải mục tiêu.
 >
-> Cập nhật lần cuối: 2026-09-19 (module **user management** đã nối backend thật: `/users` (danh
-> sách + tạo mới, chỉ Quản trị viên) và `/settings` (hồ sơ cá nhân, vẫn mock) tách riêng; FE tự
-> đăng xuất khi token hết hạn hoặc BE trả 401 — xem mục 1, 2, 3, 6). Trước đó 2026-09-18: module
-> auth FE đã nối backend thật, bỏ mock auth; thêm nút Đăng xuất ở sidebar. 2026-09-17: backend
-> `identity` đã dựng, bỏ thư mục `database/`. 2026-09-11: tách repo thành `frontend/` + `backend/`,
-> cập nhật module Xác thực theo Figma mới.
+> Cập nhật lần cuối: 2026-09-22 (module **device** đã nối backend thật: `/devices` (danh sách +
+> tìm kiếm/lọc phía server + tạo + sửa + xoá mềm) qua `HttpDeviceRepository`, thêm route
+> `/devices/:id/edit`; mã thiết bị bắt buộc theo tiền tố `DeviceType.Prefix`; `AllocateRecoverPage`
+> bị xoá, `/allocation` đổi thành `ComingSoonPage` — xem mục 1, 2, 3, 4). Trước đó 2026-09-19:
+> module **user management** đã nối backend thật: `/users` (danh sách + tạo mới, chỉ Quản trị
+> viên) và `/settings` (hồ sơ cá nhân, vẫn mock) tách riêng; FE tự đăng xuất khi token hết hạn
+> hoặc BE trả 401. 2026-09-18: module auth FE đã nối backend thật, bỏ mock auth; thêm nút Đăng
+> xuất ở sidebar. 2026-09-17: backend `identity` đã dựng, bỏ thư mục `database/`. 2026-09-11: tách
+> repo thành `frontend/` + `backend/`, cập nhật module Xác thực theo Figma mới.
 
 > **Bố cục repo:** `frontend/` (React app, npm workspace; **auth gọi backend thật**, các module
 > khác vẫn chạy mock) ·
@@ -67,7 +70,7 @@
 | Fonts | Google Fonts CDN trong `index.html` — **Inter** (body), **Poppins** (display) |
 | Test | **Vitest 2** + jsdom + `@testing-library/react` + `@testing-library/jest-dom`. Config chạy fork với `--no-experimental-webstorage` (Node ≥ 25 có `localStorage` toàn cục hỏng, che mất bản của jsdom). Test component dùng `MemoryRouter`, không dùng data router (lỗi `AbortSignal` trên jsdom + Node 25). |
 | State mgmt | React local state + **1 Context** (`SessionContext`). Không có Redux/Zustand/RTK. |
-| Data fetching | `fetch` gốc qua `shared/lib/apiClient.ts` (`apiRequest` + `apiGet/apiPost/apiPatch/apiDelete`), base URL = `VITE_API_URL` (mặc định `http://localhost:3000`, xem `frontend/.env.example`). Module `auth` và `user` (`/users` — danh sách/tạo/khoá/xoá) dùng; `dashboard`/`device` và `/settings` (hồ sơ cá nhân) vẫn là repository mock in-memory. Không có axios. |
+| Data fetching | `fetch` gốc qua `shared/lib/apiClient.ts` (`apiRequest` + `apiGet/apiPost/apiPatch/apiDelete`), base URL = `VITE_API_URL` (mặc định `http://localhost:3000`, xem `frontend/.env.example`). Module `auth`, `user` (`/users` — danh sách/tạo/khoá/xoá) và `device` (`/devices`, `/device-types`) dùng; `dashboard` và `/settings` (hồ sơ cá nhân) vẫn là repository mock in-memory. Không có axios. |
 
 ### Cấu trúc thư mục
 
@@ -110,8 +113,8 @@ Alias: **`@/` -> `frontend/src/`** (khai báo ở cả `frontend/vite.config.ts`
 Hai kiểu luồng dữ liệu:
 
 ```
-auth, /users (quản lý):  Page → service (container.ts) → Http*Repository → apiGet/Post/Patch/Delete → backend NestJS → PostgreSQL
-dashboard/device, /settings (cá nhân):  Page → hook (useAsyncData / useX) → service (container.ts) → InMemoryXRepository → setTimeout(...) → dữ liệu seed cứng
+auth, /users (quản lý), device:  Page → service (container.ts) → Http*Repository → apiGet/Post/Patch/Delete → backend NestJS → PostgreSQL
+dashboard, /settings (cá nhân):  Page → hook (useAsyncData / useX) → service (container.ts) → InMemoryXRepository → setTimeout(...) → dữ liệu seed cứng
 ```
 
 - `apiRequest<T>(method, path, body?)` (và `apiGet/apiPost/apiPatch/apiDelete` gọi lại nó) — gửi
@@ -195,8 +198,8 @@ Cài thêm package cho frontend: `npm install <pkg> -w frontend`.
 |---|---|---|
 | `LineField` | `modules/auth/presentation/LoginPage.tsx` | Input gạch chân, chỉ dùng ở màn login. |
 | `AuthHeading` | `modules/auth/presentation/AuthHeading.tsx` | Icon + tiêu đề UPPERCASE cho các màn auth phụ. |
-| `AssetGeneralInfoFields` | `modules/device/presentation/form/` | Nhóm 8 trường "Thông tin chung" của thiết bị. Dùng ở `AssetFormPage` **và** `AllocateRecoverPage`. |
-| `ComponentsTable` | `modules/device/presentation/form/` | Bảng linh kiện thêm/sửa/xoá dòng. Dùng ở 2 màn như trên. |
+| `AssetGeneralInfoFields` | `modules/device/presentation/form/` | Nhóm trường "Thông tin chung" của thiết bị (loại thiết bị/phòng ban/người sở hữu đọc từ `useDeviceLookups`, gọi `GET /device-types`, `/departments`, `/users`). Dùng ở `AssetFormPage` — chung cho tạo mới (`/devices/new`) và sửa (`/devices/:id/edit`). |
+| `ComponentsTable` | `modules/device/presentation/form/` | Bảng linh kiện thêm/sửa/xoá dòng. Dùng ở `AssetFormPage` như trên. |
 | `PrefToggle` | `modules/user/presentation/PrefToggle.tsx` | Checkbox + dòng mô tả. Dùng trong tab Thông báo & Bảo mật. |
 | `SettingsRail` (inline) | `modules/user/presentation/UserSettingsPage.tsx` | Rail điều hướng **dọc** có icon — hiện viết thẳng trong page, chưa tách. |
 
@@ -232,9 +235,10 @@ Route khai báo trong `src/app/router.tsx`.
 |---|---|---|---|
 | `/` | → `<Navigate to="/dashboard">` | — | Redirect. |
 | `/dashboard` | `modules/dashboard/presentation/DashboardPage.tsx` | `dashboardService.getStats` → **hardcode** 4 số: 128 / 86 / 34 / 8 + hint cứng. | Chỉ hiển thị. Có skeleton. Không refresh/lọc/drill-down. |
-| `/devices` | `modules/device/presentation/DeviceCatalogPage.tsx` | `deviceService.list(query)` → **seed 8 máy Dell** trong `InMemoryDeviceRepository`. | Bảng + tìm kiếm + lọc trạng thái **hoạt động** (lọc client trong repo). Xem mục 4 cho các nút chết. |
-| `/devices/new` | `modules/device/presentation/AssetFormPage.tsx` | Tạo mới qua `deviceService.create` → thêm vào mảng in-memory. | Form 6 section, validate **hoạt động**, lưu xong → `/devices`. Chỉ tạo mới, không sửa. |
-| `/allocation` | `modules/device/presentation/AllocateRecoverPage.tsx` | Như trên (`deviceService.create`). | "Cấp phát - Thu hồi" nhưng thực chất = form tạo tài sản rút gọn (Thông tin chung + Linh kiện). Chưa có luồng cấp phát/thu hồi thật. |
+| `/devices` | `modules/device/presentation/DeviceCatalogPage.tsx` | `deviceService.list(query)` → `GET /devices` (BE thật qua `HttpDeviceRepository`; tìm kiếm + lọc trạng thái gửi lên BE, lọc server-side). | Bảng **hoạt động**. 👁 dẫn sang `/devices/:id/edit`; ⋮ xoá mềm (`window.confirm` rồi `DELETE /devices/:id`). Cả 2 nút, cộng "Thêm thiết bị", chỉ hiện khi `canWriteDevices(session)` (Quản trị viên hoặc Trưởng phòng Kỹ thuật). Xem mục 4 cho nút vẫn chết. |
+| `/devices/new` | `modules/device/presentation/AssetFormPage.tsx` | Tạo mới qua `deviceService.create` → `POST /devices`. | Form nhiều section, validate **hoạt động** (kể cả định dạng mã thiết bị `PREFIX-NNNNNN`). Lưu xong → `/devices`. Bọc quyền ghi ở nút mở trang, không có route guard riêng. |
+| `/devices/:id/edit` | `modules/device/presentation/AssetFormPage.tsx` (cùng file với `/devices/new`, đọc `useParams<{id}>`) | Nạp thiết bị qua `deviceService.get(id)` → `GET /devices/:id`; lưu qua `deviceService.update` → `PATCH /devices/:id`. | Cùng form tạo mới, nạp sẵn dữ liệu (`toDraft`). Chỉ vào được từ nút 👁 (chỉ hiện khi có quyền ghi). |
+| `/allocation` | `<ComingSoonPage title="Cấp phát - Thu hồi" />` | — | Placeholder. Màn cũ `AllocateRecoverPage` (thực chất là form tạo tài sản rút gọn, chưa có luồng cấp phát/thu hồi thật) đã bị xoá — xem mục 5 điểm 4. |
 | `/users` | `modules/user/presentation/UserListPage.tsx` | `userAdminService.list(query)` → `GET /users` (BE thật). Bọc trong `RequireAdmin` — chỉ Quản trị viên vào được, role khác bị `<Navigate to="/dashboard">`. | Bảng người dùng: tìm kiếm + lọc trạng thái/vai trò/phòng ban (query gửi lên BE, không lọc client), khoá/mở khoá (`PATCH /users/:id/status`), xoá mềm (`DELETE /users/:id`) — confirm bằng `window.confirm` (native, chưa có Modal). Không tự thao tác trên chính mình hay user đã xoá. Không phân trang, không sửa thông tin user. |
 | `/users/new` | `modules/user/presentation/CreateUserPage.tsx` | `userAdminService.create(dto)` → `POST /users` (BE thật). Dropdown vai trò/phòng ban đọc `GET /roles`, `GET /departments`. | Bọc trong `RequireAdmin`. Validate ở `domain` + BE (trùng username/email → lỗi). Tạo xong → `/users`. |
 | `/transfers` | `<ComingSoonPage title="Điều chuyển" />` | — | Placeholder. |
@@ -266,19 +270,16 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 |---|---|---|
 | AppShell (thanh trên cùng, mọi màn app) | Nút **chuông thông báo** (`aria-label="Thông báo"`) | `shared/layout/AppShell.tsx:21` |
 | AppShell | **Avatar** (span chữ cái) — không phải nút, không có menu (Đăng xuất nằm ở cuối sidebar) | `shared/layout/AppShell.tsx:27` |
-| Danh mục thiết bị — header | Nút **"Xuất dữ liệu"** (icon Upload) | `modules/device/presentation/DeviceCatalogPage.tsx:64` |
-| Danh mục thiết bị — mỗi dòng | Nút **⋮ (MoreVertical)** "Thêm thao tác" | `DeviceCatalogPage.tsx:41` |
-| Danh mục thiết bị — mỗi dòng | Nút **👁 (Eye)** "Xem chi tiết" — không có route chi tiết | `DeviceCatalogPage.tsx:44` |
-| Thêm tài sản — section "Tệp đính kèm" | Nút **"Thêm tài liệu"** — không có `<input type=file>` | `modules/device/presentation/AssetFormPage.tsx:174` |
-| Thêm tài sản — section "Thông tin khác" | Nút **"Thêm thông tin tùy chỉnh"** | `AssetFormPage.tsx:182` |
+| Danh mục thiết bị — header | Nút **"Xuất dữ liệu"** (icon Upload) | `modules/device/presentation/DeviceCatalogPage.tsx:95` |
+| Thêm tài sản — section "Tệp đính kèm" | Nút **"Thêm tài liệu"** — không có `<input type=file>` | `modules/device/presentation/AssetFormPage.tsx:198` |
+| Thêm tài sản — section "Thông tin khác" | Nút **"Thêm thông tin tùy chỉnh"** | `AssetFormPage.tsx:206` |
 
 ### 4.2 Không có / thiếu tương tác
 
 | Vấn đề | Chi tiết |
 |---|---|
-| **Không có màn chi tiết thiết bị** | Nút Eye ở bảng không dẫn đi đâu; không có route `/devices/:id`. |
-| **Không có chế độ sửa** | `AssetFormPage` chỉ tạo mới. Không có `/devices/:id/edit`. |
-| **`AllocateRecoverPage` không có luồng thật** | Không có bước chọn thiết bị → chọn nhân viên → sinh biên bản → thu hồi. Chỉ là form tạo tài sản rút gọn. |
+| **Không có màn chi tiết thiết bị riêng** | Không có route `/devices/:id`. Nút 👁 dẫn thẳng sang `/devices/:id/edit` (dùng chung `AssetFormPage`) thay vì một trang xem-only. |
+| **Danh sách thiết bị chưa phân trang** | `GET /devices` trả toàn bộ (`ponytail:` trong `devices.service.ts` — thêm `skip/take` khi đủ nhiều thiết bị). `DataTable` cũng chưa có UI phân trang. |
 | **`href="#"`** | Không tìm thấy `href="#"` nào (các link đều dùng `<Link to=...>` thật). |
 | **Thời hạn OTP khai báo 2 nơi** | `OTP_TTL_SECONDS = 5 * 60` trong `OtpPage.tsx` phải khớp tay với `OTP_TTL_MS` ở `backend/src/shared/security/otp.ts`. Backend chưa trả thời hạn trong response; đổi 1 bên thì phải đổi bên kia. |
 | **Không sửa được thông tin người dùng** | `/users` đã có tạo / khoá / mở khoá / xoá mềm, nhưng không có màn sửa (họ tên, email, vai trò, phòng ban) — cố ý bỏ ngoài phạm vi đợt 2026-09-19. Cũng chưa phân trang. |
@@ -291,8 +292,6 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 | Dữ liệu | Vị trí |
 |---|---|
 | 4 số liệu dashboard (128/86/34/8) + hint | `modules/dashboard/infrastructure/InMemoryDashboardRepository.ts` |
-| 8 thiết bị Dell Latitude seed (cùng cấu hình, chủ yếu "Nguyễn Văn A - IT") | `modules/device/infrastructure/InMemoryDeviceRepository.ts` |
-| Option select form thiết bị: `UNITS`, `SUPPLIERS`, `SPECS`, `OWNERS` | `modules/device/presentation/form/AssetGeneralInfoFields.tsx:11–14` |
 | Hồ sơ người dùng seed (Hàn Nguyễn, Khối CNTT, SGB-IT-0142, SĐT...) | `modules/user/infrastructure/InMemoryUserSettingsRepository.ts` |
 | `DEPARTMENTS`, `TITLES` (dropdown tab Thông tin chung) | `modules/user/domain/userSettings.ts` |
 | "Đổi lần cuối hơn 90 ngày trước" (text cứng) | `modules/user/presentation/tabs/SecurityTab.tsx` |
@@ -319,7 +318,7 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 | Quên mật khẩu | `Email.of()` ném lỗi ở service nếu email sai định dạng (và chuẩn hoá chữ thường) → hiện ở `Field error`. Backend validate lại bằng class-validator. | Không chặn trước khi submit. |
 | OTP | Nút disabled tới khi đủ 4 số; service kiểm regex `^\d{4}$`, backend so mã (hash SHA-256, tối đa 5 lần sai mỗi mã). | |
 | Đổi mật khẩu | `validatePasswordReset` (domain, tái dùng trực tiếp ở `presentation` để validate "sống"): khớp + độ dài ≥ 6. Checkbox "Hiện mật khẩu" hoạt động. **Nút "Lưu mật khẩu" disable tới khi 2 ô khớp** (2026-09-11, trước đó chỉ báo lỗi sau khi bấm). | Không kiểm độ mạnh mật khẩu (chỉ độ dài). |
-| Thêm tài sản / Cấp phát-Thu hồi | `validateAssetDraft` (domain): 6 trường bắt buộc + khi `allocated` thì thêm 2 trường. Lỗi hiện theo từng `Field`. **Hoạt động.** | "Hạn bảo hành" không tự tính từ số tháng/năm. |
+| Thêm / sửa thiết bị | `validateDeviceDraft` (`domain/deviceDraft.ts`): 5 trường bắt buộc (gồm `deviceCode` khớp `DEVICE_CODE_PATTERN = /^[A-Z]{2,4}-\d{6}$/`, khớp regex phía backend) + khi `allocated` thì thêm `currentUserId`. Lỗi hiện theo từng `Field`. **Hoạt động.** | "Hạn bảo hành" không tự tính từ số tháng/năm. Regex FE chưa kiểm tiền tố đúng `DeviceType` đã chọn — việc đó backend kiểm (`Mã thiết bị phải bắt đầu bằng "..." theo loại thiết bị đã chọn`). |
 | User — Thông tin chung | `validateUserSettings`: 5 trường bắt buộc + định dạng email. Lỗi theo `Field`. Submit sai → nhảy về tab 1. **Hoạt động.** | |
 | User — Thông báo / Bảo mật | Không có trường bắt buộc. | Bộ field là **phỏng đoán** (Figma cũ Group 8/9 chỉ lặp lại mock của tab 1), đánh dấu `ponytail:` trong file. |
 
@@ -361,9 +360,11 @@ bằng mắt với screenshot mà `get_design_context` trả về.
    Các module chưa đọc lại từ Figma sống (dashboard/device/user) vẫn có thể lệch màu/khoảng
    cách đáng kể so với bản Figma mới.
 
-4. **Luồng "Cấp phát - Thu hồi" đúng ra phải làm gì** — hiện `AllocateRecoverPage` gần như
-   trùng form thêm tài sản. Nghiệp vụ thật (chọn thiết bị trong kho → gán nhân viên/phòng ban
-   → sinh biên bản → thu hồi về kho) chưa được mô hình hoá. Figma cũ Group 16 quá sơ sài.
+4. **Luồng "Cấp phát - Thu hồi" đúng ra phải làm gì** — `AllocateRecoverPage` (từng gần như
+   trùng form thêm tài sản, không có luồng thật) đã bị **xoá 2026-09-22**; `/allocation` giờ là
+   `<ComingSoonPage>`. Nghiệp vụ thật (chọn thiết bị trong kho → gán nhân viên/phòng ban → sinh
+   biên bản → thu hồi về kho) vẫn chưa được mô hình hoá, để dành vòng riêng (12 frame Figma).
+   Figma cũ Group 16 quá sơ sài.
 
 5. **Chrome điều hướng** — memory ghi chú Figma cũ không nhất quán: vài frame có sidebar
    tiếng Anh, vài frame có thanh bar xanh trên đầu. Bản đang code chọn "sidebar tiếng Việt,
@@ -379,7 +380,7 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 8. **Đăng nhập có cần validate/hiển thị lỗi theo từng ô không?** — hiện chỉ 1 dòng lỗi chung,
    không có yêu cầu định dạng username, không "nhớ đăng nhập", không khoá sau N lần sai.
 
-9. **Độ phủ test** — unit test cho `domain` (3 file), `InMemoryDeviceRepository`,
+9. **Độ phủ test** — unit test cho `domain` (gồm `deviceDraft.test.ts`), `HttpDeviceRepository`,
    `HttpAuthRepository` (fetch giả lập), `useCountdown`, và 1 test component (`Sidebar` — đăng
    xuất). Các page auth chưa có test component. Không rõ hành vi UI có được kỳ vọng kiểm thử
    đầy đủ không.

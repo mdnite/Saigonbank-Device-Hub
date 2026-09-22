@@ -1,7 +1,8 @@
 # IDSM Backend
 
 NestJS 11 + Prisma 7 + PostgreSQL (17 qua Docker, hoặc bản cài sẵn trên máy). Đợt hiện tại: module
-`identity` (đăng nhập, quên mật khẩu). Đăng xuất xử lý thuần phía FE (JWT stateless) nên không có endpoint.
+`identity` (đăng nhập, quên mật khẩu) và `devices` (CRUD thiết bị, xoá mềm — xem mục API bên dưới).
+Đăng xuất xử lý thuần phía FE (JWT stateless) nên không có endpoint.
 
 Project pnpm độc lập — **không** nằm trong npm workspace ở gốc repo. Chạy mọi lệnh bên trong `backend/`.
 
@@ -68,6 +69,22 @@ người dùng (tạo/sửa/khoá tài khoản) — hiện chỉ tạo qua seed.
 | `POST /auth/forgot-password` | `email` | 200 Đã gửi mã xác thực | 404 Email không tồn tại |
 | `POST /auth/verify-otp` | `email`, `otp` (4 số) | 200 Mã xác thực hợp lệ | 400 Mã không đúng hoặc đã hết hạn |
 | `POST /auth/reset-password` | `email`, `otp`, `newPassword` (≥ 6 ký tự) | 200 Đặt lại mật khẩu thành công | 400 Mã không đúng hoặc đã hết hạn |
+
+### Thiết bị (`/devices`, `/device-types`)
+
+Quyền đọc: mọi role đã đăng nhập. Quyền **ghi** (`POST`/`PATCH`/`DELETE /devices`): **Quản trị
+viên**, hoặc **Trưởng phòng** thuộc phòng Kỹ thuật (`departmentCode === 'KYTHUAT'`) — kiểm bởi
+`DeviceWriteGuard` (`backend/src/shared/auth/device-write.guard.ts`, chạy sau `AuthGuard`, đọc
+`req.user.departmentCode`; login response và `AuthGuard` đều đã gắn `departmentCode` vào user).
+
+| Endpoint | Ghi chú |
+|---|---|
+| `GET /devices` | Danh sách; lọc `search`/`status`/`deviceTypeId`/`departmentId` phía server. Mặc định ẩn thiết bị "Đã xóa". Chưa phân trang. |
+| `GET /devices/:id` | Chi tiết 1 thiết bị. |
+| `POST /devices` | Tạo mới — cần quyền ghi. `deviceCode` phải khớp `/^[A-Z]{2,4}-\d{6}$/` **và** bắt đầu bằng `prefix` của `DeviceType` đã chọn. |
+| `PATCH /devices/:id` | Sửa — cần quyền ghi. Gửi `accessories` sẽ thay thế toàn bộ danh sách linh kiện cũ (`deleteMany` + `create`). |
+| `DELETE /devices/:id` | Xoá **mềm** — cần quyền ghi. Chỉ đổi `Status` thành "Đã xóa", không bao giờ xoá row. |
+| `GET /device-types` | Danh mục loại thiết bị, chỉ đọc — seed 4 dòng (Laptop `LT`, Máy tính để bàn `PC`, Màn hình `MN`, Máy in `MI`). Chưa có màn quản lý (CRUD), chỉ có qua seed. |
 
 ## Quy ước
 

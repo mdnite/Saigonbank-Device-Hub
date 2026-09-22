@@ -27,7 +27,7 @@ export function DeviceCatalogPage() {
   const [status, setStatus] = useState<DeviceStatus | ''>('');
   const [reloadKey, setReloadKey] = useState(0);
   const query: DeviceQuery = { search, status: status || undefined };
-  const { data: devices, loading } = useDevices(query, reloadKey);
+  const { data: devices, loading, error } = useDevices(query, reloadKey);
 
   const del = useAsyncAction(async (d: Device) => {
     // ponytail: confirm native của trình duyệt — đổi sang Modal khi shared/ui có.
@@ -129,7 +129,7 @@ export function DeviceCatalogPage() {
           </Select>
         </div>
 
-        {del.error && <p className="mb-3 text-sm text-status-dangerFg">{del.error}</p>}
+        {(del.error ?? error) && <p className="mb-3 text-sm text-status-dangerFg">{del.error ?? error}</p>}
 
         <DataTable
           columns={columns}

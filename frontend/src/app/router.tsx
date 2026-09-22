@@ -12,7 +12,6 @@ import { ResetPasswordPage } from '@/modules/auth/presentation/ResetPasswordPage
 import { DashboardPage } from '@/modules/dashboard/presentation/DashboardPage';
 import { DeviceCatalogPage } from '@/modules/device/presentation/DeviceCatalogPage';
 import { AssetFormPage } from '@/modules/device/presentation/AssetFormPage';
-import { AllocateRecoverPage } from '@/modules/device/presentation/AllocateRecoverPage';
 import { UserSettingsPage } from '@/modules/user/presentation/UserSettingsPage';
 import { UserListPage } from '@/modules/user/presentation/UserListPage';
 import { CreateUserPage } from '@/modules/user/presentation/CreateUserPage';
@@ -46,7 +45,8 @@ export const router = createBrowserRouter([
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/devices', element: <DeviceCatalogPage /> },
           { path: '/devices/new', element: <AssetFormPage /> },
-          { path: '/allocation', element: <AllocateRecoverPage /> },
+          { path: '/devices/:id/edit', element: <AssetFormPage /> },
+          { path: '/allocation', element: <ComingSoonPage title="Cấp phát - Thu hồi" /> },
           {
             element: <RequireAdmin />,
             children: [

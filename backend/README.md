@@ -89,7 +89,12 @@ thường, sắp xếp theo id, và việc `AuthGuard` đọc lại User từ DB
 npx -y pnpm@10 start:dev
 # cửa sổ 2
 powershell -ExecutionPolicy Bypass -File scripts/e2e-users.ps1
+powershell -ExecutionPolicy Bypass -File scripts/e2e-devices.ps1
 ```
 
 Script tự sinh username theo timestamp nên chạy lại được nhiều lần và không bao giờ xoá cứng row
 `User`. Tham số có thể đổi: `-BaseUrl`, `-AdminPassword`, `-PsqlPath`, `-DbPassword`.
+
+`e2e-devices.ps1` kiểm thêm phần thiết bị trên cùng backend + PostgreSQL thật: tiền tố mã theo
+loại thiết bị, trùng mã, phân quyền ghi (`DeviceWriteGuard`), xoá mềm, và nested write
+`PATCH` accessories (`deleteMany` + `create`) — thứ fake Prisma không mô phỏng được.

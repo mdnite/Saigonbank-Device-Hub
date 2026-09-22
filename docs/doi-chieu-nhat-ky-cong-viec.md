@@ -247,7 +247,8 @@ Các tuần này đang giả định những thứ **chưa tồn tại**:
 
 1. Thống nhất tên hệ thống: **IDSM** hay **IDMS** — sửa đồng loạt trong báo cáo (repo đang dùng IDSM).
 2. Sửa 4 điểm sai nặng: Argon2 → bcrypt; 4 vai trò → 3; "admin đặt lại mật khẩu hộ thay cho OTP" → OTP qua email; "đã deploy" → chưa deploy.
-3. Viết lại nhật ký tuần 04 → 08 theo mục 3.
+3. Viết lại nhật ký tuần 04 → 08 — bản đã soạn sẵn, dán thẳng được vào báo cáo:
+   [`nhat-ky-cong-viec-ban-sua.md`](./nhat-ky-cong-viec-ban-sua.md).
 4. Bổ sung các hạng mục ở mục 4 vào báo cáo (trải vào các tuần tương ứng).
 5. Rà lại Package Diagram / sơ đồ kiến trúc backend cho khớp cấu trúc NestJS thật.
 6. Cân nhắc dời lịch tuần 09–11 theo mục 5.

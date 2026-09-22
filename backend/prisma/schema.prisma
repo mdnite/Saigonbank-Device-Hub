@@ -65,7 +65,8 @@ model Department {
   departmentCode String @unique @map("DepartmentCode") @db.VarChar(50)
   departmentName String @map("DepartmentName") @db.VarChar(150)
 
-  users User[]
+  users   User[]
+  devices Device[]
 
   @@map("Department")
 }
@@ -109,6 +110,7 @@ model User {
   role                Role                 @relation(fields: [roleId], references: [id])
   department          Department?          @relation(fields: [departmentId], references: [id])
   passwordResetTokens PasswordResetToken[]
+  devices             Device[]
 
   @@map("User")
 }
@@ -137,6 +139,70 @@ model PasswordResetToken {
 
   @@index([tokenHash])
   @@map("PasswordResetToken")
+}
+
+// --- DeviceType ---------------------------------------------------------
+// Danh mục loại thiết bị. `prefix` là tiền tố bắt buộc của DeviceCode:
+// chọn loại Laptop (prefix "LT") thì mã phải bắt đầu bằng "LT-".
+model DeviceType {
+  id       Int    @id @default(autoincrement()) @map("Id")
+  typeName String @map("TypeName") @db.VarChar(100)
+  prefix   String @unique @map("Prefix") @db.VarChar(4)
+
+  devices Device[]
+
+  @@map("DeviceType")
+}
+
+// --- Device -------------------------------------------------------------
+// KHÔNG BAO GIỜ xoá cứng: xoá = đổi Status thành "Đã xóa" (cùng quy tắc User).
+model Device {
+  id           Int       @id @default(autoincrement()) @map("Id")
+  deviceCode   String    @unique @map("DeviceCode") @db.VarChar(20)
+  deviceName   String    @map("DeviceName") @db.VarChar(150)
+  serialNumber String?   @unique @map("SerialNumber") @db.VarChar(100)
+  specDetail   String    @map("SpecDetail") @db.VarChar(255)
+  unit         String    @map("Unit") @db.VarChar(20)
+  location     String?   @map("Location") @db.VarChar(150)
+  purchaseDate DateTime? @map("PurchaseDate") @db.Date
+  supplier     String?   @map("Supplier") @db.VarChar(150)
+
+  warrantyMonths    Int?      @map("WarrantyMonths")
+  warrantyCondition String?   @map("WarrantyCondition") @db.VarChar(255)
+  warrantyExpiresOn DateTime? @map("WarrantyExpiresOn") @db.Date
+
+  status      String    @map("Status") @db.VarChar(50)
+  allocatedOn DateTime? @map("AllocatedOn") @db.Date
+
+  deviceTypeId  Int  @map("DeviceTypeId")
+  departmentId  Int? @map("DepartmentId")
+  currentUserId Int? @map("CurrentUserId")
+
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  deviceType  DeviceType  @relation(fields: [deviceTypeId], references: [id])
+  department  Department? @relation(fields: [departmentId], references: [id])
+  currentUser User?       @relation(fields: [currentUserId], references: [id])
+  accessories DeviceAccessory[]
+
+  @@map("Device")
+}
+
+// --- DeviceAccessory ----------------------------------------------------
+// Linh kiện đi kèm một thiết bị. PATCH gửi `accessories` thì thay thế TOÀN BỘ
+// danh sách, nên cascade delete ở đây là cố ý (xoá linh kiện, không xoá Device).
+model DeviceAccessory {
+  id            Int    @id @default(autoincrement()) @map("Id")
+  deviceId      Int    @map("DeviceId")
+  accessoryCode String @map("AccessoryCode") @db.VarChar(50)
+  accessoryName String @map("AccessoryName") @db.VarChar(150)
+  accessoryType String @map("AccessoryType") @db.VarChar(100)
+  unit          String @map("Unit") @db.VarChar(20)
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("DeviceAccessory")
 }
 
 // ============================================================================

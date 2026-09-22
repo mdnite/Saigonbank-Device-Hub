@@ -31,8 +31,8 @@
 //      (tokenHash), không lưu plaintext — cùng nguyên tắc bảo mật như cột
 //      Password của User.
 //
-// CHƯA đưa vào: Notification, Device và các bảng khác (chưa cần cho luồng
-// đăng nhập/đăng xuất/quên mật khẩu) — sẽ bổ sung ở đợt sau.
+// ĐÃ bổ sung ở đợt Quản lý thiết bị: DeviceType, Device, DeviceAccessory.
+// CHƯA đưa vào: Notification và các bảng khác — sẽ bổ sung ở đợt sau.
 // ============================================================================
 
 generator client {

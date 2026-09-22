@@ -144,6 +144,18 @@ export class UsersService {
     return this.prisma.role.findMany({ orderBy: { id: 'asc' } });
   }
 
+  /**
+   * Danh sách rút gọn cho dropdown "Người sở hữu" của form thiết bị.
+   * `select` chỉ 3 cột: đây KHÔNG phải cửa sau để đọc lại toàn bộ danh sách user.
+   */
+  userLookup() {
+    return this.prisma.user.findMany({
+      where: { status: { not: USER_STATUS.DELETED } },
+      select: { id: true, fullName: true, username: true },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   departments() {
     return this.prisma.department.findMany({ orderBy: { id: 'asc' } });
   }

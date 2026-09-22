@@ -81,4 +81,12 @@ export class LookupController {
   departments() {
     return this.users.departments();
   }
+
+  // Đặt ở controller không có prefix (không phải UsersController) nên đường dẫn đầy đủ là
+  // /users/lookup mà vẫn giữ guard "chỉ cần đăng nhập". UsersController không khai báo
+  // GET ':id' nào nên không có route tham số nào nuốt mất /users/lookup.
+  @Get('users/lookup')
+  userLookup() {
+    return this.users.userLookup();
+  }
 }

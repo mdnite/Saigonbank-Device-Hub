@@ -1,21 +1,18 @@
 import { useAsyncData } from '@/shared/lib/useAsyncData';
-import type { UserQuery } from '@/modules/user/application/UserAdminRepository';
-import { userAdminService } from '@/modules/user/infrastructure/container';
 import { deviceService } from '../infrastructure/container';
-
-const ALL_USERS: UserQuery = { search: '', status: '', roleId: '', departmentId: '' };
 
 /**
  * Danh mục cho form thiết bị: loại thiết bị, phòng ban, người sở hữu.
- * GET /users chỉ Quản trị viên gọi được — người dùng khác nhận 403, dropdown rỗng thay vì vỡ trang.
+ * Cả 3 endpoint (/device-types, /departments, /users/lookup) chỉ cần đã đăng nhập,
+ * nên Trưởng phòng Kỹ thuật cũng chọn được người sở hữu như Quản trị viên.
  */
 export function useDeviceLookups() {
   const { data } = useAsyncData(
     () =>
       Promise.all([
         deviceService.deviceTypes(),
-        userAdminService.departments(),
-        userAdminService.list(ALL_USERS).catch(() => []),
+        deviceService.departments(),
+        deviceService.users(),
       ]),
     [],
   );

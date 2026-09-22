@@ -1,71 +1,32 @@
 import { Field } from '@/shared/ui/Field';
 import { Input, Select } from '@/shared/ui/inputs';
-import type { AssetDraft, AssetDraftErrors } from '../../domain/assetDraft';
+import type { DeviceDraft, DeviceDraftErrors } from '../../domain/deviceDraft';
+import type { DepartmentRef, DeviceTypeRef, UserRef } from '../../domain/device';
 
 export interface AssetFieldsProps {
-  draft: AssetDraft;
-  errors: AssetDraftErrors;
-  onChange: (patch: Partial<AssetDraft>) => void;
+  draft: DeviceDraft;
+  errors: DeviceDraftErrors;
+  onChange: (patch: Partial<DeviceDraft>) => void;
+  deviceTypes: DeviceTypeRef[];
+  departments: DepartmentRef[];
+  users: UserRef[];
 }
 
-const UNITS = ['Khối CNTT', 'Khối Vận hành', 'Chi nhánh Sài Gòn', 'Chi nhánh Hà Nội'];
-const SUPPLIERS = ['Dell Việt Nam', 'FPT Trading', 'CMC', 'Khác'];
-const SPECS = ['Intel Core i5 / 16GB / 512GB', 'Intel Core i7 / 16GB / 512GB', 'Intel Core i7 / 32GB / 1TB'];
-const OWNERS = ['Nguyễn Văn A - IT', 'Trần Thị B - Kế toán', 'Lê Văn C - Vận hành'];
-
-const toOptions = (values: string[]) => values.map((v) => ({ value: v, label: v }));
-
-export function AssetGeneralInfoFields({ draft, errors, onChange }: AssetFieldsProps) {
+export function AssetGeneralInfoFields({
+  draft,
+  errors,
+  onChange,
+  deviceTypes,
+  departments,
+  users,
+}: AssetFieldsProps) {
   return (
     <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
-      <Field label="Đơn vị quản lý" required error={errors.managingUnit}>
-        <Select
-          placeholder="Chọn đơn vị"
-          options={toOptions(UNITS)}
-          value={draft.managingUnit}
-          onChange={(e) => onChange({ managingUnit: e.target.value })}
-        />
-      </Field>
-
-      <Field label="Vị trí thiết bị" required error={errors.location}>
-        <Input
-          placeholder="VD: Tầng 3 - Phòng 302"
-          value={draft.location}
-          onChange={(e) => onChange({ location: e.target.value })}
-        />
-      </Field>
-
-      <Field label="Người sở hữu" required error={errors.owner}>
-        <Select
-          placeholder="Chọn người sở hữu"
-          options={toOptions(OWNERS)}
-          value={draft.owner}
-          onChange={(e) => onChange({ owner: e.target.value })}
-        />
-      </Field>
-
-      <Field label="Ngày mua">
-        <Input
-          type="date"
-          value={draft.purchaseDate}
-          onChange={(e) => onChange({ purchaseDate: e.target.value })}
-        />
-      </Field>
-
       <Field label="Mã thiết bị" required error={errors.deviceCode}>
         <Input
-          placeholder="VD: LT-DELL-009"
+          placeholder="VD: PC-000123"
           value={draft.deviceCode}
           onChange={(e) => onChange({ deviceCode: e.target.value })}
-        />
-      </Field>
-
-      <Field label="Nhà cung cấp">
-        <Select
-          placeholder="Chọn nhà cung cấp"
-          options={toOptions(SUPPLIERS)}
-          value={draft.supplier}
-          onChange={(e) => onChange({ supplier: e.target.value })}
         />
       </Field>
 
@@ -77,12 +38,76 @@ export function AssetGeneralInfoFields({ draft, errors, onChange }: AssetFieldsP
         />
       </Field>
 
-      <Field label="Cấu hình chi tiết" required error={errors.specDetail}>
+      <Field label="Loại thiết bị" required error={errors.deviceTypeId}>
         <Select
-          placeholder="Chọn cấu hình"
-          options={toOptions(SPECS)}
+          placeholder="Chọn loại thiết bị"
+          value={draft.deviceTypeId !== null ? String(draft.deviceTypeId) : ''}
+          onChange={(e) => onChange({ deviceTypeId: e.target.value ? Number(e.target.value) : null })}
+          options={deviceTypes.map((t) => ({ value: String(t.id), label: `${t.typeName} (${t.prefix})` }))}
+        />
+      </Field>
+
+      <Field label="Đơn vị tính" required error={errors.unit}>
+        <Input value={draft.unit} onChange={(e) => onChange({ unit: e.target.value })} />
+      </Field>
+
+      <Field label="Số serial">
+        <Input value={draft.serialNumber} onChange={(e) => onChange({ serialNumber: e.target.value })} />
+      </Field>
+
+      <Field label="Cấu hình chi tiết" required error={errors.specDetail}>
+        <Input
+          placeholder="VD: Intel Core i7 / 16GB / 512GB"
           value={draft.specDetail}
           onChange={(e) => onChange({ specDetail: e.target.value })}
+        />
+      </Field>
+
+      <Field label="Đơn vị quản lý">
+        <Select
+          value={draft.departmentId !== null ? String(draft.departmentId) : ''}
+          onChange={(e) => onChange({ departmentId: e.target.value ? Number(e.target.value) : null })}
+        >
+          <option value="">Chưa gán phòng ban</option>
+          {departments.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.departmentName}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field label="Người sở hữu" required={draft.allocated} error={errors.currentUserId}>
+        <Select
+          value={draft.currentUserId !== null ? String(draft.currentUserId) : ''}
+          onChange={(e) => onChange({ currentUserId: e.target.value ? Number(e.target.value) : null })}
+        >
+          <option value="">Chưa gán người sở hữu</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.fullName} ({u.username})
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field label="Nhà cung cấp">
+        <Input value={draft.supplier} onChange={(e) => onChange({ supplier: e.target.value })} />
+      </Field>
+
+      <Field label="Ngày mua">
+        <Input
+          type="date"
+          value={draft.purchaseDate}
+          onChange={(e) => onChange({ purchaseDate: e.target.value })}
+        />
+      </Field>
+
+      <Field label="Vị trí thiết bị">
+        <Input
+          placeholder="VD: Tầng 3 - Phòng 302"
+          value={draft.location}
+          onChange={(e) => onChange({ location: e.target.value })}
         />
       </Field>
     </div>

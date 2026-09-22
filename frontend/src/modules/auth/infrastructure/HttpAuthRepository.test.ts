@@ -22,7 +22,7 @@ it('login gửi identifier và map data BE sang AuthSession', async () => {
     success: true,
     data: {
       accessToken: 'jwt',
-      user: { id: 7, fullName: 'Quản trị viên', email: 'a@b.vn', roleName: 'Quản trị viên' },
+      user: { id: 7, fullName: 'Quản trị viên', email: 'a@b.vn', roleName: 'Quản trị viên', departmentCode: 'KYTHUAT' },
     },
     error: null,
     message: 'Đăng nhập thành công',
@@ -38,6 +38,7 @@ it('login gửi identifier và map data BE sang AuthSession', async () => {
     email: 'a@b.vn',
     token: 'jwt',
     roleName: 'Quản trị viên',
+    departmentCode: 'KYTHUAT',
   });
 });
 

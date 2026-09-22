@@ -1,19 +1,20 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/inputs';
-import type { DeviceComponent } from '../../domain/assetDraft';
+import type { DeviceAccessoryDraft } from '../../domain/deviceDraft';
 
-const EMPTY: DeviceComponent = { code: '', name: '', type: '', unit: '' };
+const EMPTY: DeviceAccessoryDraft = { accessoryCode: '', accessoryName: '', accessoryType: '', unit: '' };
 const HEADERS = ['Mã linh kiện', 'Tên linh kiện', 'Loại linh kiện', 'ĐVT'];
+const KEYS = ['accessoryCode', 'accessoryName', 'accessoryType', 'unit'] as const;
 
 export function ComponentsTable({
   components,
   onChange,
 }: {
-  components: DeviceComponent[];
-  onChange: (next: DeviceComponent[]) => void;
+  components: DeviceAccessoryDraft[];
+  onChange: (next: DeviceAccessoryDraft[]) => void;
 }) {
-  const patch = (i: number, key: keyof DeviceComponent, value: string) =>
+  const patch = (i: number, key: keyof DeviceAccessoryDraft, value: string) =>
     onChange(components.map((c, idx) => (idx === i ? { ...c, [key]: value } : c)));
 
   return (
@@ -39,7 +40,7 @@ export function ComponentsTable({
           ) : (
             components.map((c, i) => (
               <tr key={i} className="border-t border-line">
-                {(['code', 'name', 'type', 'unit'] as const).map((key) => (
+                {KEYS.map((key) => (
                   <td key={key} className="px-2 py-2">
                     <Input
                       value={c[key]}

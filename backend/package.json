@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "0.0.1",
-  "description": "IDMS backend (NestJS + Prisma)",
+  "description": "IDSM backend (NestJS + Prisma)",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

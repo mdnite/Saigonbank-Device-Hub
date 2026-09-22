@@ -25,7 +25,7 @@ export class MailService {
     const { error } = await this.resend.emails.send({
       from: this.from,
       to,
-      subject: 'IDMS - Mã xác thực đặt lại mật khẩu',
+      subject: 'IDSM - Mã xác thực đặt lại mật khẩu',
       text: `Mã xác thực của bạn là ${otp}. Mã có hiệu lực trong ${ttlMinutes} phút. Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.`,
     });
     // Resend trả lỗi trong `error` chứ không throw.

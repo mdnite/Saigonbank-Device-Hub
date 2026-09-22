@@ -20,7 +20,10 @@ afterEach(() => vi.unstubAllGlobals());
 it('login gửi identifier và map data BE sang AuthSession', async () => {
   const fetchMock = stubFetch(200, {
     success: true,
-    data: { accessToken: 'jwt', user: { id: 7, fullName: 'Quản trị viên', email: 'a@b.vn' } },
+    data: {
+      accessToken: 'jwt',
+      user: { id: 7, fullName: 'Quản trị viên', email: 'a@b.vn', roleName: 'Quản trị viên' },
+    },
     error: null,
     message: 'Đăng nhập thành công',
   });
@@ -29,7 +32,13 @@ it('login gửi identifier và map data BE sang AuthSession', async () => {
 
   expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:3000/auth/login');
   expect(sentBody(fetchMock)).toEqual({ identifier: 'admin', password: 'Admin@123' });
-  expect(session).toEqual({ userId: '7', displayName: 'Quản trị viên', email: 'a@b.vn', token: 'jwt' });
+  expect(session).toEqual({
+    userId: '7',
+    displayName: 'Quản trị viên',
+    email: 'a@b.vn',
+    token: 'jwt',
+    roleName: 'Quản trị viên',
+  });
 });
 
 it('lỗi từ BE: ném đúng message tiếng Việt trong envelope', async () => {

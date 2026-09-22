@@ -8,7 +8,7 @@ import {
 import { OTP_LENGTH } from '../../shared/security/otp';
 
 // Đồng bộ với PASSWORD_MIN_LENGTH ở FE (src/modules/auth/domain/credentials.ts).
-const PASSWORD_MIN_LENGTH = 6;
+export const PASSWORD_MIN_LENGTH = 6;
 const OTP_PATTERN = new RegExp(`^\\d{${OTP_LENGTH}}$`);
 const OTP_MESSAGE = `Mã xác thực phải gồm ${OTP_LENGTH} chữ số`;
 const EMAIL_MESSAGE = 'Email không hợp lệ';

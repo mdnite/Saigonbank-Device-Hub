@@ -3,24 +3,35 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../src/shared/security/password';
 import { USER_STATUS } from '../src/modules/identity/user-status';
+import { ROLE } from '../src/modules/identity/roles';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
 
 async function main() {
-  const role =
-    (await prisma.role.findFirst({ where: { roleName: 'Quản trị viên' } })) ??
-    (await prisma.role.create({ data: { roleName: 'Quản trị viên' } }));
+  // findFirst-or-create: RoleName không unique trong schema nên không upsert được.
+  const roleIds: Record<string, number> = {};
+  for (const roleName of Object.values(ROLE)) {
+    const role =
+      (await prisma.role.findFirst({ where: { roleName } })) ??
+      (await prisma.role.create({ data: { roleName } }));
+    roleIds[roleName] = role.id;
+  }
 
-  const department = await prisma.department.upsert({
-    where: { departmentCode: 'IT' },
-    update: {},
-    create: {
-      departmentCode: 'IT',
-      departmentName: 'Phòng Công nghệ thông tin',
-    },
-  });
+  const departments = [
+    { departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' },
+    { departmentCode: 'KETOAN', departmentName: 'Phòng Kế toán' },
+  ];
+  const departmentIds: Record<string, number> = {};
+  for (const d of departments) {
+    const dep = await prisma.department.upsert({
+      where: { departmentCode: d.departmentCode },
+      update: {},
+      create: d,
+    });
+    departmentIds[d.departmentCode] = dep.id;
+  }
 
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
@@ -30,15 +41,15 @@ async function main() {
       email: 'admin@saigonbank.com.vn',
       password: await hashPassword('Admin@123'),
       fullName: 'Quản trị viên hệ thống',
-      roleId: role.id,
-      departmentId: department.id,
+      roleId: roleIds[ROLE.ADMIN],
+      departmentId: null, // Quản trị viên không thuộc phòng ban nghiệp vụ
       status: USER_STATUS.ACTIVE,
       isVerified: true,
     },
   });
 
   console.log(
-    `Seed xong: role=${role.id}, department=${department.id}, user=${admin.username}`,
+    `Seed xong: ${Object.keys(roleIds).length} role, ${departments.length} phòng ban, user=${admin.username}`,
   );
 
   // User để test luồng quên mật khẩu: Resend (onboarding@resend.dev) chỉ gửi được tới email chủ tài khoản.
@@ -53,10 +64,10 @@ async function main() {
         email: devEmail,
         password: await hashPassword('Dev@1234'),
         fullName: 'Người dùng thử nghiệm',
-        roleId: role.id,
-        departmentId: department.id,
+        roleId: roleIds[ROLE.STAFF],
+        departmentId: departmentIds.KYTHUAT,
         status: USER_STATUS.ACTIVE,
-        isVerified: true,
+        isVerified: false,
       },
     });
     console.log(`Seed user dev: ${dev.username} <${dev.email}>`);

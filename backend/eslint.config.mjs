@@ -34,7 +34,7 @@ export default tseslint.config(
   },
   {
     // Supertest trả res.body kiểu any; fake Prisma dùng async không await.
-    files: ['**/*.spec.ts'],
+    files: ['**/*.spec.ts', 'src/test/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',

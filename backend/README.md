@@ -1,4 +1,4 @@
-# IDMS Backend
+# IDSM Backend
 
 NestJS 11 + Prisma 7 + PostgreSQL (17 qua Docker, hoặc bản cài sẵn trên máy). Đợt hiện tại: module
 `identity` (đăng nhập, quên mật khẩu). Đăng xuất xử lý thuần phía FE (JWT stateless) nên không có endpoint.
@@ -19,6 +19,11 @@ Cần role `idms` / `idms_dev` và database `internal_device_management` (khớp
   ```
 
   `CREATEDB` là bắt buộc — `prisma migrate dev` cần tạo shadow database.
+
+> **Lưu ý tên gọi:** hệ thống tên là **IDSM**. Riêng role PostgreSQL `idms` và database
+> `internal_device_management` giữ nguyên tên cũ — đổi tên role/database phải tạo lại cả hai và
+> chạy lại migration, không đáng so với lợi ích. Chuỗi `idms` trong `DATABASE_URL` là tên role,
+> không phải tên hệ thống.
 
 ### 2. App
 
@@ -72,3 +77,19 @@ người dùng (tạo/sửa/khoá tài khoản) — hiện chỉ tạo qua seed.
 - Không bao giờ xoá cứng `User` (UC-06 xoá mềm qua `Status`); token reset chỉ đánh dấu `usedAt`.
 - OTP lưu dạng SHA-256, hết hạn 5 phút, chỉ mã mới nhất có hiệu lực, tối đa 5 lần nhập sai mỗi mã.
 - Resend với `onboarding@resend.dev` chỉ gửi được tới email chủ tài khoản Resend; gửi cho người khác cần verify domain.
+
+## Kiểm thử đầu-cuối (E2E) trên PostgreSQL thật
+
+`npx -y pnpm@10 test` dùng Prisma giả, nên không kiểm được ba thứ: tìm kiếm không phân biệt hoa
+thường, sắp xếp theo id, và việc `AuthGuard` đọc lại User từ DB mỗi request. Script dưới đây kiểm
+đúng ba thứ đó trên backend + PostgreSQL thật:
+
+```bash
+# cửa sổ 1
+npx -y pnpm@10 start:dev
+# cửa sổ 2
+powershell -ExecutionPolicy Bypass -File scripts/e2e-users.ps1
+```
+
+Script tự sinh username theo timestamp nên chạy lại được nhiều lần và không bao giờ xoá cứng row
+`User`. Tham số có thể đổi: `-BaseUrl`, `-AdminPassword`, `-PsqlPath`, `-DbPassword`.

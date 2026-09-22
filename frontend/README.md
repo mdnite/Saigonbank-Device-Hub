@@ -36,14 +36,14 @@ Node's own global `localStorage` shadows jsdom's.
 | `auth` | Login, Quên mật khẩu, OTP, Đổi mật khẩu | Group 1, 3, 4, 5 |
 | `dashboard` | Tổng quan (4 thẻ thống kê) | Group 2 |
 | `device` | Danh mục thiết bị, Thêm tài sản, Cấp phát - Thu hồi | Group 10, 14, 15, 16 |
-| `user` | Người dùng / Cài đặt cá nhân (3 tab) | Group 7, 8, 9 |
+| `user` | Quản lý người dùng (`/users`, `/users/new` — chỉ Quản trị viên) + Cài đặt cá nhân (`/settings`, 3 tab) | Group 7, 8, 9 (chỉ màn cài đặt) |
 
-Not yet built (routed to a "đang phát triển" placeholder): Điều chuyển, Kiểm kê, Cài đặt.
+Not yet built (routed to a "đang phát triển" placeholder): Điều chuyển, Kiểm kê.
 Not routed at all: Danh sách/Tạo đơn cấp phát, Approvals Center (Group 11–13).
 
-`auth` is wired to the real API in [`../backend/`](../backend/) (login, forgot password → OTP
-email → reset, logout = client-side token removal). `dashboard`, `device` and `user` still use
-in-memory mocks.
+`auth` and the admin side of `user` are wired to the real API in [`../backend/`](../backend/)
+(login, forgot password → OTP email → reset, logout = client-side token removal; `/users` list,
+create, lock/unlock, soft delete). `dashboard`, `device` and `/settings` still use in-memory mocks.
 
 ## Architecture — pragmatic DDD
 
@@ -52,7 +52,7 @@ Each bounded context under `src/modules/<context>/` has four layers:
 ```
 domain/          Pure models + rules. No React, no fetch. Unit-tested.
 application/     Use-case services + repository *interfaces* (ports).
-infrastructure/  Repository implementations (HTTP for auth, in-memory elsewhere) + container.ts (DI wiring).
+infrastructure/  Repository implementations (HTTP for auth + user admin, in-memory elsewhere) + container.ts (DI wiring).
 presentation/    React pages, hooks, and UI-only mappings.
 ```
 

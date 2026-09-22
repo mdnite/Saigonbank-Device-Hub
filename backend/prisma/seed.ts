@@ -33,6 +33,21 @@ async function main() {
     departmentIds[d.departmentCode] = dep.id;
   }
 
+  // Loại thiết bị: `prefix` quyết định tiền tố hợp lệ của DeviceCode.
+  const deviceTypes = [
+    { typeName: 'Laptop', prefix: 'LT' },
+    { typeName: 'Máy tính để bàn', prefix: 'PC' },
+    { typeName: 'Màn hình', prefix: 'MN' },
+    { typeName: 'Máy in', prefix: 'MI' },
+  ];
+  for (const t of deviceTypes) {
+    await prisma.deviceType.upsert({
+      where: { prefix: t.prefix },
+      update: { typeName: t.typeName },
+      create: t,
+    });
+  }
+
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
     update: {},
@@ -49,7 +64,8 @@ async function main() {
   });
 
   console.log(
-    `Seed xong: ${Object.keys(roleIds).length} role, ${departments.length} phòng ban, user=${admin.username}`,
+    `Seed xong: ${Object.keys(roleIds).length} role, ${departments.length} phòng ban, ` +
+      `${deviceTypes.length} loại thiết bị, user=${admin.username}`,
   );
 
   // User để test luồng quên mật khẩu: Resend (onboarding@resend.dev) chỉ gửi được tới email chủ tài khoản.

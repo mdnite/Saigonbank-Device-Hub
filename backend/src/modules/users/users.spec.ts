@@ -145,6 +145,26 @@ describe('Users: /users, /roles, /departments', () => {
     });
   });
 
+  describe('GET /users/lookup', () => {
+    // 200 (không phải 403) cho Nhân viên cũng chứng minh route không bị UsersController nuốt.
+    it('chỉ trả id/fullName/username, bỏ user "Đã xóa"', async () => {
+      const res = await http()
+        .get('/users/lookup')
+        .set('Authorization', tokenOf(staff))
+        .expect(200);
+      expect(res.body.data).toEqual([
+        { id: admin.id, fullName: admin.fullName, username: 'admin' },
+        { id: staff.id, fullName: staff.fullName, username: 'staff' },
+        { id: locked.id, fullName: locked.fullName, username: 'locked' },
+      ]);
+      expect(
+        res.body.data.some(
+          (u: { username: string }) => u.username === 'removed',
+        ),
+      ).toBe(false);
+    });
+  });
+
   describe('GET /users', () => {
     it('mặc định ẩn "Đã xóa", có role + department, không có password', async () => {
       const res = await http()

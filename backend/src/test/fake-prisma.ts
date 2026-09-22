@@ -10,10 +10,11 @@ import type {
 
 // Prisma giả trong RAM cho test: chỉ hỗ trợ đúng những toán tử code đang dùng
 // (so bằng, `not`, `contains` không phân biệt hoa thường, `OR`, `include` role/department/
-// deviceType/currentUser/accessories).
+// deviceType/currentUser/accessories, `select` phẳng ở user.findMany).
 
 type Where = Record<string, unknown>;
 type Include = { role?: boolean; department?: boolean };
+type Select = Record<string, boolean>;
 type DeviceInclude = {
   deviceType?: boolean;
   department?: boolean;
@@ -59,6 +60,12 @@ export function matches(row: object, where: Where = {}): boolean {
       ? (cond as Where[]).some((w) => matches(row, w))
       : matchValue((row as Record<string, unknown>)[key], cond),
   );
+}
+
+/** Giả lập `select` phẳng của Prisma: chỉ giữ lại đúng các cột được chọn. */
+function project(row: object, select?: Select) {
+  if (!select) return row;
+  return Object.fromEntries(Object.entries(row).filter(([k]) => select[k]));
 }
 
 export function createFakePrisma() {
@@ -141,10 +148,18 @@ export function createFakePrisma() {
         },
       ),
       findMany: jest.fn(
-        async ({ where, include }: { where?: Where; include?: Include }) =>
+        async ({
+          where,
+          include,
+          select,
+        }: {
+          where?: Where;
+          include?: Include;
+          select?: Select;
+        }) =>
           users
             .filter((u) => matches(u, where))
-            .map((u) => withRelations(u, include)),
+            .map((u) => project(withRelations(u, include), select)),
       ),
       create: jest.fn(
         async ({

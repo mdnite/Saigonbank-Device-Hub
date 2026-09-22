@@ -1,5 +1,5 @@
 import { hasErrors, validateDeviceDraft, type DeviceDraft } from '../domain/deviceDraft';
-import type { Device, DeviceStatus, DeviceTypeRef } from '../domain/device';
+import type { DepartmentRef, Device, DeviceStatus, DeviceTypeRef, UserRef } from '../domain/device';
 
 export interface DeviceQuery {
   search?: string;
@@ -15,6 +15,9 @@ export interface DeviceRepository {
   update(id: number, draft: DeviceDraft): Promise<Device>;
   remove(id: number): Promise<void>;
   deviceTypes(): Promise<DeviceTypeRef[]>;
+  departments(): Promise<DepartmentRef[]>;
+  /** Danh sách rút gọn cho dropdown "Người sở hữu". */
+  users(): Promise<UserRef[]>;
 }
 
 export class DeviceValidationError extends Error {
@@ -43,6 +46,8 @@ export function makeDeviceService(repo: DeviceRepository) {
     },
     remove: (id: number) => repo.remove(id),
     deviceTypes: () => repo.deviceTypes(),
+    departments: () => repo.departments(),
+    users: () => repo.users(),
   };
 }
 

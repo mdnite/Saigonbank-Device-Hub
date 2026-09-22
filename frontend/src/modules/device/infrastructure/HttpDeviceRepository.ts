@@ -1,10 +1,10 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/shared/lib/apiClient';
-import type { Device, DeviceTypeRef } from '../domain/device';
+import type { DepartmentRef, Device, DeviceTypeRef, UserRef } from '../domain/device';
 import type { DeviceDraft } from '../domain/deviceDraft';
 import type { DeviceQuery, DeviceRepository } from '../application/DeviceRepository';
 
 /** Draft (dạng form, chuỗi rỗng = chưa nhập) → body API (bỏ hẳn trường rỗng). */
-function toBody(d: DeviceDraft) {
+export function toBody(d: DeviceDraft) {
   const text = (v: string) => (v.trim() ? v.trim() : undefined);
   return {
     deviceCode: d.deviceCode.trim().toUpperCase(),
@@ -45,5 +45,12 @@ export class HttpDeviceRepository implements DeviceRepository {
   }
   deviceTypes(): Promise<DeviceTypeRef[]> {
     return apiGet<DeviceTypeRef[]>('/device-types');
+  }
+  departments(): Promise<DepartmentRef[]> {
+    return apiGet<DepartmentRef[]>('/departments');
+  }
+  /** /users/lookup chứ không phải /users: GET /users chỉ Quản trị viên gọi được. */
+  users(): Promise<UserRef[]> {
+    return apiGet<UserRef[]>('/users/lookup');
   }
 }

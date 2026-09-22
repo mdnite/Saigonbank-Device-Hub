@@ -308,7 +308,7 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 | Chạy FE cần backend | Không còn mock auth: muốn đăng nhập phải chạy backend (`backend/`, cổng 3000) + PostgreSQL. |
 | Session mock cũ | Trình duyệt từng chạy bản mock có thể còn `localStorage["idsm.session"]` với token giả `mock.*`. `RequireAuth` chỉ kiểm có session hay không, nên vẫn cho vào app → xoá tay khoá này 1 lần. |
 | Token hết hạn | JWT sống `JWT_EXPIRES_IN` (1 ngày). FE kiểm `exp` khi mở app và tự `signOut` khi BE trả 401 trên request **có token** → về `/login` kèm "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại". Không có refresh token. |
-| Sau đăng nhập | `/users` (chỉ Quản trị viên) gọi BE thật kèm `Authorization: Bearer`; Dashboard / Tài sản / `/settings` **vẫn là mock**. |
+| Sau đăng nhập | `/users` (chỉ Quản trị viên) và `/devices` (Tài sản) gọi BE thật kèm `Authorization: Bearer`; Dashboard / `/settings` **vẫn là mock**. |
 
 ### 4.5 Form / validate
 
@@ -380,7 +380,8 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 8. **Đăng nhập có cần validate/hiển thị lỗi theo từng ô không?** — hiện chỉ 1 dòng lỗi chung,
    không có yêu cầu định dạng username, không "nhớ đăng nhập", không khoá sau N lần sai.
 
-9. **Độ phủ test** — unit test cho `domain` (gồm `deviceDraft.test.ts`), `HttpDeviceRepository`,
+9. **Độ phủ test** — unit test cho `domain` (5 file: `credentials.test.ts`, `session.test.ts`,
+   `deviceDraft.test.ts`, `userAccount.test.ts`, `userSettings.test.ts`), `HttpDeviceRepository`,
    `HttpAuthRepository` (fetch giả lập), `useCountdown`, và 1 test component (`Sidebar` — đăng
    xuất). Các page auth chưa có test component. Không rõ hành vi UI có được kỳ vọng kiểm thử
    đầy đủ không.

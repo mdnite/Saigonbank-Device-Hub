@@ -54,7 +54,7 @@ Each bounded context under `src/modules/<context>/` has four layers:
 ```
 domain/          Pure models + rules. No React, no fetch. Unit-tested.
 application/     Use-case services + repository *interfaces* (ports).
-infrastructure/  Repository implementations (HTTP for auth + user admin, in-memory elsewhere) + container.ts (DI wiring).
+infrastructure/  Repository implementations (HTTP for auth + user admin + device, in-memory elsewhere) + container.ts (DI wiring).
 presentation/    React pages, hooks, and UI-only mappings.
 ```
 

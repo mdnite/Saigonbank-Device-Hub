@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyDeviceDraft, type DeviceDraft } from '../domain/deviceDraft';
-import { HttpDeviceRepository } from './HttpDeviceRepository';
+import { HttpDeviceRepository, toBody } from './HttpDeviceRepository';
 
 const envelope = (data: unknown) =>
   new Response(JSON.stringify({ success: true, data, error: null, message: 'OK' }), {
@@ -12,18 +12,36 @@ const envelope = (data: unknown) =>
 const sentBody = (fetchMock: ReturnType<typeof vi.fn>) =>
   JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
 
+const draft = (over: Partial<DeviceDraft> = {}): DeviceDraft => ({
+  ...emptyDeviceDraft(),
+  deviceCode: 'lt-000001',
+  deviceName: 'Dell Latitude 5420',
+  specDetail: 'i5 · 16GB',
+  unit: 'Cái',
+  deviceTypeId: 1,
+  ...over,
+});
+
+describe('toBody', () => {
+  it('bỏ hẳn các trường tuỳ chọn chỉ có khoảng trắng', () => {
+    const body = toBody(
+      draft({ serialNumber: '   ', location: '', supplier: '  ', warrantyMonths: '  ' }),
+    );
+    expect(body.serialNumber).toBeUndefined();
+    expect(body.location).toBeUndefined();
+    expect(body.supplier).toBeUndefined();
+    expect(body.warrantyMonths).toBeUndefined();
+  });
+
+  it('cắt khoảng trắng và viết hoa mã thiết bị, đổi số tháng bảo hành sang number', () => {
+    const body = toBody(draft({ deviceCode: '  lt-000001  ', warrantyMonths: '24' }));
+    expect(body.deviceCode).toBe('LT-000001');
+    expect(body.warrantyMonths).toBe(24);
+  });
+});
+
 describe('HttpDeviceRepository', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
-
-  const draft = (over: Partial<DeviceDraft> = {}): DeviceDraft => ({
-    ...emptyDeviceDraft(),
-    deviceCode: 'lt-000001',
-    deviceName: 'Dell Latitude 5420',
-    specDetail: 'i5 · 16GB',
-    unit: 'Cái',
-    deviceTypeId: 1,
-    ...over,
-  });
 
   beforeEach(() => {
     fetchMock = vi.fn().mockImplementation(async () => envelope({ id: 1 }));

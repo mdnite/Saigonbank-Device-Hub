@@ -16,8 +16,8 @@
 > xuất ở sidebar. 2026-09-17: backend `identity` đã dựng, bỏ thư mục `database/`. 2026-09-11: tách
 > repo thành `frontend/` + `backend/`, cập nhật module Xác thực theo Figma mới.
 
-> **Bố cục repo:** `frontend/` (React app, npm workspace; **auth gọi backend thật**, các module
-> khác vẫn chạy mock) ·
+> **Bố cục repo:** `frontend/` (React app, npm workspace; **auth, quản lý người dùng và device gọi
+> backend thật**, `dashboard`/`settings` vẫn chạy mock) ·
 > `backend/` (NestJS + Prisma, project pnpm riêng, xem `backend/README.md`; schema + migration ở
 > `backend/prisma/`). **Mọi đường dẫn code trong tài liệu này đều tính từ
 > `frontend/`** — ví dụ `src/app/router.tsx` = `frontend/src/app/router.tsx`. Chạy lệnh:

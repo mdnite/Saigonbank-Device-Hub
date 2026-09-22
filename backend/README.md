@@ -1,4 +1,4 @@
-# IDMS Backend
+# IDSM Backend
 
 NestJS 11 + Prisma 7 + PostgreSQL (17 qua Docker, hoặc bản cài sẵn trên máy). Đợt hiện tại: module
 `identity` (đăng nhập, quên mật khẩu). Đăng xuất xử lý thuần phía FE (JWT stateless) nên không có endpoint.
@@ -19,6 +19,11 @@ Cần role `idms` / `idms_dev` và database `internal_device_management` (khớp
   ```
 
   `CREATEDB` là bắt buộc — `prisma migrate dev` cần tạo shadow database.
+
+> **Lưu ý tên gọi:** hệ thống tên là **IDSM**. Riêng role PostgreSQL `idms` và database
+> `internal_device_management` giữ nguyên tên cũ — đổi tên role/database phải tạo lại cả hai và
+> chạy lại migration, không đáng so với lợi ích. Chuỗi `idms` trong `DATABASE_URL` là tên role,
+> không phải tên hệ thống.
 
 ### 2. App
 

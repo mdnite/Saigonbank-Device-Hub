@@ -1,15 +1,45 @@
 import type {
   Department,
+  Device,
+  DeviceAccessory,
+  DeviceType,
   PasswordResetToken,
   Role,
   User,
 } from '@prisma/client';
 
 // Prisma giả trong RAM cho test: chỉ hỗ trợ đúng những toán tử code đang dùng
-// (so bằng, `not`, `contains` không phân biệt hoa thường, `OR`, `include` role/department).
+// (so bằng, `not`, `contains` không phân biệt hoa thường, `OR`, `include` role/department/
+// deviceType/currentUser/accessories).
 
 type Where = Record<string, unknown>;
 type Include = { role?: boolean; department?: boolean };
+type DeviceInclude = {
+  deviceType?: boolean;
+  department?: boolean;
+  currentUser?: boolean;
+  accessories?: boolean;
+};
+type DeviceWithRelations = Device & {
+  deviceType?: DeviceType;
+  department?: Department | null;
+  currentUser?: User | null;
+  accessories?: DeviceAccessory[];
+};
+type AccessoryCreateInput = Omit<DeviceAccessory, 'id' | 'deviceId'>;
+type DeviceCreateData = Pick<
+  Device,
+  | 'deviceCode'
+  | 'deviceName'
+  | 'specDetail'
+  | 'unit'
+  | 'deviceTypeId'
+  | 'status'
+> &
+  Partial<Device> & { accessories?: { create: AccessoryCreateInput[] } };
+type DeviceUpdateData = Partial<Device> & {
+  accessories?: { deleteMany: object; create: AccessoryCreateInput[] };
+};
 
 function matchValue(value: unknown, cond: unknown): boolean {
   if (cond === undefined) return true; // Prisma bỏ qua điều kiện undefined
@@ -43,6 +73,12 @@ export function createFakePrisma() {
   ];
   const users: User[] = [];
   const tokens: PasswordResetToken[] = [];
+  const deviceTypes: DeviceType[] = [
+    { id: 1, typeName: 'Laptop', prefix: 'LT' },
+    { id: 2, typeName: 'Máy tính để bàn', prefix: 'PC' },
+  ];
+  const devices: Device[] = [];
+  const deviceAccessories: DeviceAccessory[] = [];
 
   const forbidden = () => {
     throw new Error('Không được xoá cứng dữ liệu');
@@ -60,12 +96,37 @@ export function createFakePrisma() {
           }),
         }
       : user;
+  const withDeviceRelations = (
+    d: Device,
+    include?: DeviceInclude,
+  ): DeviceWithRelations =>
+    include
+      ? {
+          ...d,
+          ...(include.deviceType && {
+            deviceType: deviceTypes.find((t) => t.id === d.deviceTypeId)!,
+          }),
+          ...(include.department && {
+            department:
+              departments.find((x) => x.id === d.departmentId) ?? null,
+          }),
+          ...(include.currentUser && {
+            currentUser: users.find((u) => u.id === d.currentUserId) ?? null,
+          }),
+          ...(include.accessories && {
+            accessories: deviceAccessories.filter((a) => a.deviceId === d.id),
+          }),
+        }
+      : d;
 
   const prisma = {
     users,
     tokens,
     roles,
     departments,
+    devices,
+    deviceTypes,
+    deviceAccessories,
     user: {
       findFirst: jest.fn(
         async ({ where, include }: { where: Where; include?: Include }) => {
@@ -147,6 +208,105 @@ export function createFakePrisma() {
           departments.find((d) => matches(d, where)) ?? null,
       ),
       findMany: jest.fn(async () => [...departments]),
+    },
+    deviceType: {
+      findMany: jest.fn(async () => [...deviceTypes]),
+      findUnique: jest.fn(
+        async ({ where }: { where: Where }) =>
+          deviceTypes.find((t) => matches(t, where)) ?? null,
+      ),
+    },
+    device: {
+      findMany: jest.fn(
+        async ({ where, include }: { where: Where; include?: DeviceInclude }) =>
+          devices
+            .filter((d) => matches(d, where))
+            .sort((a, b) => a.id - b.id)
+            .map((d) => withDeviceRelations(d, include)),
+      ),
+      findUnique: jest.fn(
+        async ({
+          where,
+          include,
+        }: {
+          where: Where;
+          include?: DeviceInclude;
+        }) => {
+          const hit = devices.find((d) => matches(d, where));
+          return hit ? withDeviceRelations(hit, include) : null;
+        },
+      ),
+      create: jest.fn(
+        async ({
+          data,
+          include,
+        }: {
+          data: DeviceCreateData;
+          include?: DeviceInclude;
+        }) => {
+          const { accessories, ...rest } = data;
+          const now = new Date();
+          const row: Device = {
+            id: devices.length + 1,
+            serialNumber: null,
+            location: null,
+            purchaseDate: null,
+            supplier: null,
+            warrantyMonths: null,
+            warrantyCondition: null,
+            warrantyExpiresOn: null,
+            allocatedOn: null,
+            departmentId: null,
+            currentUserId: null,
+            createdAt: now,
+            updatedAt: now,
+            ...rest,
+          };
+          devices.push(row);
+          for (const a of accessories?.create ?? []) {
+            deviceAccessories.push({
+              id: deviceAccessories.length + 1,
+              deviceId: row.id,
+              ...a,
+            });
+          }
+          return withDeviceRelations(row, include);
+        },
+      ),
+      update: jest.fn(
+        async ({
+          where,
+          data,
+          include,
+        }: {
+          where: Where;
+          data: DeviceUpdateData;
+          include?: DeviceInclude;
+        }) => {
+          const row = devices.find((d) => matches(d, where))!;
+          const { accessories, ...rest } = data;
+          for (const [k, v] of Object.entries(rest)) {
+            if (v !== undefined) (row as Record<string, unknown>)[k] = v;
+          }
+          if (accessories) {
+            for (let i = deviceAccessories.length - 1; i >= 0; i--) {
+              if (deviceAccessories[i].deviceId === row.id) {
+                deviceAccessories.splice(i, 1);
+              }
+            }
+            for (const a of accessories.create) {
+              deviceAccessories.push({
+                id: deviceAccessories.length + 1,
+                deviceId: row.id,
+                ...a,
+              });
+            }
+          }
+          return withDeviceRelations(row, include);
+        },
+      ),
+      delete: jest.fn(forbidden),
+      deleteMany: jest.fn(forbidden),
     },
     passwordResetToken: {
       create: jest.fn(

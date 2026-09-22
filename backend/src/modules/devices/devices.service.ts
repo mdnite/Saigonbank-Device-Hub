@@ -132,14 +132,14 @@ export class DevicesService {
     try {
       const device = await this.prisma.device.create({
         data: {
-          ...this.scalars(dto),
+          ...this.createScalars(dto),
           status: dto.currentUserId
             ? DEVICE_STATUS.ALLOCATED
             : DEVICE_STATUS.IN_STOCK,
           accessories: dto.accessories?.length
             ? { create: dto.accessories }
             : undefined,
-        } as Prisma.DeviceUncheckedCreateInput,
+        },
         include: WITH_RELATIONS,
       });
       return toItem(device);
@@ -169,7 +169,7 @@ export class DevicesService {
       const device = await this.prisma.device.update({
         where: { id },
         data: {
-          ...this.scalars(dto),
+          ...this.updateScalars(dto),
           ...(dto.status ? { status: dto.status } : {}),
           // PATCH gửi accessories => thay thế toàn bộ danh sách.
           ...(dto.accessories
@@ -199,7 +199,33 @@ export class DevicesService {
 
   // --- helpers ---------------------------------------------------------
 
-  private scalars(dto: CreateDeviceDto | UpdateDeviceDto) {
+  // Tách create/update thay vì 1 hàm nhận union: dto: CreateDeviceDto | UpdateDeviceDto
+  // sẽ làm TS suy rộng deviceCode/deviceName/specDetail/unit/deviceTypeId thành "T | undefined"
+  // kể cả ở nhánh create (các trường này bắt buộc trong CreateDeviceDto) — Prisma create() sẽ
+  // không còn phân biệt được DeviceCreateInput/DeviceUncheckedCreateInput qua XOR, phải ép kiểu.
+  private createScalars(dto: CreateDeviceDto) {
+    return {
+      deviceCode: dto.deviceCode,
+      deviceName: dto.deviceName,
+      specDetail: dto.specDetail,
+      unit: dto.unit,
+      deviceTypeId: dto.deviceTypeId,
+      serialNumber: dto.serialNumber,
+      location: dto.location,
+      purchaseDate: dto.purchaseDate ? new Date(dto.purchaseDate) : undefined,
+      supplier: dto.supplier,
+      warrantyMonths: dto.warrantyMonths,
+      warrantyCondition: dto.warrantyCondition,
+      warrantyExpiresOn: dto.warrantyExpiresOn
+        ? new Date(dto.warrantyExpiresOn)
+        : undefined,
+      departmentId: dto.departmentId,
+      currentUserId: dto.currentUserId,
+      allocatedOn: dto.allocatedOn ? new Date(dto.allocatedOn) : undefined,
+    };
+  }
+
+  private updateScalars(dto: UpdateDeviceDto) {
     return {
       deviceCode: dto.deviceCode,
       deviceName: dto.deviceName,

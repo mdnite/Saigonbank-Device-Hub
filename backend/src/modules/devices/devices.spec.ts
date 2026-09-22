@@ -162,6 +162,74 @@ describe('Devices: /devices, /device-types', () => {
     expect(res.body.message).toBe('Loại thiết bị không tồn tại');
   });
 
+  it('PATCH không cho đặt trạng thái "Đã xóa"', async () => {
+    const created = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(admin))
+      .send(newDevice())
+      .expect(201);
+    const res = await http()
+      .patch(`/devices/${created.body.data.id}`)
+      .set('Authorization', tokenOf(admin))
+      .send({ status: 'Đã xóa' })
+      .expect(400);
+    expect(res.body.message).toBe('Trạng thái không hợp lệ');
+  });
+
+  it('PATCH gửi accessories thay toàn bộ danh sách linh kiện cũ', async () => {
+    const created = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(admin))
+      .send(
+        newDevice({
+          accessories: [
+            {
+              accessoryCode: 'LK-001',
+              accessoryName: 'Sạc',
+              accessoryType: 'Nguồn',
+              unit: 'Cái',
+            },
+          ],
+        }),
+      )
+      .expect(201);
+    const res = await http()
+      .patch(`/devices/${created.body.data.id}`)
+      .set('Authorization', tokenOf(admin))
+      .send({
+        accessories: [
+          {
+            accessoryCode: 'LK-002',
+            accessoryName: 'Chuột',
+            accessoryType: 'Ngoại vi',
+            unit: 'Cái',
+          },
+        ],
+      })
+      .expect(200);
+    expect(
+      res.body.data.accessories.map(
+        (a: { accessoryCode: string }) => a.accessoryCode,
+      ),
+    ).toEqual(['LK-002']);
+  });
+
+  it('PATCH đổi loại thiết bị mà không gửi mã: kiểm mã cũ theo tiền tố loại mới', async () => {
+    const created = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(admin))
+      .send(newDevice())
+      .expect(201);
+    const res = await http()
+      .patch(`/devices/${created.body.data.id}`)
+      .set('Authorization', tokenOf(admin))
+      .send({ deviceTypeId: 2 })
+      .expect(400);
+    expect(res.body.message).toBe(
+      'Mã thiết bị phải bắt đầu bằng "PC" theo loại thiết bị đã chọn',
+    );
+  });
+
   it('xoá mềm: không xoá row, thiết bị biến khỏi danh sách', async () => {
     const created = await http()
       .post('/devices')

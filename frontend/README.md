@@ -35,15 +35,17 @@ Node's own global `localStorage` shadows jsdom's.
 |--------|---------|--------------|
 | `auth` | Login, Quên mật khẩu, OTP, Đổi mật khẩu | Group 1, 3, 4, 5 |
 | `dashboard` | Tổng quan (4 thẻ thống kê) | Group 2 |
-| `device` | Danh mục thiết bị, Thêm tài sản, Cấp phát - Thu hồi | Group 10, 14, 15, 16 |
+| `device` | Danh mục thiết bị (`/devices`), Thêm/sửa thiết bị (`/devices/new`, `/devices/:id/edit`) | Group 10, 14, 15 |
 | `user` | Quản lý người dùng (`/users`, `/users/new` — chỉ Quản trị viên) + Cài đặt cá nhân (`/settings`, 3 tab) | Group 7, 8, 9 (chỉ màn cài đặt) |
 
-Not yet built (routed to a "đang phát triển" placeholder): Điều chuyển, Kiểm kê.
+Not yet built (routed to a "đang phát triển" placeholder): Điều chuyển, Cấp phát - Thu hồi, Kiểm kê.
 Not routed at all: Danh sách/Tạo đơn cấp phát, Approvals Center (Group 11–13).
 
-`auth` and the admin side of `user` are wired to the real API in [`../backend/`](../backend/)
-(login, forgot password → OTP email → reset, logout = client-side token removal; `/users` list,
-create, lock/unlock, soft delete). `dashboard`, `device` and `/settings` still use in-memory mocks.
+`auth`, the admin side of `user`, and `device` are wired to the real API in
+[`../backend/`](../backend/) (login, forgot password → OTP email → reset, logout = client-side
+token removal; `/users` list/create/lock-unlock/soft-delete; `/devices` list/create/update/soft-delete,
+write actions gated to Quản trị viên or Trưởng phòng Kỹ thuật). `dashboard` and `/settings` still
+use in-memory mocks.
 
 ## Architecture — pragmatic DDD
 

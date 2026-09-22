@@ -1,7 +1,7 @@
 # Thay đổi cần cập nhật vào báo cáo BCTT-HKTT
 
-> Tổng hợp những điểm code thật (backend `identity` + `users`, schema Prisma) đã khác hoặc bổ sung
-> so với bản báo cáo hiện tại. Cập nhật lần cuối: 2026-09-19.
+> Tổng hợp những điểm code thật (backend `identity` + `users` + `devices`, schema Prisma) đã khác
+> hoặc bổ sung so với bản báo cáo hiện tại. Cập nhật lần cuối: 2026-09-22.
 
 ## 1. UC-01 — Đăng nhập
 - Đăng nhập bằng **tên đăng nhập hoặc email** + mật khẩu.
@@ -84,7 +84,61 @@ Table PasswordResetToken {
 }
 ```
 
-## 6. Còn treo
+## 6. Thiết bị — 3 bảng mới cho ERD (vòng quản lý thiết bị, 2026-09-22)
+- ERD 3.2.1 cần thêm **3 bảng**: `DeviceType`, `Device`, `DeviceAccessory`. Bảng `Device` có
+  **3 khoá ngoại**: `DeviceTypeId → DeviceType.Id` (bắt buộc), `DepartmentId → Department.Id`
+  (không bắt buộc), `CurrentUserId → User.Id` (không bắt buộc).
+- Mã thiết bị (`DeviceCode`) theo quy tắc **`PREFIX-NNNNNN`** (2–4 chữ hoa + `-` + 6 chữ số),
+  `PREFIX` phải khớp `DeviceType.Prefix` của loại thiết bị đã chọn (vd. loại "Laptop" có
+  `Prefix = "LT"` thì mã phải bắt đầu bằng `LT-`).
+- Thiết bị **không bao giờ xoá cứng** — xoá = đổi `Status` thành "Đã xóa", giữ nguyên bản ghi
+  (cùng nguyên tắc đã áp dụng cho `User`, xem mục 3).
+- Phân quyền **ghi** thiết bị (tạo / sửa / xoá): **Quản trị viên**, hoặc **Trưởng phòng** thuộc
+  phòng Kỹ thuật (`Department.DepartmentCode = 'KYTHUAT'`). Đọc thì mọi vai trò đã đăng nhập đều
+  xem được.
+
+DBML bổ sung (dán tiếp vào ERD ở mục 5):
+
+```dbml
+Table DeviceType {
+  Id int [pk, increment]
+  TypeName varchar(100) [not null]
+  Prefix varchar(4) [not null, unique, note: 'tiền tố bắt buộc của DeviceCode']
+}
+
+Table Device {
+  Id int [pk, increment]
+  DeviceTypeId int [not null, ref: > DeviceType.Id]
+  DepartmentId int [ref: > Department.Id]
+  CurrentUserId int [ref: > User.Id]
+  DeviceCode varchar(20) [not null, unique, note: 'PREFIX-NNNNNN, PREFIX khớp DeviceType.Prefix']
+  DeviceName varchar(150) [not null]
+  SerialNumber varchar(100) [unique]
+  SpecDetail varchar(255) [not null]
+  Unit varchar(20) [not null]
+  Location varchar(150)
+  PurchaseDate date
+  Supplier varchar(150)
+  WarrantyMonths int
+  WarrantyCondition varchar(255)
+  WarrantyExpiresOn date
+  Status varchar(50) [not null, note: 'Trong kho | Đã cấp phát | Chờ thanh lý | Đã xóa']
+  AllocatedOn date
+  CreatedAt timestamp [not null, default: `now()`]
+  UpdatedAt timestamp [not null]
+}
+
+Table DeviceAccessory {
+  Id int [pk, increment]
+  DeviceId int [not null, ref: > Device.Id]
+  AccessoryCode varchar(50) [not null]
+  AccessoryName varchar(150) [not null]
+  AccessoryType varchar(100) [not null]
+  Unit varchar(20) [not null]
+}
+```
+
+## 7. Còn treo
 - `Department.DepartmentCode`: **chốt giữ unique** (2026-09-21). Schema `backend/prisma/schema.prisma`
   và DB thật đã có ràng buộc này từ migration `20260917140549_init_user_login`, khớp icon khoá trên
   ERD — không đổi, không cần migration mới.

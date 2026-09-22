@@ -1,5 +1,5 @@
 // ============================================================================
-// IDMS - schema.prisma (v3: 4 bảng phục vụ luồng Đăng nhập / Đăng xuất /
+// IDSM - schema.prisma (v3: 4 bảng phục vụ luồng Đăng nhập / Đăng xuất /
 // Quên mật khẩu, đã chốt theo quyết định của Sato ngày 17/09/2026)
 // Khớp 1:1 với ERD đã duyệt trong BCTT-HKTT (3.2.1/3.2.2) cho 3 bảng
 // Role/Department/User, đọc trực tiếp từ ảnh dbdiagram.io (media/image1.png)

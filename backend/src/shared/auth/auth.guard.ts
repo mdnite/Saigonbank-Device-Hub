@@ -20,6 +20,8 @@ export interface JwtPayload {
 export interface AuthUser {
   id: number;
   roleName: string;
+  /** Department.DepartmentCode, hoặc null nếu tài khoản không thuộc phòng ban nào (vd. Quản trị viên). */
+  departmentCode: string | null;
 }
 
 export type AuthedRequest = Request & { user: AuthUser };
@@ -54,7 +56,7 @@ export class AuthGuard implements CanActivate {
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.userId },
-      include: { role: true },
+      include: { role: true, department: true },
     });
     if (!user || user.status !== USER_STATUS.ACTIVE) {
       throw new UnauthorizedException(SESSION_EXPIRED);
@@ -68,7 +70,11 @@ export class AuthGuard implements CanActivate {
       throw new ForbiddenException('Bạn không có quyền thực hiện thao tác này');
     }
 
-    req.user = { id: user.id, roleName: user.role.roleName };
+    req.user = {
+      id: user.id,
+      roleName: user.role.roleName,
+      departmentCode: user.department?.departmentCode ?? null,
+    };
     return true;
   }
 }

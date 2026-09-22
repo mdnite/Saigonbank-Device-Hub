@@ -26,11 +26,15 @@ describe('Identity: /auth', () => {
 
   let secretHash: string;
 
-  function addUser(username: string, status: string) {
+  function addUser(
+    username: string,
+    status: string,
+    departmentId: number | null = null,
+  ) {
     const user: User = {
       id: prisma.users.length + 1,
       roleId: 3,
-      departmentId: null,
+      departmentId,
       username,
       password: secretHash,
       fullName: `User ${username}`,
@@ -66,6 +70,7 @@ describe('Identity: /auth', () => {
     addUser('active', USER_STATUS.ACTIVE);
     addUser('locked', USER_STATUS.INACTIVE);
     addUser('removed', USER_STATUS.DELETED);
+    addUser('admin', USER_STATUS.ACTIVE, 1);
   }, 30_000);
 
   afterEach(async () => {
@@ -160,6 +165,14 @@ describe('Identity: /auth', () => {
         .send({ identifier: 'removed', password: 'Secret@123' })
         .expect(401);
       expect(res.body).toEqual(wrongCredentials);
+    });
+
+    it('trả departmentCode của người dùng khi đăng nhập', async () => {
+      const res = await http()
+        .post('/auth/login')
+        .send({ identifier: 'admin', password: 'Secret@123' })
+        .expect(200);
+      expect(res.body.data.user.departmentCode).toBe('KYTHUAT');
     });
 
     it('body rỗng: 400 trong wrapper lỗi', async () => {

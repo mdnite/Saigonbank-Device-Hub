@@ -1,19 +1,20 @@
-import {
-  hasErrors,
-  validateAssetDraft,
-  type AssetDraft,
-} from '../domain/assetDraft';
-import type { Device, DeviceStatus } from '../domain/device';
+import { hasErrors, validateDeviceDraft, type DeviceDraft } from '../domain/deviceDraft';
+import type { Device, DeviceStatus, DeviceTypeRef } from '../domain/device';
 
 export interface DeviceQuery {
   search?: string;
-  status?: DeviceStatus | 'ALL';
+  status?: DeviceStatus;
+  deviceTypeId?: number;
+  departmentId?: number;
 }
 
 export interface DeviceRepository {
   list(query?: DeviceQuery): Promise<Device[]>;
-  getById(id: string): Promise<Device | null>;
-  create(draft: AssetDraft): Promise<Device>;
+  getById(id: number): Promise<Device>;
+  create(draft: DeviceDraft): Promise<Device>;
+  update(id: number, draft: DeviceDraft): Promise<Device>;
+  remove(id: number): Promise<void>;
+  deviceTypes(): Promise<DeviceTypeRef[]>;
 }
 
 export class DeviceValidationError extends Error {
@@ -23,15 +24,25 @@ export class DeviceValidationError extends Error {
   }
 }
 
+function assertValid(draft: DeviceDraft) {
+  const errors = validateDeviceDraft(draft);
+  if (hasErrors(errors)) throw new DeviceValidationError(errors as Record<string, string>);
+}
+
 export function makeDeviceService(repo: DeviceRepository) {
   return {
     list: (query?: DeviceQuery) => repo.list(query),
-    get: (id: string) => repo.getById(id),
-    create: (draft: AssetDraft) => {
-      const errors = validateAssetDraft(draft);
-      if (hasErrors(errors)) throw new DeviceValidationError(errors as Record<string, string>);
+    get: (id: number) => repo.getById(id),
+    create: (draft: DeviceDraft) => {
+      assertValid(draft);
       return repo.create(draft);
     },
+    update: (id: number, draft: DeviceDraft) => {
+      assertValid(draft);
+      return repo.update(id, draft);
+    },
+    remove: (id: number) => repo.remove(id),
+    deviceTypes: () => repo.deviceTypes(),
   };
 }
 

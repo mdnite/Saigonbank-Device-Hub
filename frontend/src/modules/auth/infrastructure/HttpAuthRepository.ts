@@ -6,7 +6,7 @@ import type { AuthRepository } from '../application/AuthRepository';
 /** `data` của POST /auth/login (backend/src/modules/identity/auth.service.ts). */
 interface LoginResponse {
   accessToken: string;
-  user: { id: number; fullName: string; email: string };
+  user: { id: number; fullName: string; email: string; roleName: string };
 }
 
 /** Adapter gọi module `identity` của backend. */
@@ -22,6 +22,7 @@ export class HttpAuthRepository implements AuthRepository {
       displayName: user.fullName,
       email: user.email,
       token: accessToken,
+      roleName: user.roleName,
     };
   }
 

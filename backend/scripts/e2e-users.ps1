@@ -9,6 +9,8 @@
 # không bao giờ xoá cứng row User.
 #
 # Chạy: powershell -ExecutionPolicy Bypass -File scripts/e2e-users.ps1
+#
+# LƯU Ý: file này phải lưu ở UTF-8 CÓ BOM — thiếu BOM thì PowerShell 5.1 đọc sai chuỗi tiếng Việt.
 
 param(
   [string]$BaseUrl       = 'http://localhost:3000',
@@ -61,7 +63,9 @@ function ExpectStatus {
 
 function Psql ([string]$Sql) {
   $env:PGPASSWORD = $DbPassword
-  $out = & $PsqlPath -U $DbUser -h localhost -d $DbName -t -A -c $Sql 2>&1
+  # PowerShell 5.1 bọc lại tham số khi gọi exe native và nuốt mất dấu nháy kép mà PostgreSQL
+  # cần cho tên cột PascalCase ("Status", "User") → đưa câu lệnh qua stdin thay vì tham số -c.
+  $out = $Sql | & $PsqlPath -U $DbUser -h localhost -d $DbName -t -A 2>&1
   $env:PGPASSWORD = $null
   if ($LASTEXITCODE -ne 0) { throw "psql lỗi: $out" }
   return ($out | Out-String).Trim()

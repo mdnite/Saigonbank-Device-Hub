@@ -40,8 +40,12 @@ function readInitial(): SessionState {
   }
   // Hàm thuần (StrictMode gọi initializer 2 lần) — việc xoá storage cũ làm trong useEffect.
   if (!stored) return { session: null, notice: null };
-  // Phiên lưu từ bản cũ (chưa có roleName) — bỏ, bắt đăng nhập lại.
-  if (!stored.roleName) return { session: null, notice: null };
+  // Phiên lưu từ bản cũ (chưa có roleName / departmentCode) — bỏ, bắt đăng nhập lại.
+  // departmentCode so với `undefined` chứ KHÔNG kiểm falsy: null là giá trị hợp lệ
+  // (user không thuộc phòng ban nào, vd. Quản trị viên) — kiểm falsy sẽ đá văng họ mỗi lần mở app.
+  if (!stored.roleName || stored.departmentCode === undefined) {
+    return { session: null, notice: null };
+  }
   if (isTokenExpired(stored.token)) return { session: null, notice: SESSION_EXPIRED_NOTICE };
   return { session: stored, notice: null };
 }

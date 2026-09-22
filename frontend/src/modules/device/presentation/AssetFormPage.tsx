@@ -9,8 +9,8 @@ import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { useAsyncData } from '@/shared/lib/useAsyncData';
 import { DeviceValidationError } from '../application/DeviceRepository';
 import { deviceService } from '../infrastructure/container';
-import type { DepartmentRef, Device, DeviceTypeRef, UserRef } from '../domain/device';
-import { emptyDeviceDraft, type DeviceDraft } from '../domain/deviceDraft';
+import type { DepartmentRef, DeviceTypeRef, UserRef } from '../domain/device';
+import { deviceToDraft, emptyDeviceDraft, type DeviceDraft } from '../domain/deviceDraft';
 import { AssetGeneralInfoFields } from './form/AssetGeneralInfoFields';
 import { ComponentsTable } from './form/ComponentsTable';
 import { useDeviceDraft } from './form/useDeviceDraft';
@@ -18,34 +18,6 @@ import { useDeviceLookups } from './useDeviceLookups';
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-4 text-base font-semibold text-ink">{children}</h3>;
-}
-
-/** Device (đọc từ API) → DeviceDraft (dạng form) để nạp sẵn trang sửa. */
-function toDraft(d: Device): DeviceDraft {
-  return {
-    deviceCode: d.deviceCode,
-    deviceName: d.deviceName,
-    serialNumber: d.serialNumber ?? '',
-    specDetail: d.specDetail,
-    unit: d.unit,
-    deviceTypeId: d.deviceType.id,
-    location: d.location ?? '',
-    purchaseDate: d.purchaseDate ?? '',
-    supplier: d.supplier ?? '',
-    warrantyMonths: d.warrantyMonths != null ? String(d.warrantyMonths) : '',
-    warrantyCondition: d.warrantyCondition ?? '',
-    warrantyExpiresOn: d.warrantyExpiresOn ?? '',
-    departmentId: d.department?.id ?? null,
-    currentUserId: d.currentUser?.id ?? null,
-    allocated: d.allocatedOn != null,
-    allocatedOn: d.allocatedOn ?? '',
-    accessories: d.accessories.map(({ accessoryCode, accessoryName, accessoryType, unit }) => ({
-      accessoryCode,
-      accessoryName,
-      accessoryType,
-      unit,
-    })),
-  };
 }
 
 /** Đọc `id` trên route: không có → chế độ tạo, có → nạp thiết bị rồi mở form sửa. */
@@ -70,7 +42,7 @@ export function AssetFormPage() {
     <DeviceForm
       key={deviceId ?? 'new'}
       deviceId={deviceId}
-      initial={existing ? toDraft(existing) : { ...emptyDeviceDraft(), unit: 'Cái' }}
+      initial={existing ? deviceToDraft(existing) : { ...emptyDeviceDraft(), unit: 'Cái' }}
       deviceTypes={deviceTypes}
       departments={departments}
       users={users}

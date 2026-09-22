@@ -16,6 +16,7 @@ it('Đăng xuất xoá session (token) khỏi localStorage và về /login', () 
       email: 'a@b.vn',
       token: fakeJwt(inOneHour()),
       roleName: 'Nhân viên',
+      departmentCode: null,
     }),
   );
   render(
@@ -38,7 +39,14 @@ it('Đăng xuất xoá session (token) khỏi localStorage và về /login', () 
 const renderSidebarAs = (roleName: string) => {
   localStorage.setItem(
     'idsm.session',
-    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName }),
+    JSON.stringify({
+      userId: '1',
+      displayName: 'A',
+      email: 'a@b.vn',
+      token: fakeJwt(inOneHour()),
+      roleName,
+      departmentCode: null,
+    }),
   );
   render(
     <SessionProvider>

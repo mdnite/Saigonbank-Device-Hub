@@ -6,7 +6,10 @@ import { SessionProvider, useSession } from './SessionContext';
 
 const KEY = 'idsm.session';
 const stored = (token: string, roleName = 'Nhân viên') =>
-  localStorage.setItem(KEY, JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token, roleName }));
+  localStorage.setItem(
+    KEY,
+    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token, roleName, departmentCode: null }),
+  );
 
 function Probe() {
   const { session, notice } = useSession();
@@ -43,6 +46,16 @@ it('token hết hạn khi mở app: bỏ phiên, xoá storage, báo hết phiên
 
 it('phiên cũ thiếu roleName: bỏ phiên, không báo', () => {
   localStorage.setItem(KEY, JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()) }));
+  renderProbe();
+  expect(screen.getByText('session:no')).toBeInTheDocument();
+  expect(screen.getByText('notice:')).toBeInTheDocument();
+});
+
+it('phiên cũ thiếu departmentCode: bỏ phiên, không báo', () => {
+  localStorage.setItem(
+    KEY,
+    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName: 'Trưởng phòng' }),
+  );
   renderProbe();
   expect(screen.getByText('session:no')).toBeInTheDocument();
   expect(screen.getByText('notice:')).toBeInTheDocument();

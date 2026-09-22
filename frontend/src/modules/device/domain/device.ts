@@ -1,28 +1,47 @@
-export type DeviceStatus = 'IN_STOCK' | 'ALLOCATED' | 'PENDING_DISPOSAL';
-
-export const DEVICE_STATUS_LABEL: Record<DeviceStatus, string> = {
+/** Trạng thái thiết bị — chuỗi tiếng Việt y hệt giá trị backend lưu trong DB. */
+export const DEVICE_STATUS = {
   IN_STOCK: 'Trong kho',
   ALLOCATED: 'Đã cấp phát',
   PENDING_DISPOSAL: 'Chờ thanh lý',
-};
+  DELETED: 'Đã xóa',
+} as const;
 
-export const DEVICE_STATUSES = Object.keys(DEVICE_STATUS_LABEL) as DeviceStatus[];
+export type DeviceStatus = (typeof DEVICE_STATUS)[keyof typeof DEVICE_STATUS];
 
-export interface DeviceSpec {
-  cpu: string;
-  ram: string;
-  storage: string;
-}
+/** 3 trạng thái hiện trong bộ lọc — "Đã xóa" không bao giờ hiện cho người dùng. */
+export const DEVICE_STATUS_OPTIONS: DeviceStatus[] = [
+  DEVICE_STATUS.IN_STOCK,
+  DEVICE_STATUS.ALLOCATED,
+  DEVICE_STATUS.PENDING_DISPOSAL,
+];
+
+export interface DeviceTypeRef { id: number; typeName: string; prefix: string }
+export interface DepartmentRef { id: number; departmentCode: string; departmentName: string }
+export interface UserRef { id: number; fullName: string; username: string }
 
 export interface Device {
-  id: string; // e.g. "LT-DELL-001"
-  name: string; // e.g. "Dell Latitude 5420"
-  spec: DeviceSpec;
-  owner: string | null; // "Nguyễn Văn A - IT" or null when unassigned
+  id: number;
+  deviceCode: string;
+  deviceName: string;
+  serialNumber: string | null;
+  specDetail: string;
+  unit: string;
   status: DeviceStatus;
-}
-
-/** "Intel Core i5-1135G7 · 16GB RAM · 512GB SSD" */
-export function specSummary(spec: DeviceSpec): string {
-  return [spec.cpu, spec.ram, spec.storage].filter(Boolean).join(' · ');
+  allocatedOn: string | null;
+  location: string | null;
+  purchaseDate: string | null;
+  supplier: string | null;
+  warrantyMonths: number | null;
+  warrantyCondition: string | null;
+  warrantyExpiresOn: string | null;
+  deviceType: DeviceTypeRef;
+  department: DepartmentRef | null;
+  currentUser: UserRef | null;
+  accessories: {
+    id: number;
+    accessoryCode: string;
+    accessoryName: string;
+    accessoryType: string;
+    unit: string;
+  }[];
 }

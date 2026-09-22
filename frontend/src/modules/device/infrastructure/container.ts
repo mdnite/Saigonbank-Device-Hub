@@ -1,4 +1,4 @@
 import { makeDeviceService } from '../application/DeviceRepository';
-import { InMemoryDeviceRepository } from './InMemoryDeviceRepository';
+import { HttpDeviceRepository } from './HttpDeviceRepository';
 
-export const deviceService = makeDeviceService(new InMemoryDeviceRepository());
+export const deviceService = makeDeviceService(new HttpDeviceRepository());

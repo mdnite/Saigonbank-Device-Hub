@@ -53,13 +53,17 @@ export function AssetFormPage() {
   const { id } = useParams<{ id: string }>();
   const deviceId = id ? Number(id) : null;
   const { deviceTypes, departments, users } = useDeviceLookups();
-  const { data: existing, loading } = useAsyncData(
+  const { data: existing, loading, error } = useAsyncData(
     () => (deviceId !== null ? deviceService.get(deviceId) : Promise.resolve(null)),
     [deviceId],
   );
 
   if (deviceId !== null && loading) {
     return <p className="p-6 text-ink-muted">Đang tải…</p>;
+  }
+
+  if (deviceId !== null && error) {
+    return <p className="p-6 text-status-dangerFg">Không tải được thiết bị: {error}</p>;
   }
 
   return (

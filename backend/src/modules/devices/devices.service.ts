@@ -193,6 +193,14 @@ export class DevicesService {
     });
   }
 
+  /** Dọn thùng rác: xoá cứng — chỉ những id đã ở Status "Đã xóa", id khác bị bỏ qua. */
+  async purge(ids: number[]): Promise<number> {
+    const { count } = await this.prisma.device.deleteMany({
+      where: { id: { in: ids }, status: DEVICE_STATUS.DELETED },
+    });
+    return count;
+  }
+
   deviceTypes() {
     return this.prisma.deviceType.findMany({ orderBy: { id: 'asc' } });
   }

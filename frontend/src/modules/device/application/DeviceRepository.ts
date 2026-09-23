@@ -14,6 +14,8 @@ export interface DeviceRepository {
   create(draft: DeviceDraft): Promise<Device>;
   update(id: number, draft: DeviceDraft): Promise<Device>;
   remove(id: number): Promise<void>;
+  /** Xoá cứng hàng loạt (dọn thùng rác) — chỉ xoá được thiết bị đã ở Status "Đã xóa". */
+  purge(ids: number[]): Promise<number>;
   deviceTypes(): Promise<DeviceTypeRef[]>;
   departments(): Promise<DepartmentRef[]>;
   /** Danh sách rút gọn cho dropdown "Người sở hữu". */
@@ -45,6 +47,7 @@ export function makeDeviceService(repo: DeviceRepository) {
       return repo.update(id, draft);
     },
     remove: (id: number) => repo.remove(id),
+    purge: (ids: number[]) => repo.purge(ids),
     deviceTypes: () => repo.deviceTypes(),
     departments: () => repo.departments(),
     users: () => repo.users(),

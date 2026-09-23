@@ -72,4 +72,12 @@ describe('HttpDeviceRepository', () => {
     await new HttpDeviceRepository().create(draft({ allocated: true, currentUserId: 7 }));
     expect(sentBody(fetchMock).currentUserId).toBe(7);
   });
+
+  it('purge: gọi POST /devices/purge với ids, trả về count', async () => {
+    fetchMock.mockImplementation(async () => envelope({ count: 2 }));
+    const count = await new HttpDeviceRepository().purge([1, 2]);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:3000/devices/purge');
+    expect(sentBody(fetchMock)).toEqual({ ids: [1, 2] });
+    expect(count).toBe(2);
+  });
 });

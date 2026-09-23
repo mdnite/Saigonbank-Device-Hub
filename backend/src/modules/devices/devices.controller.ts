@@ -13,10 +13,13 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '../../shared/auth/auth.guard';
 import { DeviceWriteGuard } from '../../shared/auth/device-write.guard';
+import { Roles } from '../../shared/auth/roles.decorator';
 import { ResponseMessage } from '../../shared/http/api-response';
+import { ROLE } from '../identity/roles';
 import {
   CreateDeviceDto,
   ListDevicesQuery,
+  PurgeDevicesDto,
   UpdateDeviceDto,
 } from './devices.dto';
 import { DEVICE_NOT_FOUND, DevicesService } from './devices.service';
@@ -63,6 +66,15 @@ export class DevicesController {
   @ResponseMessage('Đã xoá thiết bị')
   remove(@DeviceId() id: number) {
     return this.devices.softDelete(id);
+  }
+
+  /** Dọn thùng rác — chỉ Quản trị viên, xoá cứng nên siết hơn DeviceWriteGuard thường. */
+  @Post('purge')
+  @Roles(ROLE.ADMIN)
+  @ResponseMessage('Đã dọn thùng rác')
+  async purge(@Body() dto: PurgeDevicesDto) {
+    const count = await this.devices.purge(dto.ids);
+    return { count };
   }
 }
 

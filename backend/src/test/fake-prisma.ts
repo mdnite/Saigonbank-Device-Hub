@@ -45,8 +45,9 @@ type DeviceUpdateData = Partial<Device> & {
 function matchValue(value: unknown, cond: unknown): boolean {
   if (cond === undefined) return true; // Prisma bỏ qua điều kiện undefined
   if (cond !== null && typeof cond === 'object' && !(cond instanceof Date)) {
-    const c = cond as { not?: unknown; contains?: string };
+    const c = cond as { not?: unknown; contains?: string; in?: unknown[] };
     if ('not' in c) return value !== c.not;
+    if ('in' in c && Array.isArray(c.in)) return c.in.includes(value);
     if (typeof c.contains === 'string') {
       return String(value).toLowerCase().includes(c.contains.toLowerCase());
     }
@@ -321,7 +322,18 @@ export function createFakePrisma() {
         },
       ),
       delete: jest.fn(forbidden),
-      deleteMany: jest.fn(forbidden),
+      // Chỉ /devices/purge dùng — CASCADE deviceAccessories giống FK thật trong migration.
+      deleteMany: jest.fn(async ({ where }: { where: Where }) => {
+        const toRemove = devices.filter((d) => matches(d, where));
+        for (const d of toRemove) {
+          devices.splice(devices.indexOf(d), 1);
+          for (let i = deviceAccessories.length - 1; i >= 0; i--) {
+            if (deviceAccessories[i].deviceId === d.id)
+              deviceAccessories.splice(i, 1);
+          }
+        }
+        return { count: toRemove.length };
+      }),
     },
     passwordResetToken: {
       create: jest.fn(

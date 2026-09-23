@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, MoreVertical, Plus, Upload } from 'lucide-react';
 import { useSession } from '@/app/session/SessionContext';
-import { canWriteDevices } from '@/modules/auth/domain/session';
+import { canWriteDevices, isAdmin } from '@/modules/auth/domain/session';
 import { PageHeader } from '@/shared/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
@@ -11,7 +11,7 @@ import { DataTable, type Column } from '@/shared/ui/DataTable';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { Select } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
-import { DEVICE_STATUS_OPTIONS, type Device, type DeviceStatus } from '../domain/device';
+import { DEVICE_STATUS, DEVICE_STATUS_OPTIONS, type Device, type DeviceStatus } from '../domain/device';
 import type { DeviceQuery } from '../application/DeviceRepository';
 import { deviceService } from '../infrastructure/container';
 import { useDevices } from './useDevices';
@@ -33,6 +33,15 @@ export function DeviceCatalogPage() {
     // ponytail: confirm native của trình duyệt — đổi sang Modal khi shared/ui có.
     if (!window.confirm(`Xoá thiết bị ${d.deviceCode}?`)) return;
     await deviceService.remove(d.id);
+    setReloadKey((k) => k + 1);
+  });
+
+  const canPurge = status === DEVICE_STATUS.DELETED && isAdmin(session);
+  const purge = useAsyncAction(async () => {
+    const ids = (devices ?? []).map((d) => d.id);
+    if (ids.length === 0) return;
+    if (!window.confirm(`Xoá vĩnh viễn ${ids.length} thiết bị? Không thể khôi phục.`)) return;
+    await deviceService.purge(ids);
     setReloadKey((k) => k + 1);
   });
 
@@ -127,9 +136,21 @@ export function DeviceCatalogPage() {
               </option>
             ))}
           </Select>
+          {canPurge && (devices?.length ?? 0) > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={purge.pending}
+              onClick={() => void purge.run()}
+            >
+              Dọn thùng rác
+            </Button>
+          )}
         </div>
 
-        {(del.error ?? error) && <p className="mb-3 text-sm text-status-dangerFg">{del.error ?? error}</p>}
+        {(del.error ?? purge.error ?? error) && (
+          <p className="mb-3 text-sm text-status-dangerFg">{del.error ?? purge.error ?? error}</p>
+        )}
 
         <DataTable
           columns={columns}

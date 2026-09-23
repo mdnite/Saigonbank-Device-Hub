@@ -43,6 +43,10 @@ export class HttpDeviceRepository implements DeviceRepository {
   async remove(id: number): Promise<void> {
     await apiDelete<null>(`/devices/${id}`);
   }
+  async purge(ids: number[]): Promise<number> {
+    const res = await apiPost<{ count: number }>('/devices/purge', { ids });
+    return res.count;
+  }
   deviceTypes(): Promise<DeviceTypeRef[]> {
     return apiGet<DeviceTypeRef[]>('/device-types');
   }

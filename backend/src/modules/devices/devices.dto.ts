@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsDateString,
   IsIn,
@@ -18,6 +19,7 @@ import {
   ASSIGNABLE_DEVICE_STATUSES,
   DEVICE_CODE_MESSAGE,
   DEVICE_CODE_PATTERN,
+  DEVICE_STATUS,
 } from './device-status';
 
 const trim = ({ value }: { value: unknown }) =>
@@ -54,8 +56,9 @@ export class ListDevicesQuery {
   @IsString()
   search?: string;
 
+  // Lọc danh sách chấp nhận cả "Đã xóa" — khác với PATCH (ASSIGNABLE_DEVICE_STATUSES) vốn cấm đặt nó.
   @IsOptional()
-  @IsIn([...ASSIGNABLE_DEVICE_STATUSES], { message: 'Trạng thái không hợp lệ' })
+  @IsIn(Object.values(DEVICE_STATUS), { message: 'Trạng thái không hợp lệ' })
   status?: string;
 
   @IsOptional()
@@ -71,6 +74,16 @@ export class ListDevicesQuery {
   @Min(1, { message: 'Phòng ban không hợp lệ' })
   @Max(MAX_INT32, { message: 'Phòng ban không hợp lệ' })
   departmentId?: number;
+}
+
+export class PurgeDevicesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @Type(() => Number)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @Max(MAX_INT32, { each: true })
+  ids!: number[];
 }
 
 export class CreateDeviceDto {

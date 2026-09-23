@@ -8,11 +8,12 @@ export const DEVICE_STATUS = {
 
 export type DeviceStatus = (typeof DEVICE_STATUS)[keyof typeof DEVICE_STATUS];
 
-/** 3 trạng thái hiện trong bộ lọc — "Đã xóa" không bao giờ hiện cho người dùng. */
+/** 4 trạng thái hiện trong bộ lọc danh mục — soft-delete nên "Đã xóa" vẫn xem lại được. */
 export const DEVICE_STATUS_OPTIONS: DeviceStatus[] = [
   DEVICE_STATUS.IN_STOCK,
   DEVICE_STATUS.ALLOCATED,
   DEVICE_STATUS.PENDING_DISPOSAL,
+  DEVICE_STATUS.DELETED,
 ];
 
 export interface DeviceTypeRef { id: number; typeName: string; prefix: string }

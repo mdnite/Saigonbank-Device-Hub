@@ -72,7 +72,6 @@ describe('Devices: /devices, /device-types', () => {
 
   afterEach(async () => {
     expect(prisma.device.delete).not.toHaveBeenCalled();
-    expect(prisma.device.deleteMany).not.toHaveBeenCalled();
     await app.close();
   });
 
@@ -250,6 +249,25 @@ describe('Devices: /devices, /device-types', () => {
     expect(list.body.data.some((d: { id: number }) => d.id === id)).toBe(false);
   });
 
+  it('lọc theo trạng thái "Đã xóa" trả về thiết bị đã xoá mềm', async () => {
+    const created = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(admin))
+      .send(newDevice())
+      .expect(201);
+    const id = created.body.data.id;
+    await http()
+      .delete(`/devices/${id}`)
+      .set('Authorization', tokenOf(admin))
+      .expect(200);
+    const res = await http()
+      .get('/devices')
+      .query({ status: 'Đã xóa' })
+      .set('Authorization', tokenOf(admin))
+      .expect(200);
+    expect(res.body.data.some((d: { id: number }) => d.id === id)).toBe(true);
+  });
+
   it('thao tác trên thiết bị đã xoá trả 404', async () => {
     const created = await http()
       .post('/devices')
@@ -273,6 +291,48 @@ describe('Devices: /devices, /device-types', () => {
       .get('/devices/9999999999')
       .set('Authorization', tokenOf(admin))
       .expect(404);
+  });
+
+  it('POST /devices/purge (Admin): xoá vĩnh viễn thiết bị đã xoá mềm, bỏ qua id chưa xoá', async () => {
+    const deleted = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(admin))
+      .send(newDevice())
+      .expect(201);
+    const deletedId = deleted.body.data.id;
+    await http()
+      .delete(`/devices/${deletedId}`)
+      .set('Authorization', tokenOf(admin))
+      .expect(200);
+
+    const active = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(admin))
+      .send(newDevice({ deviceCode: 'LT-000002' }))
+      .expect(201);
+    const activeId = active.body.data.id;
+
+    const res = await http()
+      .post('/devices/purge')
+      .set('Authorization', tokenOf(admin))
+      .send({ ids: [deletedId, activeId] })
+      .expect(201);
+
+    expect(res.body.data.count).toBe(1);
+    expect(prisma.devices.some((d) => d.id === deletedId)).toBe(false);
+    expect(prisma.devices.find((d) => d.id === activeId)?.status).toBe(
+      'Trong kho',
+    );
+    expect(prisma.device.deleteMany).toHaveBeenCalled();
+  });
+
+  it('POST /devices/purge: Nhân viên không được gọi', async () => {
+    const res = await http()
+      .post('/devices/purge')
+      .set('Authorization', tokenOf(staff))
+      .send({ ids: [1] })
+      .expect(403);
+    expect(res.body.message).toBe('Bạn không có quyền thực hiện thao tác này');
   });
 
   it('Nhân viên không được tạo thiết bị', async () => {

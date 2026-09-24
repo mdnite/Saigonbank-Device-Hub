@@ -225,7 +225,7 @@ model DeviceOrder {
 
   targetUser User  @relation("DeviceOrderTarget", fields: [targetUserId], references: [id])
   createdBy  User  @relation("DeviceOrderCreatedBy", fields: [createdById], references: [id])
-  decidedBy  User? @relation("DeviceOrderDecidedBy", fields: [decidedById], references: [id])
+  decidedBy  User? @relation("DeviceOrderDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
   items      DeviceOrderItem[]
 
   @@map("DeviceOrder")

@@ -18,7 +18,9 @@ const NO_PERMISSION = 'Bạn không có quyền thực hiện thao tác này';
 export class OrderCreateGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const { user } = context.switchToHttp().getRequest<AuthedRequest>();
-    const allowed = user.roleName === ROLE.HEAD && user.departmentCode === TECH_DEPARTMENT_CODE;
+    const allowed =
+      user.roleName === ROLE.HEAD &&
+      user.departmentCode === TECH_DEPARTMENT_CODE;
     if (!allowed) throw new ForbiddenException(NO_PERMISSION);
     return true;
   }

@@ -12,7 +12,6 @@ import { Select } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { ORDER_STATUS, ORDER_TYPE, type DeviceOrder, type OrderStatus, type OrderType } from '../domain/deviceOrder';
 import { deviceOrderService } from '../infrastructure/container';
-import { downloadBienBan } from './print/generateBienBan';
 import { useDeviceOrders } from './useDeviceOrders';
 import { ORDER_STATUS_TONE } from './orderStatusTone';
 
@@ -44,6 +43,9 @@ export function DeviceOrderListPage() {
 
   const print = useAsyncAction(async (o: DeviceOrder) => {
     const detail = await deviceOrderService.get(o.id);
+    // Nhúng font DejaVu Sans (~1MB base64) qua dynamic import — tách khỏi bundle chính,
+    // chỉ tải khi thực sự bấm in biên bản.
+    const { downloadBienBan } = await import('./print/generateBienBan');
     downloadBienBan(detail);
   });
 

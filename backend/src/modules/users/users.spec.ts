@@ -75,7 +75,6 @@ describe('Users: /users, /roles, /departments', () => {
 
   afterEach(async () => {
     expect(prisma.user.delete).not.toHaveBeenCalled();
-    expect(prisma.user.deleteMany).not.toHaveBeenCalled();
     await app.close();
   });
 
@@ -399,6 +398,47 @@ describe('Users: /users, /roles, /departments', () => {
         .delete(`/users/${removed.id}`)
         .set('Authorization', tokenOf(admin))
         .expect(404);
+    });
+  });
+
+  describe('POST /users/purge', () => {
+    it('Admin: xoá vĩnh viễn user đã xoá mềm, bỏ qua id chưa xoá, dọn cả token reset mật khẩu', async () => {
+      prisma.tokens.push({
+        id: 1,
+        userId: removed.id,
+        tokenHash: 'x',
+        expiresAt: new Date(),
+        usedAt: null,
+        createdAt: new Date(),
+      });
+
+      const res = await http()
+        .post('/users/purge')
+        .set('Authorization', tokenOf(admin))
+        .send({ ids: [removed.id, staff.id] })
+        .expect(201);
+
+      expect(res.body).toEqual({
+        success: true,
+        data: { count: 1 },
+        error: null,
+        message: 'Đã dọn thùng rác',
+      });
+      expect(prisma.users.some((u) => u.id === removed.id)).toBe(false);
+      expect(prisma.users.some((u) => u.id === staff.id)).toBe(true);
+      expect(prisma.tokens.some((t) => t.userId === removed.id)).toBe(false);
+      expect(prisma.user.deleteMany).toHaveBeenCalled();
+    });
+
+    it('Nhân viên không được gọi: 403', async () => {
+      const res = await http()
+        .post('/users/purge')
+        .set('Authorization', tokenOf(staff))
+        .send({ ids: [removed.id] })
+        .expect(403);
+      expect(res.body.message).toBe(
+        'Bạn không có quyền thực hiện thao tác này',
+      );
     });
   });
 

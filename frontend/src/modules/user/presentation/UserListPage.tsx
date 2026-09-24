@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, LockOpen, Plus, Trash2 } from 'lucide-react';
 import { useSession } from '@/app/session/SessionContext';
+import { isAdmin } from '@/modules/auth/domain/session';
 import { PageHeader } from '@/shared/layout/PageHeader';
 import { Badge, type BadgeTone } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
@@ -51,6 +52,15 @@ export function UserListPage() {
         user.id,
         action === 'lock' ? USER_STATUS.INACTIVE : USER_STATUS.ACTIVE,
       );
+    setReloadKey((k) => k + 1);
+  });
+
+  const canPurge = query.status === USER_STATUS.DELETED && isAdmin(session);
+  const purge = useAsyncAction(async () => {
+    const ids = (users ?? []).map((u) => u.id);
+    if (ids.length === 0) return;
+    if (!window.confirm(`Xoá vĩnh viễn ${ids.length} người dùng? Không thể khôi phục.`)) return;
+    await userAdminService.purge(ids);
     setReloadKey((k) => k + 1);
   });
 
@@ -155,9 +165,21 @@ export function UserListPage() {
               </option>
             ))}
           </Select>
+          {canPurge && (users?.length ?? 0) > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={purge.pending}
+              onClick={() => void purge.run()}
+            >
+              Dọn thùng rác
+            </Button>
+          )}
         </div>
 
-        {(act.error ?? error) && <p className="mb-3 text-sm text-status-dangerFg">{act.error ?? error}</p>}
+        {(act.error ?? purge.error ?? error) && (
+          <p className="mb-3 text-sm text-status-dangerFg">{act.error ?? purge.error ?? error}</p>
+        )}
 
         <DataTable
           columns={columns}

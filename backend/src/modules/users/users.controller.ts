@@ -19,6 +19,7 @@ import { ROLE } from '../identity/roles';
 import {
   CreateUserDto,
   ListUsersQuery,
+  PurgeUsersDto,
   UpdateUserStatusDto,
 } from './users.dto';
 import { USER_NOT_FOUND, UsersService } from './users.service';
@@ -63,6 +64,14 @@ export class UsersController {
   @ResponseMessage('Đã xoá người dùng')
   remove(@Req() req: AuthedRequest, @UserId() id: number) {
     return this.users.softDelete(req.user.id, id);
+  }
+
+  /** Dọn thùng rác — xoá cứng, chỉ Quản trị viên (đã áp ở @Roles class-level). */
+  @Post('purge')
+  @ResponseMessage('Đã dọn thùng rác')
+  async purge(@Body() dto: PurgeUsersDto) {
+    const count = await this.users.purge(dto.ids);
+    return { count };
   }
 }
 

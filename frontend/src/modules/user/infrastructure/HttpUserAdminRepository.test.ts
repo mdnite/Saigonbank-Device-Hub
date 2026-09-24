@@ -53,3 +53,12 @@ it('setStatus → PATCH /users/:id/status, remove → DELETE /users/:id', async 
   expect(fetchMock.mock.calls[1][0]).toBe('http://localhost:3000/users/5');
   expect(fetchMock.mock.calls[1][1].method).toBe('DELETE');
 });
+
+it('purge: gọi POST /users/purge với ids, trả về count', async () => {
+  const fetchMock = stubFetch({ count: 2 });
+  const count = await repo.purge([1, 2]);
+  expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:3000/users/purge');
+  expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ ids: [1, 2] });
+  expect(count).toBe(2);
+});

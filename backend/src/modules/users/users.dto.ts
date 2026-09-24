@@ -1,5 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMinSize,
+  IsArray,
   IsEmail,
   IsIn,
   IsInt,
@@ -85,4 +87,14 @@ export class CreateUserDto {
 export class UpdateUserStatusDto {
   @IsIn([USER_STATUS.ACTIVE, USER_STATUS.INACTIVE], { message: STATUS_MESSAGE })
   status!: string;
+}
+
+export class PurgeUsersDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @Type(() => Number)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @Max(MAX_INT32, { each: true })
+  ids!: number[];
 }

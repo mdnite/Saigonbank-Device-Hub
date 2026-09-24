@@ -6,6 +6,7 @@ export interface DeviceQuery {
   status?: DeviceStatus;
   deviceTypeId?: number;
   departmentId?: number;
+  currentUserId?: number;
 }
 
 export interface DeviceRepository {

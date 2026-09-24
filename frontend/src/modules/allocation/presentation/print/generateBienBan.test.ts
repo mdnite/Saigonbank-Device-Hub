@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import type { Device } from '@/modules/device/domain/device';
 import type { DeviceOrderDetail } from '../../domain/deviceOrder';
 import { buildBienBanContent } from './generateBienBan';
 
-const device = (over: Partial<DeviceOrderDetail['items'][number]['device']> = {}) => ({
+const device = (over: Partial<Device> = {}): Device => ({
   id: 9,
   deviceCode: 'LT-000001',
   deviceName: 'Dell Latitude 5420',

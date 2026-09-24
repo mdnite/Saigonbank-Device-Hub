@@ -104,6 +104,26 @@ describe('Devices: /devices, /device-types', () => {
     expect(res.body.data.status).toBe('Đã cấp phát');
   });
 
+  it('lọc theo currentUserId', async () => {
+    const owned = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(admin))
+      .send(newDevice({ currentUserId: staff.id }))
+      .expect(201);
+    await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(admin))
+      .send(newDevice({ deviceCode: 'LT-000002' }))
+      .expect(201);
+
+    const res = await http()
+      .get(`/devices?currentUserId=${staff.id}`)
+      .set('Authorization', tokenOf(admin))
+      .expect(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].id).toBe(owned.body.data.id);
+  });
+
   it('chặn mã thiết bị trùng', async () => {
     await http()
       .post('/devices')

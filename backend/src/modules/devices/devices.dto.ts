@@ -74,6 +74,13 @@ export class ListDevicesQuery {
   @Min(1, { message: 'Phòng ban không hợp lệ' })
   @Max(MAX_INT32, { message: 'Phòng ban không hợp lệ' })
   departmentId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Người dùng không hợp lệ' })
+  @Min(1, { message: 'Người dùng không hợp lệ' })
+  @Max(MAX_INT32, { message: 'Người dùng không hợp lệ' })
+  currentUserId?: number;
 }
 
 export class PurgeDevicesDto {

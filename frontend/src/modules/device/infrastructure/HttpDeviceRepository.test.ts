@@ -80,4 +80,11 @@ describe('HttpDeviceRepository', () => {
     expect(sentBody(fetchMock)).toEqual({ ids: [1, 2] });
     expect(count).toBe(2);
   });
+
+  it('list: truyền currentUserId qua query string', async () => {
+    fetchMock.mockImplementation(async () => envelope([]));
+    await new HttpDeviceRepository().list({ currentUserId: 7 });
+    const url = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(url.searchParams.get('currentUserId')).toBe('7');
+  });
 });

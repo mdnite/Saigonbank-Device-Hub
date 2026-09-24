@@ -54,7 +54,9 @@ describe('Device orders: /device-orders', () => {
     deviceTypeId: 1,
     ...over,
   });
-  async function createDevice(over: Record<string, unknown> = {}): Promise<number> {
+  async function createDevice(
+    over: Record<string, unknown> = {},
+  ): Promise<number> {
     const res = await http()
       .post('/devices')
       .set('Authorization', tokenOf(admin))
@@ -103,7 +105,11 @@ describe('Device orders: /device-orders', () => {
       const res = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       expect(res.body.data.type).toBe('Cấp phát');
       expect(res.body.data.status).toBe('Chờ duyệt');
@@ -113,11 +119,18 @@ describe('Device orders: /device-orders', () => {
     });
 
     it('tạo đơn Thu hồi thành công', async () => {
-      const deviceId = await createDevice({ currentUserId: staff.id, departmentId: staff.departmentId });
+      const deviceId = await createDevice({
+        currentUserId: staff.id,
+        departmentId: staff.departmentId,
+      });
       const res = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Thu hồi', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Thu hồi',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       expect(res.body.data.type).toBe('Thu hồi');
       expect(res.body.data.status).toBe('Chờ duyệt');
@@ -137,7 +150,11 @@ describe('Device orders: /device-orders', () => {
       const res = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId, deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId, deviceId],
+        })
         .expect(400);
       expect(res.body.message).toContain('trùng');
     });
@@ -147,7 +164,11 @@ describe('Device orders: /device-orders', () => {
       const res = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(400);
       expect(res.body.message).toContain('không còn trong kho');
     });
@@ -158,7 +179,11 @@ describe('Device orders: /device-orders', () => {
       const res = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Thu hồi', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Thu hồi',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(400);
       expect(res.body.message).toContain('không do người này đang giữ');
     });
@@ -178,9 +203,15 @@ describe('Device orders: /device-orders', () => {
       const res = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(admin))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(403);
-      expect(res.body.message).toBe('Bạn không có quyền thực hiện thao tác này');
+      expect(res.body.message).toBe(
+        'Bạn không có quyền thực hiện thao tác này',
+      );
     });
 
     it('Trưởng phòng Kế toán không được tạo đơn: 403', async () => {
@@ -188,14 +219,21 @@ describe('Device orders: /device-orders', () => {
       await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(financeHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(403);
     });
   });
 
   describe('GET /device-orders', () => {
     it('Nhân viên không xem được: 403', async () => {
-      await http().get('/device-orders').set('Authorization', tokenOf(staff)).expect(403);
+      await http()
+        .get('/device-orders')
+        .set('Authorization', tokenOf(staff))
+        .expect(403);
     });
 
     it('đơn không tồn tại: 404', async () => {
@@ -213,7 +251,11 @@ describe('Device orders: /device-orders', () => {
       const created = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const orderId = created.body.data.id;
 
@@ -225,7 +267,9 @@ describe('Device orders: /device-orders', () => {
       expect(res.body.message).toBe('Đã duyệt đơn');
 
       const device = (
-        await http().get(`/devices/${deviceId}`).set('Authorization', tokenOf(admin))
+        await http()
+          .get(`/devices/${deviceId}`)
+          .set('Authorization', tokenOf(admin))
       ).body.data;
       expect(device.status).toBe('Đã cấp phát');
       expect(device.currentUser.id).toBe(staff.id);
@@ -242,7 +286,11 @@ describe('Device orders: /device-orders', () => {
       const created = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Thu hồi', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Thu hồi',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
 
       await http()
@@ -251,7 +299,9 @@ describe('Device orders: /device-orders', () => {
         .expect(200);
 
       const device = (
-        await http().get(`/devices/${deviceId}`).set('Authorization', tokenOf(admin))
+        await http()
+          .get(`/devices/${deviceId}`)
+          .set('Authorization', tokenOf(admin))
       ).body.data;
       expect(device.status).toBe('Trong kho');
       expect(device.currentUser).toBeNull();
@@ -264,10 +314,17 @@ describe('Device orders: /device-orders', () => {
       const created = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const orderId = created.body.data.id;
-      await http().patch(`/device-orders/${orderId}/approve`).set('Authorization', tokenOf(admin)).expect(200);
+      await http()
+        .patch(`/device-orders/${orderId}/approve`)
+        .set('Authorization', tokenOf(admin))
+        .expect(200);
 
       const res = await http()
         .patch(`/device-orders/${orderId}/approve`)
@@ -281,7 +338,11 @@ describe('Device orders: /device-orders', () => {
       const created = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const orderId = created.body.data.id;
 
@@ -314,22 +375,32 @@ describe('Device orders: /device-orders', () => {
       const order1 = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const order2 = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: otherStaff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: otherStaff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
 
       const realTransaction = prisma.$transaction.getMockImplementation()!;
-      prisma.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => Promise<unknown>) => {
-        await http()
-          .patch(`/device-orders/${order2.body.data.id}/approve`)
-          .set('Authorization', tokenOf(admin))
-          .expect(200);
-        return realTransaction(fn);
-      });
+      prisma.$transaction.mockImplementationOnce(
+        async (fn: (tx: unknown) => Promise<unknown>) => {
+          await http()
+            .patch(`/device-orders/${order2.body.data.id}/approve`)
+            .set('Authorization', tokenOf(admin))
+            .expect(200);
+          return realTransaction(fn);
+        },
+      );
 
       const res1 = await http()
         .patch(`/device-orders/${order1.body.data.id}/approve`)
@@ -338,7 +409,9 @@ describe('Device orders: /device-orders', () => {
       expect(res1.body.message).toContain('không còn trong kho');
 
       const device = (
-        await http().get(`/devices/${deviceId}`).set('Authorization', tokenOf(admin))
+        await http()
+          .get(`/devices/${deviceId}`)
+          .set('Authorization', tokenOf(admin))
       ).body.data;
       expect(device.status).toBe('Đã cấp phát');
       // Đơn 2 (commit trước) thắng — device KHÔNG bị đơn 1 ghi đè lại target của nó.
@@ -350,7 +423,11 @@ describe('Device orders: /device-orders', () => {
       const created = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const res = await http()
         .patch(`/device-orders/${created.body.data.id}/reject`)
@@ -365,7 +442,11 @@ describe('Device orders: /device-orders', () => {
       const created = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const orderId = created.body.data.id;
 
@@ -379,7 +460,9 @@ describe('Device orders: /device-orders', () => {
       expect(res.body.message).toBe('Đã từ chối đơn');
 
       const device = (
-        await http().get(`/devices/${deviceId}`).set('Authorization', tokenOf(admin))
+        await http()
+          .get(`/devices/${deviceId}`)
+          .set('Authorization', tokenOf(admin))
       ).body.data;
       expect(device.status).toBe('Trong kho');
       expect(device.currentUser).toBeNull();
@@ -390,7 +473,11 @@ describe('Device orders: /device-orders', () => {
       const created = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(techHead))
-        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const orderId = created.body.data.id;
       await http()

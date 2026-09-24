@@ -17,7 +17,11 @@ import { OrderCreateGuard } from '../../shared/auth/order-create.guard';
 import { Roles } from '../../shared/auth/roles.decorator';
 import { ResponseMessage } from '../../shared/http/api-response';
 import { ROLE } from '../identity/roles';
-import { CreateDeviceOrderDto, ListDeviceOrdersQuery, RejectDeviceOrderDto } from './device-orders.dto';
+import {
+  CreateDeviceOrderDto,
+  ListDeviceOrdersQuery,
+  RejectDeviceOrderDto,
+} from './device-orders.dto';
 import { DeviceOrdersService, ORDER_NOT_FOUND } from './device-orders.service';
 
 const OrderId = () =>
@@ -60,7 +64,11 @@ export class DeviceOrdersController {
   @Patch(':id/reject')
   @Roles(ROLE.ADMIN)
   @ResponseMessage('Đã từ chối đơn')
-  reject(@OrderId() id: number, @Body() dto: RejectDeviceOrderDto, @Req() req: AuthedRequest) {
+  reject(
+    @OrderId() id: number,
+    @Body() dto: RejectDeviceOrderDto,
+    @Req() req: AuthedRequest,
+  ) {
     return this.orders.reject(id, req.user.id, dto.reason);
   }
 }

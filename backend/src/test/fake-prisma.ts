@@ -59,7 +59,10 @@ type OrderWithRelations = DeviceOrder & {
   items?: (DeviceOrderItem & { device?: DeviceWithRelations })[];
 };
 type OrderItemCreateInput = { deviceId: number };
-type OrderCreateData = Pick<DeviceOrder, 'type' | 'targetUserId' | 'createdById'> &
+type OrderCreateData = Pick<
+  DeviceOrder,
+  'type' | 'targetUserId' | 'createdById'
+> &
   Partial<DeviceOrder> & { items?: { create: OrderItemCreateInput[] } };
 
 function matchValue(value: unknown, cond: unknown): boolean {
@@ -148,12 +151,19 @@ export function createFakePrisma() {
           }),
         }
       : d;
-  const withOrderRelations = (o: DeviceOrder, include?: OrderInclude): OrderWithRelations =>
+  const withOrderRelations = (
+    o: DeviceOrder,
+    include?: OrderInclude,
+  ): OrderWithRelations =>
     include
       ? {
           ...o,
-          ...(include.targetUser && { targetUser: users.find((u) => u.id === o.targetUserId)! }),
-          ...(include.createdBy && { createdBy: users.find((u) => u.id === o.createdById)! }),
+          ...(include.targetUser && {
+            targetUser: users.find((u) => u.id === o.targetUserId)!,
+          }),
+          ...(include.createdBy && {
+            createdBy: users.find((u) => u.id === o.createdById)!,
+          }),
           ...(include.decidedBy && {
             decidedBy: users.find((u) => u.id === o.decidedById) ?? null,
           }),
@@ -165,7 +175,7 @@ export function createFakePrisma() {
                 ...(include.items!.include?.device && {
                   device: withDeviceRelations(
                     devices.find((d) => d.id === i.deviceId)!,
-                    include.items!.include!.device!.include,
+                    include.items!.include.device.include,
                   ),
                 }),
               })),
@@ -414,13 +424,25 @@ export function createFakePrisma() {
             .map((o) => project(withOrderRelations(o, include), select)),
       ),
       findUnique: jest.fn(
-        async ({ where, include }: { where: Where; include?: OrderInclude }) => {
+        async ({
+          where,
+          include,
+        }: {
+          where: Where;
+          include?: OrderInclude;
+        }) => {
           const hit = deviceOrders.find((o) => matches(o, where));
           return hit ? withOrderRelations(hit, include) : null;
         },
       ),
       create: jest.fn(
-        async ({ data, include }: { data: OrderCreateData; include?: OrderInclude }) => {
+        async ({
+          data,
+          include,
+        }: {
+          data: OrderCreateData;
+          include?: OrderInclude;
+        }) => {
           const { items, ...rest } = data;
           const row: DeviceOrder = {
             id: deviceOrders.length + 1,
@@ -434,7 +456,11 @@ export function createFakePrisma() {
           };
           deviceOrders.push(row);
           for (const item of items?.create ?? []) {
-            deviceOrderItems.push({ id: deviceOrderItems.length + 1, orderId: row.id, ...item });
+            deviceOrderItems.push({
+              id: deviceOrderItems.length + 1,
+              orderId: row.id,
+              ...item,
+            });
           }
           return withOrderRelations(row, include);
         },
@@ -455,7 +481,13 @@ export function createFakePrisma() {
         },
       ),
       updateMany: jest.fn(
-        async ({ where, data }: { where: Where; data: Partial<DeviceOrder> }) => {
+        async ({
+          where,
+          data,
+        }: {
+          where: Where;
+          data: Partial<DeviceOrder>;
+        }) => {
           const hit = deviceOrders.filter((o) => matches(o, where));
           hit.forEach((o) => Object.assign(o, data));
           return { count: hit.length };

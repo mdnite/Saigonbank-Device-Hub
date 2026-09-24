@@ -22,7 +22,8 @@ export class OrderAccessGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest<AuthedRequest>();
     const allowed =
       user.roleName === ROLE.ADMIN ||
-      (user.roleName === ROLE.HEAD && user.departmentCode === TECH_DEPARTMENT_CODE);
+      (user.roleName === ROLE.HEAD &&
+        user.departmentCode === TECH_DEPARTMENT_CODE);
     if (!allowed) throw new ForbiddenException(NO_PERMISSION);
     return true;
   }

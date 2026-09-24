@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { fakeJwt } from '@/test/fakeJwt';
-import { canWriteDevices, isAdmin, isTokenExpired, type AuthSession } from './session';
+import { canWriteDevices, canAccessOrders, canCreateOrder, canDecideOrder, isAdmin, isTokenExpired, type AuthSession } from './session';
 
 const base: AuthSession = {
   userId: '1',
@@ -35,4 +35,19 @@ it('chặn Trưởng phòng Kế toán', () => {
 });
 it('chặn Nhân viên', () => {
   expect(canWriteDevices({ ...base, roleName: 'Nhân viên', departmentCode: 'KYTHUAT' })).toBe(false);
+});
+
+it('canAccessOrders: Admin hoặc Trưởng phòng Kỹ thuật', () => {
+  expect(canAccessOrders({ ...base, roleName: 'Quản trị viên', departmentCode: null })).toBe(true);
+  expect(canAccessOrders({ ...base, roleName: 'Trưởng phòng', departmentCode: 'KYTHUAT' })).toBe(true);
+  expect(canAccessOrders({ ...base, roleName: 'Trưởng phòng', departmentCode: 'KETOAN' })).toBe(false);
+  expect(canAccessOrders(base)).toBe(false);
+});
+it('canCreateOrder: CHỈ Trưởng phòng Kỹ thuật, không gồm Admin', () => {
+  expect(canCreateOrder({ ...base, roleName: 'Trưởng phòng', departmentCode: 'KYTHUAT' })).toBe(true);
+  expect(canCreateOrder({ ...base, roleName: 'Quản trị viên', departmentCode: null })).toBe(false);
+});
+it('canDecideOrder: CHỈ Admin, không gồm Trưởng phòng Kỹ thuật', () => {
+  expect(canDecideOrder({ ...base, roleName: 'Quản trị viên', departmentCode: null })).toBe(true);
+  expect(canDecideOrder({ ...base, roleName: 'Trưởng phòng', departmentCode: 'KYTHUAT' })).toBe(false);
 });

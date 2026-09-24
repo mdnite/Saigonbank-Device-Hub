@@ -12,7 +12,7 @@ import type { CreateDeviceDto, UpdateDeviceDto } from './devices.dto';
 
 export const DEVICE_NOT_FOUND = 'Thiết bị không tồn tại';
 
-const WITH_RELATIONS = {
+export const DEVICE_WITH_RELATIONS = {
   deviceType: true,
   department: true,
   currentUser: true,
@@ -20,10 +20,10 @@ const WITH_RELATIONS = {
 } as const;
 
 type DeviceWithRelations = Prisma.DeviceGetPayload<{
-  include: typeof WITH_RELATIONS;
+  include: typeof DEVICE_WITH_RELATIONS;
 }>;
 
-function toItem(d: DeviceWithRelations) {
+export function toDeviceItem(d: DeviceWithRelations) {
   return {
     id: d.id,
     deviceCode: d.deviceCode,
@@ -74,6 +74,7 @@ export class DevicesService {
     status?: string;
     deviceTypeId?: number;
     departmentId?: number;
+    currentUserId?: number;
   }) {
     const s = q.search?.trim();
     const devices = await this.prisma.device.findMany({
@@ -81,6 +82,7 @@ export class DevicesService {
         status: q.status ?? { not: DEVICE_STATUS.DELETED },
         deviceTypeId: q.deviceTypeId,
         departmentId: q.departmentId,
+        currentUserId: q.currentUserId,
         ...(s
           ? {
               OR: [
@@ -106,19 +108,19 @@ export class DevicesService {
             }
           : {}),
       },
-      include: WITH_RELATIONS,
+      include: DEVICE_WITH_RELATIONS,
       orderBy: { id: 'asc' },
     });
-    return devices.map(toItem);
+    return devices.map(toDeviceItem);
   }
 
   async getById(id: number) {
     await this.findLiveDevice(id);
     const device = await this.prisma.device.findUnique({
       where: { id },
-      include: WITH_RELATIONS,
+      include: DEVICE_WITH_RELATIONS,
     });
-    return toItem(device!);
+    return toDeviceItem(device!);
   }
 
   async create(dto: CreateDeviceDto) {
@@ -140,9 +142,9 @@ export class DevicesService {
             ? { create: dto.accessories }
             : undefined,
         },
-        include: WITH_RELATIONS,
+        include: DEVICE_WITH_RELATIONS,
       });
-      return toItem(device);
+      return toDeviceItem(device);
     } catch (e) {
       throw this.asConflict(e);
     }
@@ -176,9 +178,9 @@ export class DevicesService {
             ? { accessories: { deleteMany: {}, create: dto.accessories } }
             : {}),
         },
-        include: WITH_RELATIONS,
+        include: DEVICE_WITH_RELATIONS,
       });
-      return toItem(device);
+      return toDeviceItem(device);
     } catch (e) {
       throw this.asConflict(e);
     }

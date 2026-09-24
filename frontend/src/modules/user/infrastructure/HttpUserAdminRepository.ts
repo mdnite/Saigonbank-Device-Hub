@@ -27,6 +27,11 @@ export class HttpUserAdminRepository implements UserAdminRepository {
     await apiDelete<null>(`/users/${id}`);
   }
 
+  async purge(ids: number[]): Promise<number> {
+    const res = await apiPost<{ count: number }>('/users/purge', { ids });
+    return res.count;
+  }
+
   roles() {
     return apiGet<Role[]>('/roles');
   }

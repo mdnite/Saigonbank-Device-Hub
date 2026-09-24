@@ -209,7 +209,12 @@ export function createFakePrisma() {
         },
       ),
       delete: jest.fn(forbidden),
-      deleteMany: jest.fn(forbidden),
+      // Chỉ /users/purge dùng.
+      deleteMany: jest.fn(async ({ where }: { where: Where }) => {
+        const toRemove = users.filter((u) => matches(u, where));
+        for (const u of toRemove) users.splice(users.indexOf(u), 1);
+        return { count: toRemove.length };
+      }),
     },
     role: {
       findUnique: jest.fn(
@@ -370,7 +375,12 @@ export function createFakePrisma() {
         },
       ),
       delete: jest.fn(forbidden),
-      deleteMany: jest.fn(forbidden),
+      // Chỉ /users/purge dùng — RESTRICT thật trong migration nên phải xoá trước khi xoá User.
+      deleteMany: jest.fn(async ({ where }: { where: Where }) => {
+        const toRemove = tokens.filter((t) => matches(t, where));
+        for (const t of toRemove) tokens.splice(tokens.indexOf(t), 1);
+        return { count: toRemove.length };
+      }),
     },
     // Kiểu trả về khai báo tường minh để cắt vòng suy luận kiểu (lỗi TS7022/TS7024 cũ).
     $transaction: jest.fn(

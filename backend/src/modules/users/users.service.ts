@@ -140,6 +140,22 @@ export class UsersService {
     });
   }
 
+  /** Dọn thùng rác: xoá cứng — chỉ những id đã ở Status "Đã xóa", id khác bị bỏ qua.
+   *  PasswordResetToken.userId là RESTRICT (khác DeviceAccessory là CASCADE của thiết bị)
+   *  nên phải xoá token của các user này trước, không thì DB chặn. Device.currentUserId là
+   *  SET NULL, không cần dọn tay. */
+  async purge(ids: number[]): Promise<number> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.passwordResetToken.deleteMany({
+        where: { userId: { in: ids } },
+      });
+      const { count } = await tx.user.deleteMany({
+        where: { id: { in: ids }, status: USER_STATUS.DELETED },
+      });
+      return count;
+    });
+  }
+
   roles() {
     return this.prisma.role.findMany({ orderBy: { id: 'asc' } });
   }

@@ -21,6 +21,8 @@ export interface UserAdminRepository {
   setStatus(id: number, status: Exclude<UserStatus, 'Đã xóa'>): Promise<UserAccount>;
   /** Xoá mềm — backend chỉ đổi Status thành "Đã xóa". */
   remove(id: number): Promise<void>;
+  /** Xoá cứng hàng loạt (dọn thùng rác) — chỉ xoá được user đã ở Status "Đã xóa". */
+  purge(ids: number[]): Promise<number>;
   roles(): Promise<Role[]>;
   departments(): Promise<Department[]>;
 }
@@ -42,6 +44,7 @@ export function makeUserAdminService(repo: UserAdminRepository) {
     },
     setStatus: (id: number, status: Exclude<UserStatus, 'Đã xóa'>) => repo.setStatus(id, status),
     remove: (id: number) => repo.remove(id),
+    purge: (ids: number[]) => repo.purge(ids),
     roles: () => repo.roles(),
     departments: () => repo.departments(),
   };

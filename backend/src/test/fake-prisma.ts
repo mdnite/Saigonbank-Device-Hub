@@ -2,6 +2,8 @@ import type {
   Department,
   Device,
   DeviceAccessory,
+  DeviceOrder,
+  DeviceOrderItem,
   DeviceType,
   PasswordResetToken,
   Role,
@@ -41,6 +43,24 @@ type DeviceCreateData = Pick<
 type DeviceUpdateData = Partial<Device> & {
   accessories?: { deleteMany: object; create: AccessoryCreateInput[] };
 };
+type OrderInclude = {
+  targetUser?: boolean;
+  createdBy?: boolean;
+  decidedBy?: boolean;
+  // device-orders.service.ts dùng include lồng đúng chuẩn Prisma cho quan hệ 1 cấp sâu hơn:
+  // items: { include: { device: { include: DEVICE_WITH_RELATIONS } } } — nên `device` ở đây
+  // là { include: DeviceInclude }, không phải DeviceInclude trực tiếp.
+  items?: { include?: { device?: { include?: DeviceInclude } } };
+};
+type OrderWithRelations = DeviceOrder & {
+  targetUser?: User;
+  createdBy?: User;
+  decidedBy?: User | null;
+  items?: (DeviceOrderItem & { device?: DeviceWithRelations })[];
+};
+type OrderItemCreateInput = { deviceId: number };
+type OrderCreateData = Pick<DeviceOrder, 'type' | 'targetUserId' | 'createdById'> &
+  Partial<DeviceOrder> & { items?: { create: OrderItemCreateInput[] } };
 
 function matchValue(value: unknown, cond: unknown): boolean {
   if (cond === undefined) return true; // Prisma bỏ qua điều kiện undefined
@@ -87,6 +107,8 @@ export function createFakePrisma() {
   ];
   const devices: Device[] = [];
   const deviceAccessories: DeviceAccessory[] = [];
+  const deviceOrders: DeviceOrder[] = [];
+  const deviceOrderItems: DeviceOrderItem[] = [];
 
   const forbidden = () => {
     throw new Error('Không được xoá cứng dữ liệu');
@@ -126,6 +148,30 @@ export function createFakePrisma() {
           }),
         }
       : d;
+  const withOrderRelations = (o: DeviceOrder, include?: OrderInclude): OrderWithRelations =>
+    include
+      ? {
+          ...o,
+          ...(include.targetUser && { targetUser: users.find((u) => u.id === o.targetUserId)! }),
+          ...(include.createdBy && { createdBy: users.find((u) => u.id === o.createdById)! }),
+          ...(include.decidedBy && {
+            decidedBy: users.find((u) => u.id === o.decidedById) ?? null,
+          }),
+          ...(include.items && {
+            items: deviceOrderItems
+              .filter((i) => i.orderId === o.id)
+              .map((i) => ({
+                ...i,
+                ...(include.items!.include?.device && {
+                  device: withDeviceRelations(
+                    devices.find((d) => d.id === i.deviceId)!,
+                    include.items!.include!.device!.include,
+                  ),
+                }),
+              })),
+          }),
+        }
+      : o;
 
   const prisma = {
     users,
@@ -135,6 +181,8 @@ export function createFakePrisma() {
     devices,
     deviceTypes,
     deviceAccessories,
+    deviceOrders,
+    deviceOrderItems,
     user: {
       findFirst: jest.fn(
         async ({ where, include }: { where: Where; include?: Include }) => {
@@ -339,6 +387,72 @@ export function createFakePrisma() {
         }
         return { count: toRemove.length };
       }),
+    },
+    deviceOrder: {
+      findMany: jest.fn(
+        async ({
+          where,
+          include,
+          select,
+        }: {
+          where?: Where;
+          include?: OrderInclude;
+          select?: Select;
+        }) =>
+          deviceOrders
+            .filter((o) => matches(o, where))
+            .sort((a, b) => b.id - a.id)
+            .map((o) => project(withOrderRelations(o, include), select)),
+      ),
+      findUnique: jest.fn(
+        async ({ where, include }: { where: Where; include?: OrderInclude }) => {
+          const hit = deviceOrders.find((o) => matches(o, where));
+          return hit ? withOrderRelations(hit, include) : null;
+        },
+      ),
+      create: jest.fn(
+        async ({ data, include }: { data: OrderCreateData; include?: OrderInclude }) => {
+          const { items, ...rest } = data;
+          const row: DeviceOrder = {
+            id: deviceOrders.length + 1,
+            status: 'Chờ duyệt',
+            note: null,
+            decidedById: null,
+            decidedAt: null,
+            rejectReason: null,
+            createdAt: new Date(),
+            ...rest,
+          };
+          deviceOrders.push(row);
+          for (const item of items?.create ?? []) {
+            deviceOrderItems.push({ id: deviceOrderItems.length + 1, orderId: row.id, ...item });
+          }
+          return withOrderRelations(row, include);
+        },
+      ),
+      update: jest.fn(
+        async ({
+          where,
+          data,
+          include,
+        }: {
+          where: Where;
+          data: Partial<DeviceOrder>;
+          include?: OrderInclude;
+        }) => {
+          const row = deviceOrders.find((o) => matches(o, where))!;
+          Object.assign(row, data);
+          return withOrderRelations(row, include);
+        },
+      ),
+      updateMany: jest.fn(
+        async ({ where, data }: { where: Where; data: Partial<DeviceOrder> }) => {
+          const hit = deviceOrders.filter((o) => matches(o, where));
+          hit.forEach((o) => Object.assign(o, data));
+          return { count: hit.length };
+        },
+      ),
+      delete: jest.fn(forbidden),
     },
     passwordResetToken: {
       create: jest.fn(

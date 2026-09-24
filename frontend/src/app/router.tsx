@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { RequireAdmin } from './session/RequireAdmin';
+import { RequireOrderAccess } from './session/RequireOrderAccess';
 import { RequireAuth } from './session/RequireAuth';
 import { NotFoundPage } from './NotFoundPage';
 import { AppShell } from '@/shared/layout/AppShell';
@@ -15,6 +16,8 @@ import { AssetFormPage } from '@/modules/device/presentation/AssetFormPage';
 import { UserSettingsPage } from '@/modules/user/presentation/UserSettingsPage';
 import { UserListPage } from '@/modules/user/presentation/UserListPage';
 import { CreateUserPage } from '@/modules/user/presentation/CreateUserPage';
+import { DeviceOrderListPage } from '@/modules/allocation/presentation/DeviceOrderListPage';
+import { CreateOrderPage } from '@/modules/allocation/presentation/CreateOrderPage';
 
 /** Wraps the auth screens in the split illustration layout. */
 function AuthShell() {
@@ -46,7 +49,13 @@ export const router = createBrowserRouter([
           { path: '/devices', element: <DeviceCatalogPage /> },
           { path: '/devices/new', element: <AssetFormPage /> },
           { path: '/devices/:id/edit', element: <AssetFormPage /> },
-          { path: '/allocation', element: <ComingSoonPage title="Cấp phát - Thu hồi" /> },
+          {
+            element: <RequireOrderAccess />,
+            children: [
+              { path: '/allocation', element: <DeviceOrderListPage /> },
+              { path: '/allocation/new', element: <CreateOrderPage /> },
+            ],
+          },
           {
             element: <RequireAdmin />,
             children: [

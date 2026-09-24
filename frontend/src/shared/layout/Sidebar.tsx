@@ -1,7 +1,7 @@
 import { LogOut } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useSession } from '@/app/session/SessionContext';
-import { isAdmin } from '@/modules/auth/domain/session';
+import { canAccessOrders, isAdmin } from '@/modules/auth/domain/session';
 import { cn } from '@/shared/lib/cn';
 import { PRIMARY_NAV, SETTINGS_NAV, type NavItem } from './navItems';
 
@@ -44,7 +44,9 @@ export function Sidebar() {
       <div className="mx-5 border-b border-line" />
 
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {PRIMARY_NAV.filter((item) => !item.adminOnly || isAdmin(session)).map((item) => (
+        {PRIMARY_NAV.filter(
+          (item) => (!item.adminOnly || isAdmin(session)) && (!item.orderAccessOnly || canAccessOrders(session)),
+        ).map((item) => (
           <Item key={item.to} item={item} />
         ))}
       </nav>

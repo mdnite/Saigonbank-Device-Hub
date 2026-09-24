@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, type Device } from '@prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { DEVICE_STATUS } from '../devices/device-status';
 import { DEVICE_WITH_RELATIONS, toDeviceItem } from '../devices/devices.service';
@@ -84,7 +84,7 @@ export class DeviceOrdersService {
   async approve(id: number, decidedById: number) {
     const order = await this.findPendingOrder(id);
     const deviceIds = order.items.map((i) => i.deviceId);
-    await this.requireEligibleDevices(order.type, deviceIds, order.targetUserId);
+    const devicesById = await this.requireEligibleDevices(order.type, deviceIds, order.targetUserId);
 
     await this.prisma.$transaction(async (tx) => {
       const data =
@@ -96,8 +96,26 @@ export class DeviceOrdersService {
               allocatedOn: new Date(),
             }
           : { status: DEVICE_STATUS.IN_STOCK, currentUserId: null, departmentId: null, allocatedOn: null };
+      // Ghi có điều kiện — where lặp lại đúng điều kiện requireEligibleDevices đã kiểm tra ở trên,
+      // ngay trong câu update — chặn trường hợp 2 đơn cùng nhắm 1 thiết bị được duyệt gần như
+      // đồng thời: cả hai đều qua được requireEligibleDevices (đọc trước transaction), nhưng chỉ
+      // đơn nào ghi Device trước mới còn khớp where khi tới lượt nó; đơn còn lại count=0 → báo lỗi
+      // thay vì âm thầm ghi đè (xem quyết định #6).
+      // Ghi có điều kiện — where lặp lại đúng điều kiện requireEligibleDevices đã kiểm tra ở trên,
+      // ngay trong câu update — chặn trường hợp 2 đơn cùng nhắm 1 thiết bị được duyệt gần như
+      // đồng thời: cả hai đều qua được requireEligibleDevices (đọc trước transaction), nhưng chỉ
+      // đơn nào ghi Device trước mới còn khớp where khi tới lượt nó; đơn còn lại count=0 → báo lỗi
+      // thay vì âm thầm ghi đè (xem quyết định #6).
+      const eligibleWhere = this.eligibleWhere(order.type, order.targetUserId);
       for (const deviceId of deviceIds) {
-        await tx.device.update({ where: { id: deviceId }, data });
+        const { count } = await tx.device.updateMany({
+          where: { id: deviceId, ...eligibleWhere },
+          data,
+        });
+        if (count === 0) {
+          const device = devicesById.get(deviceId)!;
+          throw new BadRequestException(this.ineligibleMessage(order.type, device.deviceCode));
+        }
       }
       await this.decide(tx, id, decidedById, ORDER_STATUS.APPROVED);
     });
@@ -130,22 +148,39 @@ export class DeviceOrdersService {
     if (count === 0) throw new BadRequestException(ORDER_ALREADY_DECIDED);
   }
 
+  /** Trả về map deviceId -> Device đã kiểm tra hợp lệ, để approve() tái dùng deviceCode khi cần
+   *  báo lỗi ở bước ghi có điều kiện trong transaction (khỏi truy vấn lại). */
   private async requireEligibleDevices(type: string, deviceIds: number[], targetUserId: number) {
     const devices = await this.prisma.device.findMany({ where: { id: { in: deviceIds } } });
     const byId = new Map(devices.map((d) => [d.id, d]));
     for (const id of deviceIds) {
       const device = byId.get(id);
       if (!device) throw new BadRequestException('Thiết bị không tồn tại');
-      if (type === ORDER_TYPE.ALLOCATE && device.status !== DEVICE_STATUS.IN_STOCK) {
-        throw new BadRequestException(`Thiết bị "${device.deviceCode}" không còn trong kho`);
-      }
-      if (
-        type === ORDER_TYPE.RECOVER &&
-        !(device.status === DEVICE_STATUS.ALLOCATED && device.currentUserId === targetUserId)
-      ) {
-        throw new BadRequestException(`Thiết bị "${device.deviceCode}" không do người này đang giữ`);
+      if (!this.isEligible(type, device, targetUserId)) {
+        throw new BadRequestException(this.ineligibleMessage(type, device.deviceCode));
       }
     }
+    return byId;
+  }
+
+  private isEligible(type: string, device: Device, targetUserId: number): boolean {
+    return type === ORDER_TYPE.ALLOCATE
+      ? device.status === DEVICE_STATUS.IN_STOCK
+      : device.status === DEVICE_STATUS.ALLOCATED && device.currentUserId === targetUserId;
+  }
+
+  /** Where bổ sung để lặp lại đúng điều kiện isEligible() ngay trong câu ghi Device — dùng ở
+   *  approve() để updateMany có điều kiện (xem ghi chú trong approve()). */
+  private eligibleWhere(type: string, targetUserId: number) {
+    return type === ORDER_TYPE.ALLOCATE
+      ? { status: DEVICE_STATUS.IN_STOCK }
+      : { status: DEVICE_STATUS.ALLOCATED, currentUserId: targetUserId };
+  }
+
+  private ineligibleMessage(type: string, deviceCode: string): string {
+    return type === ORDER_TYPE.ALLOCATE
+      ? `Thiết bị "${deviceCode}" không còn trong kho`
+      : `Thiết bị "${deviceCode}" không do người này đang giữ`;
   }
 
   private async requireUser(id: number) {

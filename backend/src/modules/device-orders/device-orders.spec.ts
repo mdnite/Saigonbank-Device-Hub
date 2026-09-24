@@ -299,6 +299,52 @@ describe('Device orders: /device-orders', () => {
       expect(res.body.message).toContain('không còn trong kho');
     });
 
+    it('2 đơn Cấp phát cùng nhắm 1 thiết bị, duyệt gần như đồng thời: đơn ghi Device sau bị chặn thay vì ghi đè', async () => {
+      // Promise.all() 2 request supertest không đảm bảo tái hiện race thật trong fake-prisma đơn
+      // luồng (đã thử: cả 2 chạy tuần tự hết-lượt-này-mới-tới-lượt-kia, nên request 2 luôn bị
+      // requireEligibleDevices — bước kiểm tra CÓ SẴN từ trước, không liên quan bản vá này — chặn
+      // trước khi vào transaction, khiến test "giả đồng thời" đó pass cả khi chưa vá).
+      // Ở đây ép race thật: chèn thẳng việc duyệt đơn 2 (chạy trọn vẹn, commit trước) vào đúng lúc
+      // đơn 1 đã qua được requireEligibleDevices (đọc trước transaction, thấy thiết bị còn "Trong
+      // kho") nhưng chưa kịp ghi Device — mô phỏng đúng 2 request tới gần như đồng thời.
+      const otherStaff = addUser('staff2', 3, 1);
+      const deviceId = await createDevice();
+      // Không có cơ chế giữ chỗ khi tạo đơn (quyết định #6) — cả 2 đơn cùng tạo được vì lúc tạo
+      // thiết bị vẫn còn "Trong kho".
+      const order1 = await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(techHead))
+        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .expect(201);
+      const order2 = await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(techHead))
+        .send({ type: 'Cấp phát', targetUserId: otherStaff.id, deviceIds: [deviceId] })
+        .expect(201);
+
+      const realTransaction = prisma.$transaction.getMockImplementation()!;
+      prisma.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => Promise<unknown>) => {
+        await http()
+          .patch(`/device-orders/${order2.body.data.id}/approve`)
+          .set('Authorization', tokenOf(admin))
+          .expect(200);
+        return realTransaction(fn);
+      });
+
+      const res1 = await http()
+        .patch(`/device-orders/${order1.body.data.id}/approve`)
+        .set('Authorization', tokenOf(admin))
+        .expect(400);
+      expect(res1.body.message).toContain('không còn trong kho');
+
+      const device = (
+        await http().get(`/devices/${deviceId}`).set('Authorization', tokenOf(admin))
+      ).body.data;
+      expect(device.status).toBe('Đã cấp phát');
+      // Đơn 2 (commit trước) thắng — device KHÔNG bị đơn 1 ghi đè lại target của nó.
+      expect(device.currentUser.id).toBe(otherStaff.id);
+    });
+
     it('từ chối thiếu lý do: 400', async () => {
       const deviceId = await createDevice();
       const created = await http()

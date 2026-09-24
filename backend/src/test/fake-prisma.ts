@@ -374,6 +374,15 @@ export function createFakePrisma() {
           return withDeviceRelations(row, include);
         },
       ),
+      // Chỉ device-orders.service.ts (approve()) dùng — ghi có điều kiện để chặn 2 đơn cùng
+      // nhắm 1 thiết bị ghi đè nhau khi duyệt gần như đồng thời.
+      updateMany: jest.fn(
+        async ({ where, data }: { where: Where; data: Partial<Device> }) => {
+          const hit = devices.filter((d) => matches(d, where));
+          hit.forEach((d) => Object.assign(d, data));
+          return { count: hit.length };
+        },
+      ),
       delete: jest.fn(forbidden),
       // Chỉ /devices/purge dùng — CASCADE deviceAccessories giống FK thật trong migration.
       deleteMany: jest.fn(async ({ where }: { where: Where }) => {

@@ -102,6 +102,9 @@ export class DeviceOrdersService {
 
   async approve(id: number, decidedById: number) {
     const order = await this.findPendingOrder(id);
+    // Người nhận có thể đã bị xoá mềm SAU khi đơn được tạo (create() chỉ kiểm tra lúc tạo) —
+    // kiểm tra lại ở đây để không duyệt đơn cho người dùng không còn tồn tại.
+    await this.requireUser(order.targetUserId);
     const deviceIds = order.items.map((i) => i.deviceId);
     const devicesById = await this.requireEligibleDevices(
       order.type,

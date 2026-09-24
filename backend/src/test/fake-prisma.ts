@@ -495,6 +495,14 @@ export function createFakePrisma() {
       ),
       delete: jest.fn(forbidden),
     },
+    // Chỉ /devices/purge dùng — RESTRICT thật trong schema (DeviceOrderItem.deviceId) nên phải
+    // biết thiết bị nào còn bị tham chiếu trước khi xoá cứng Device.
+    deviceOrderItem: {
+      findMany: jest.fn(
+        async ({ where }: { where?: Where }) =>
+          deviceOrderItems.filter((i) => matches(i, where)),
+      ),
+    },
     passwordResetToken: {
       create: jest.fn(
         async ({

@@ -197,8 +197,18 @@ export class DevicesService {
 
   /** Dọn thùng rác: xoá cứng — chỉ những id đã ở Status "Đã xóa", id khác bị bỏ qua. */
   async purge(ids: number[]): Promise<number> {
+    // DeviceOrderItem.deviceId là FK RESTRICT — thiết bị từng nằm trong bất kỳ đơn nào (đã
+    // duyệt/từ chối/còn chờ) không thể xoá cứng. Bỏ qua các id đó, giống cách users.service.ts
+    // đã làm với DeviceOrder cho /users/purge.
+    const referenced = await this.prisma.deviceOrderItem.findMany({
+      where: { deviceId: { in: ids } },
+      select: { deviceId: true },
+    });
+    const blocked = new Set(referenced.map((i) => i.deviceId));
+    const purgeable = ids.filter((id) => !blocked.has(id));
+
     const { count } = await this.prisma.device.deleteMany({
-      where: { id: { in: ids }, status: DEVICE_STATUS.DELETED },
+      where: { id: { in: purgeable }, status: DEVICE_STATUS.DELETED },
     });
     return count;
   }

@@ -430,6 +430,32 @@ describe('Users: /users, /roles, /departments', () => {
       expect(prisma.user.deleteMany).toHaveBeenCalled();
     });
 
+    it('Admin: bỏ qua id còn bị tham chiếu trong DeviceOrder', async () => {
+      const removed2 = addUser('removed2', 3, USER_STATUS.DELETED);
+      prisma.deviceOrders.push({
+        id: 1,
+        type: 'Cấp phát',
+        status: 'Chờ duyệt',
+        targetUserId: removed2.id,
+        note: null,
+        createdById: admin.id,
+        decidedById: null,
+        decidedAt: null,
+        rejectReason: null,
+        createdAt: new Date(),
+      });
+
+      const res = await http()
+        .post('/users/purge')
+        .set('Authorization', tokenOf(admin))
+        .send({ ids: [removed.id, removed2.id] })
+        .expect(201);
+
+      expect(res.body.data).toEqual({ count: 1 });
+      expect(prisma.users.some((u) => u.id === removed.id)).toBe(false);
+      expect(prisma.users.some((u) => u.id === removed2.id)).toBe(true);
+    });
+
     it('Nhân viên không được gọi: 403', async () => {
       const res = await http()
         .post('/users/purge')

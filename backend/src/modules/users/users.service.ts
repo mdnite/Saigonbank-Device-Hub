@@ -143,14 +143,34 @@ export class UsersService {
   /** Dọn thùng rác: xoá cứng — chỉ những id đã ở Status "Đã xóa", id khác bị bỏ qua.
    *  PasswordResetToken.userId là RESTRICT (khác DeviceAccessory là CASCADE của thiết bị)
    *  nên phải xoá token của các user này trước, không thì DB chặn. Device.currentUserId là
-   *  SET NULL, không cần dọn tay. */
+   *  SET NULL, không cần dọn tay. DeviceOrder.targetUserId/createdById/decidedById cũng
+   *  RESTRICT nhưng KHÔNG được dọn theo (đơn là hồ sơ lịch sử) — id còn bị đơn nào tham chiếu
+   *  thì bị loại khỏi danh sách xoá, lặng lẽ như cách id không đủ status="Đã xóa" bị bỏ qua. */
   async purge(ids: number[]): Promise<number> {
     return this.prisma.$transaction(async (tx) => {
+      const referenced = await tx.deviceOrder.findMany({
+        where: {
+          OR: [
+            { targetUserId: { in: ids } },
+            { createdById: { in: ids } },
+            { decidedById: { in: ids } },
+          ],
+        },
+        select: { targetUserId: true, createdById: true, decidedById: true },
+      });
+      const blocked = new Set<number>();
+      for (const o of referenced) {
+        blocked.add(o.targetUserId);
+        blocked.add(o.createdById);
+        if (o.decidedById !== null) blocked.add(o.decidedById);
+      }
+      const purgeable = ids.filter((id) => !blocked.has(id));
+
       await tx.passwordResetToken.deleteMany({
-        where: { userId: { in: ids } },
+        where: { userId: { in: purgeable } },
       });
       const { count } = await tx.user.deleteMany({
-        where: { id: { in: ids }, status: USER_STATUS.DELETED },
+        where: { id: { in: purgeable }, status: USER_STATUS.DELETED },
       });
       return count;
     });

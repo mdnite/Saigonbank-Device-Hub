@@ -497,5 +497,46 @@ describe('Device orders: /device-orders', () => {
         .set('Authorization', tokenOf(admin))
         .expect(404);
     });
+
+    it('id đơn không phải số: 404', async () => {
+      await http()
+        .get('/device-orders/abc')
+        .set('Authorization', tokenOf(admin))
+        .expect(404);
+      await http()
+        .patch('/device-orders/abc/approve')
+        .set('Authorization', tokenOf(admin))
+        .expect(404);
+    });
+
+    it('duyệt đơn khi người nhận đã bị xoá mềm sau khi tạo đơn: 400, không ghi Device', async () => {
+      const deviceId = await createDevice();
+      const created = await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(techHead))
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
+        .expect(201);
+      const orderId = created.body.data.id;
+
+      staff.status = USER_STATUS.DELETED;
+
+      const res = await http()
+        .patch(`/device-orders/${orderId}/approve`)
+        .set('Authorization', tokenOf(admin))
+        .expect(400);
+      expect(res.body.message).toBe('Người dùng không tồn tại');
+
+      const device = (
+        await http()
+          .get(`/devices/${deviceId}`)
+          .set('Authorization', tokenOf(admin))
+      ).body.data;
+      expect(device.status).toBe('Trong kho');
+      expect(device.currentUser).toBeNull();
+    });
   });
 });

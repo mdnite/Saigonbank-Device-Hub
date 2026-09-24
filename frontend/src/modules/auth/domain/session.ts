@@ -16,10 +16,22 @@ export const TECH_DEPARTMENT_CODE = 'KYTHUAT';
 
 export const isAdmin = (session: AuthSession | null): boolean => session?.roleName === ADMIN_ROLE;
 
+export const isTechHead = (session: AuthSession | null): boolean =>
+  session?.roleName === HEAD_ROLE && session?.departmentCode === TECH_DEPARTMENT_CODE;
+
 /** Ghi thiết bị: Quản trị viên, hoặc Trưởng phòng Kỹ thuật. Backend mới là chốt chặn thật. */
 export const canWriteDevices = (session: AuthSession | null): boolean =>
-  session?.roleName === ADMIN_ROLE ||
-  (session?.roleName === HEAD_ROLE && session?.departmentCode === TECH_DEPARTMENT_CODE);
+  isAdmin(session) || isTechHead(session);
+
+/** Xem đơn Cấp phát - Thu hồi: Quản trị viên hoặc Trưởng phòng Kỹ thuật. */
+export const canAccessOrders = (session: AuthSession | null): boolean =>
+  isAdmin(session) || isTechHead(session);
+
+/** Tạo đơn: CHỈ Trưởng phòng Kỹ thuật — Admin không tạo đơn (khác canWriteDevices). */
+export const canCreateOrder = (session: AuthSession | null): boolean => isTechHead(session);
+
+/** Duyệt/từ chối đơn: CHỈ Quản trị viên. */
+export const canDecideOrder = (session: AuthSession | null): boolean => isAdmin(session);
 
 /** Đọc `exp` (giây) trong payload JWT. Token hỏng / thiếu exp coi như hết hạn. */
 export function isTokenExpired(token: string, now: number = Date.now()): boolean {

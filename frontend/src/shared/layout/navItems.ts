@@ -15,6 +15,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Chỉ hiện với Quản trị viên. */
   adminOnly?: boolean;
+  /** Chỉ hiện với Quản trị viên hoặc Trưởng phòng Kỹ thuật. */
+  orderAccessOnly?: boolean;
 }
 
 /** Primary navigation — Vietnamese labels, matches the canonical sidebar. */
@@ -23,7 +25,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { label: 'Người dùng', to: '/users', icon: Users, adminOnly: true },
   { label: 'Tài sản', to: '/devices', icon: Package },
   { label: 'Điều chuyển', to: '/transfers', icon: ArrowLeftRight },
-  { label: 'Cấp phát - Thu hồi', to: '/allocation', icon: ClipboardList },
+  { label: 'Cấp phát - Thu hồi', to: '/allocation', icon: ClipboardList, orderAccessOnly: true },
   { label: 'Kiểm kê', to: '/audit', icon: ClipboardCheck },
 ];
 

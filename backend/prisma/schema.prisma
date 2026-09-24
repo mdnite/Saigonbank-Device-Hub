@@ -111,6 +111,9 @@ model User {
   department          Department?          @relation(fields: [departmentId], references: [id])
   passwordResetTokens PasswordResetToken[]
   devices             Device[]
+  deviceOrdersTarget    DeviceOrder[] @relation("DeviceOrderTarget")
+  deviceOrdersCreatedBy DeviceOrder[] @relation("DeviceOrderCreatedBy")
+  deviceOrdersDecidedBy DeviceOrder[] @relation("DeviceOrderDecidedBy")
 
   @@map("User")
 }
@@ -185,6 +188,7 @@ model Device {
   department  Department? @relation(fields: [departmentId], references: [id])
   currentUser User?       @relation(fields: [currentUserId], references: [id])
   accessories DeviceAccessory[]
+  orderItems DeviceOrderItem[]
 
   @@map("Device")
 }
@@ -203,6 +207,42 @@ model DeviceAccessory {
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@map("DeviceAccessory")
+}
+
+// --- DeviceOrder ----------------------------------------------------------
+// Đơn Cấp phát / Thu hồi. Không bao giờ bị xoá — là hồ sơ lịch sử.
+model DeviceOrder {
+  id           Int       @id @default(autoincrement()) @map("Id")
+  type         String    @map("Type") @db.VarChar(20)
+  status       String    @default("Chờ duyệt") @map("Status") @db.VarChar(20)
+  targetUserId Int       @map("TargetUserId")
+  note         String?   @map("Note") @db.VarChar(255)
+  createdById  Int       @map("CreatedById")
+  decidedById  Int?      @map("DecidedById")
+  decidedAt    DateTime? @map("DecidedAt")
+  rejectReason String?   @map("RejectReason") @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("CreatedAt")
+
+  targetUser User  @relation("DeviceOrderTarget", fields: [targetUserId], references: [id])
+  createdBy  User  @relation("DeviceOrderCreatedBy", fields: [createdById], references: [id])
+  decidedBy  User? @relation("DeviceOrderDecidedBy", fields: [decidedById], references: [id])
+  items      DeviceOrderItem[]
+
+  @@map("DeviceOrder")
+}
+
+// --- DeviceOrderItem --------------------------------------------------------
+// Từng thiết bị trong 1 đơn. Cascade khi xoá DeviceOrder (không xoá Device) — DeviceOrder
+// thực tế không bao giờ bị xoá, cascade này chỉ là an toàn dữ liệu.
+model DeviceOrderItem {
+  id       Int @id @default(autoincrement()) @map("Id")
+  orderId  Int @map("OrderId")
+  deviceId Int @map("DeviceId")
+
+  order  DeviceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  device Device      @relation(fields: [deviceId], references: [id])
+
+  @@map("DeviceOrderItem")
 }
 
 // ============================================================================

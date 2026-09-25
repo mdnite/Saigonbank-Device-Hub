@@ -114,6 +114,10 @@ model User {
   deviceOrdersTarget    DeviceOrder[] @relation("DeviceOrderTarget")
   deviceOrdersCreatedBy DeviceOrder[] @relation("DeviceOrderCreatedBy")
   deviceOrdersDecidedBy DeviceOrder[] @relation("DeviceOrderDecidedBy")
+  deviceTransfersFrom      DeviceTransfer[] @relation("DeviceTransferFrom")
+  deviceTransfersTo        DeviceTransfer[] @relation("DeviceTransferTo")
+  deviceTransfersCreatedBy DeviceTransfer[] @relation("DeviceTransferCreatedBy")
+  deviceTransfersDecidedBy DeviceTransfer[] @relation("DeviceTransferDecidedBy")
 
   @@map("User")
 }
@@ -189,6 +193,7 @@ model Device {
   currentUser User?       @relation(fields: [currentUserId], references: [id])
   accessories DeviceAccessory[]
   orderItems DeviceOrderItem[]
+  transferItems DeviceTransferItem[]
 
   @@map("Device")
 }
@@ -243,6 +248,44 @@ model DeviceOrderItem {
   device Device      @relation(fields: [deviceId], references: [id])
 
   @@map("DeviceOrderItem")
+}
+
+// --- DeviceTransfer --------------------------------------------------------
+// Đơn Điều chuyển: chuyển thiết bị "Đã cấp phát" thẳng từ người giữ sang người nhận,
+// không qua "Trong kho". Không bao giờ bị xoá — là hồ sơ lịch sử.
+model DeviceTransfer {
+  id           Int       @id @default(autoincrement()) @map("Id")
+  status       String    @default("Chờ duyệt") @map("Status") @db.VarChar(20)
+  fromUserId   Int       @map("FromUserId")
+  toUserId     Int       @map("ToUserId")
+  note         String?   @map("Note") @db.VarChar(255)
+  createdById  Int       @map("CreatedById")
+  decidedById  Int?      @map("DecidedById")
+  decidedAt    DateTime? @map("DecidedAt")
+  rejectReason String?   @map("RejectReason") @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("CreatedAt")
+
+  fromUser  User  @relation("DeviceTransferFrom", fields: [fromUserId], references: [id], onDelete: Restrict)
+  toUser    User  @relation("DeviceTransferTo", fields: [toUserId], references: [id], onDelete: Restrict)
+  createdBy User  @relation("DeviceTransferCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  decidedBy User? @relation("DeviceTransferDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  items     DeviceTransferItem[]
+
+  @@map("DeviceTransfer")
+}
+
+// --- DeviceTransferItem -----------------------------------------------------
+// Từng thiết bị trong 1 lệnh điều chuyển. Cascade khi xoá DeviceTransfer (không xoá Device) —
+// DeviceTransfer không bao giờ bị xoá trong luồng bình thường, đây chỉ là an toàn dữ liệu.
+model DeviceTransferItem {
+  id         Int @id @default(autoincrement()) @map("Id")
+  transferId Int @map("TransferId")
+  deviceId   Int @map("DeviceId")
+
+  transfer DeviceTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  device   Device         @relation(fields: [deviceId], references: [id])
+
+  @@map("DeviceTransferItem")
 }
 
 // ============================================================================

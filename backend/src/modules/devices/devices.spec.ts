@@ -393,6 +393,53 @@ describe('Devices: /devices, /device-types', () => {
     expect(prisma.devices.some((d) => d.id === unreferencedId)).toBe(false);
   });
 
+  it('POST /devices/purge: bỏ qua id còn bị tham chiếu trong DeviceTransferItem', async () => {
+    const referenced = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(admin))
+      .send(newDevice({ deviceCode: 'LT-000003' }))
+      .expect(201);
+    const referencedId = referenced.body.data.id;
+    await http()
+      .delete(`/devices/${referencedId}`)
+      .set('Authorization', tokenOf(admin))
+      .expect(200);
+    prisma.deviceTransfers.push({
+      id: 1,
+      status: 'Đã duyệt',
+      fromUserId: staff.id,
+      toUserId: admin.id,
+      note: null,
+      createdById: admin.id,
+      decidedById: admin.id,
+      decidedAt: new Date(),
+      rejectReason: null,
+      createdAt: new Date(),
+    });
+    prisma.deviceTransferItems.push({ id: 1, transferId: 1, deviceId: referencedId });
+
+    const unreferenced = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(admin))
+      .send(newDevice({ deviceCode: 'LT-000004' }))
+      .expect(201);
+    const unreferencedId = unreferenced.body.data.id;
+    await http()
+      .delete(`/devices/${unreferencedId}`)
+      .set('Authorization', tokenOf(admin))
+      .expect(200);
+
+    const res = await http()
+      .post('/devices/purge')
+      .set('Authorization', tokenOf(admin))
+      .send({ ids: [referencedId, unreferencedId] })
+      .expect(201);
+
+    expect(res.body.data.count).toBe(1);
+    expect(prisma.devices.some((d) => d.id === referencedId)).toBe(true);
+    expect(prisma.devices.some((d) => d.id === unreferencedId)).toBe(false);
+  });
+
   it('POST /devices/purge: Nhân viên không được gọi', async () => {
     const res = await http()
       .post('/devices/purge')

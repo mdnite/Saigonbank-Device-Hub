@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DeviceOrdersModule } from './modules/device-orders/device-orders.module';
+import { DeviceTransfersModule } from './modules/device-transfers/device-transfers.module';
 import { DevicesModule } from './modules/devices/devices.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { UsersModule } from './modules/users/users.module';
@@ -16,6 +17,7 @@ import { PrismaModule } from './shared/prisma/prisma.module';
     UsersModule,
     DevicesModule,
     DeviceOrdersModule,
+    DeviceTransfersModule,
   ],
 })
 export class AppModule {}

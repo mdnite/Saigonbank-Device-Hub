@@ -33,6 +33,16 @@ export const canCreateOrder = (session: AuthSession | null): boolean => isTechHe
 /** Duyệt/từ chối đơn: CHỈ Quản trị viên. */
 export const canDecideOrder = (session: AuthSession | null): boolean => isAdmin(session);
 
+/** Xem lệnh Điều chuyển: Quản trị viên hoặc Trưởng phòng Kỹ thuật. */
+export const canAccessTransfers = (session: AuthSession | null): boolean =>
+  isAdmin(session) || isTechHead(session);
+
+/** Tạo lệnh điều chuyển: CHỈ Quản trị viên — ngược với canCreateOrder. */
+export const canCreateTransfer = (session: AuthSession | null): boolean => isAdmin(session);
+
+/** Duyệt/từ chối lệnh điều chuyển: CHỈ Trưởng phòng Kỹ thuật — ngược với canDecideOrder. */
+export const canDecideTransfer = (session: AuthSession | null): boolean => isTechHead(session);
+
 /** Đọc `exp` (giây) trong payload JWT. Token hỏng / thiếu exp coi như hết hạn. */
 export function isTokenExpired(token: string, now: number = Date.now()): boolean {
   try {

@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { RequireAdmin } from './session/RequireAdmin';
 import { RequireOrderAccess } from './session/RequireOrderAccess';
+import { RequireTransferAccess } from './session/RequireTransferAccess';
 import { RequireAuth } from './session/RequireAuth';
 import { NotFoundPage } from './NotFoundPage';
 import { AppShell } from '@/shared/layout/AppShell';
@@ -18,6 +19,8 @@ import { UserListPage } from '@/modules/user/presentation/UserListPage';
 import { CreateUserPage } from '@/modules/user/presentation/CreateUserPage';
 import { DeviceOrderListPage } from '@/modules/allocation/presentation/DeviceOrderListPage';
 import { CreateOrderPage } from '@/modules/allocation/presentation/CreateOrderPage';
+import { DeviceTransferListPage } from '@/modules/transfer/presentation/DeviceTransferListPage';
+import { CreateTransferPage } from '@/modules/transfer/presentation/CreateTransferPage';
 
 /** Wraps the auth screens in the split illustration layout. */
 function AuthShell() {
@@ -64,7 +67,13 @@ export const router = createBrowserRouter([
             ],
           },
           { path: '/settings', element: <UserSettingsPage /> },
-          { path: '/transfers', element: <ComingSoonPage title="Điều chuyển" /> },
+          {
+            element: <RequireTransferAccess />,
+            children: [
+              { path: '/transfers', element: <DeviceTransferListPage /> },
+              { path: '/transfers/new', element: <CreateTransferPage /> },
+            ],
+          },
           { path: '/audit', element: <ComingSoonPage title="Kiểm kê" /> },
         ],
       },

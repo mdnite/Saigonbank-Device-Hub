@@ -4,6 +4,8 @@ import type {
   DeviceAccessory,
   DeviceOrder,
   DeviceOrderItem,
+  DeviceTransfer,
+  DeviceTransferItem,
   DeviceType,
   PasswordResetToken,
   Role,
@@ -64,6 +66,26 @@ type OrderCreateData = Pick<
   'type' | 'targetUserId' | 'createdById'
 > &
   Partial<DeviceOrder> & { items?: { create: OrderItemCreateInput[] } };
+type TransferInclude = {
+  fromUser?: boolean;
+  toUser?: boolean;
+  createdBy?: boolean;
+  decidedBy?: boolean;
+  items?: { include?: { device?: { include?: DeviceInclude } } };
+};
+type TransferWithRelations = DeviceTransfer & {
+  fromUser?: User;
+  toUser?: User;
+  createdBy?: User;
+  decidedBy?: User | null;
+  items?: (DeviceTransferItem & { device?: DeviceWithRelations })[];
+};
+type TransferItemCreateInput = { deviceId: number };
+type TransferCreateData = Pick<
+  DeviceTransfer,
+  'fromUserId' | 'toUserId' | 'createdById'
+> &
+  Partial<DeviceTransfer> & { items?: { create: TransferItemCreateInput[] } };
 
 function matchValue(value: unknown, cond: unknown): boolean {
   if (cond === undefined) return true; // Prisma bỏ qua điều kiện undefined
@@ -112,6 +134,8 @@ export function createFakePrisma() {
   const deviceAccessories: DeviceAccessory[] = [];
   const deviceOrders: DeviceOrder[] = [];
   const deviceOrderItems: DeviceOrderItem[] = [];
+  const deviceTransfers: DeviceTransfer[] = [];
+  const deviceTransferItems: DeviceTransferItem[] = [];
 
   const forbidden = () => {
     throw new Error('Không được xoá cứng dữ liệu');
@@ -182,6 +206,34 @@ export function createFakePrisma() {
           }),
         }
       : o;
+  const withTransferRelations = (
+    t: DeviceTransfer,
+    include?: TransferInclude,
+  ): TransferWithRelations =>
+    include
+      ? {
+          ...t,
+          ...(include.fromUser && { fromUser: users.find((u) => u.id === t.fromUserId)! }),
+          ...(include.toUser && { toUser: users.find((u) => u.id === t.toUserId)! }),
+          ...(include.createdBy && { createdBy: users.find((u) => u.id === t.createdById)! }),
+          ...(include.decidedBy && {
+            decidedBy: users.find((u) => u.id === t.decidedById) ?? null,
+          }),
+          ...(include.items && {
+            items: deviceTransferItems
+              .filter((i) => i.transferId === t.id)
+              .map((i) => ({
+                ...i,
+                ...(include.items!.include?.device && {
+                  device: withDeviceRelations(
+                    devices.find((d) => d.id === i.deviceId)!,
+                    include.items!.include.device.include,
+                  ),
+                }),
+              })),
+          }),
+        }
+      : t;
 
   const prisma = {
     users,
@@ -193,6 +245,8 @@ export function createFakePrisma() {
     deviceAccessories,
     deviceOrders,
     deviceOrderItems,
+    deviceTransfers,
+    deviceTransferItems,
     user: {
       findFirst: jest.fn(
         async ({ where, include }: { where: Where; include?: Include }) => {
@@ -500,6 +554,67 @@ export function createFakePrisma() {
     deviceOrderItem: {
       findMany: jest.fn(async ({ where }: { where?: Where }) =>
         deviceOrderItems.filter((i) => matches(i, where)),
+      ),
+    },
+    deviceTransfer: {
+      findMany: jest.fn(
+        async ({
+          where,
+          include,
+          select,
+        }: {
+          where?: Where;
+          include?: TransferInclude;
+          select?: Select;
+        }) =>
+          deviceTransfers
+            .filter((t) => matches(t, where))
+            .sort((a, b) => b.id - a.id)
+            .map((t) => project(withTransferRelations(t, include), select)),
+      ),
+      findUnique: jest.fn(
+        async ({ where, include }: { where: Where; include?: TransferInclude }) => {
+          const hit = deviceTransfers.find((t) => matches(t, where));
+          return hit ? withTransferRelations(hit, include) : null;
+        },
+      ),
+      create: jest.fn(
+        async ({ data, include }: { data: TransferCreateData; include?: TransferInclude }) => {
+          const { items, ...rest } = data;
+          const row: DeviceTransfer = {
+            id: deviceTransfers.length + 1,
+            status: 'Chờ duyệt',
+            note: null,
+            decidedById: null,
+            decidedAt: null,
+            rejectReason: null,
+            createdAt: new Date(),
+            ...rest,
+          };
+          deviceTransfers.push(row);
+          for (const item of items?.create ?? []) {
+            deviceTransferItems.push({
+              id: deviceTransferItems.length + 1,
+              transferId: row.id,
+              ...item,
+            });
+          }
+          return withTransferRelations(row, include);
+        },
+      ),
+      updateMany: jest.fn(
+        async ({ where, data }: { where: Where; data: Partial<DeviceTransfer> }) => {
+          const hit = deviceTransfers.filter((t) => matches(t, where));
+          hit.forEach((t) => Object.assign(t, data));
+          return { count: hit.length };
+        },
+      ),
+      delete: jest.fn(forbidden),
+    },
+    // Chỉ /devices/purge dùng — RESTRICT thật trong schema (DeviceTransferItem.deviceId).
+    deviceTransferItem: {
+      findMany: jest.fn(async ({ where }: { where?: Where }) =>
+        deviceTransferItems.filter((i) => matches(i, where)),
       ),
     },
     passwordResetToken: {

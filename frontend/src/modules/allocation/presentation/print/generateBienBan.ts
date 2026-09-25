@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import { ORDER_TYPE } from '../../domain/deviceOrder';
 import type { DeviceOrderDetail } from '../../domain/deviceOrder';
-import { DEJAVU_SANS_BASE64 } from './DejaVuSansBase64';
+import { DEJAVU_SANS_BASE64 } from '@/shared/print/DejaVuSansBase64';
 
 // A4 rộng 210mm, lề trái 14mm — chừa lề phải tương ứng nên bề rộng khả dụng ~180mm.
 const MAX_TEXT_WIDTH_MM = 180;

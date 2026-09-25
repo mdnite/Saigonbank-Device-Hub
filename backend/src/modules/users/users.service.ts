@@ -143,12 +143,12 @@ export class UsersService {
   /** Dọn thùng rác: xoá cứng — chỉ những id đã ở Status "Đã xóa", id khác bị bỏ qua.
    *  PasswordResetToken.userId là RESTRICT (khác DeviceAccessory là CASCADE của thiết bị)
    *  nên phải xoá token của các user này trước, không thì DB chặn. Device.currentUserId là
-   *  SET NULL, không cần dọn tay. DeviceOrder.targetUserId/createdById/decidedById cũng
-   *  RESTRICT nhưng KHÔNG được dọn theo (đơn là hồ sơ lịch sử) — id còn bị đơn nào tham chiếu
-   *  thì bị loại khỏi danh sách xoá, lặng lẽ như cách id không đủ status="Đã xóa" bị bỏ qua. */
+   *  SET NULL, không cần dọn tay. DeviceOrder/DeviceTransfer đều RESTRICT nhưng KHÔNG được
+   *  dọn theo (đơn/lệnh là hồ sơ lịch sử) — id còn bị đơn/lệnh nào tham chiếu thì bị loại khỏi
+   *  danh sách xoá, lặng lẽ như cách id không đủ status="Đã xóa" bị bỏ qua. */
   async purge(ids: number[]): Promise<number> {
     return this.prisma.$transaction(async (tx) => {
-      const referenced = await tx.deviceOrder.findMany({
+      const referencedOrders = await tx.deviceOrder.findMany({
         where: {
           OR: [
             { targetUserId: { in: ids } },
@@ -158,11 +158,28 @@ export class UsersService {
         },
         select: { targetUserId: true, createdById: true, decidedById: true },
       });
+      const referencedTransfers = await tx.deviceTransfer.findMany({
+        where: {
+          OR: [
+            { fromUserId: { in: ids } },
+            { toUserId: { in: ids } },
+            { createdById: { in: ids } },
+            { decidedById: { in: ids } },
+          ],
+        },
+        select: { fromUserId: true, toUserId: true, createdById: true, decidedById: true },
+      });
       const blocked = new Set<number>();
-      for (const o of referenced) {
+      for (const o of referencedOrders) {
         blocked.add(o.targetUserId);
         blocked.add(o.createdById);
         if (o.decidedById !== null) blocked.add(o.decidedById);
+      }
+      for (const t of referencedTransfers) {
+        blocked.add(t.fromUserId);
+        blocked.add(t.toUserId);
+        blocked.add(t.createdById);
+        if (t.decidedById !== null) blocked.add(t.decidedById);
       }
       const purgeable = ids.filter((id) => !blocked.has(id));
 

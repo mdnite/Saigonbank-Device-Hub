@@ -5,6 +5,12 @@ import { hashPassword } from '../src/shared/security/password';
 import { USER_STATUS } from '../src/modules/identity/user-status';
 import { ROLE } from '../src/modules/identity/roles';
 
+if (process.env.NODE_ENV === 'production') {
+  throw new Error(
+    'Seed chỉ dành cho dev — từ chối chạy khi NODE_ENV=production.',
+  );
+}
+
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });

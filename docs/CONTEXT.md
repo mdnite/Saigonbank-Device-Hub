@@ -6,7 +6,13 @@
 > hoạt động từ 2026-09-11, xem mục 5). Các module còn lại (dashboard/device/user) sẽ được đồng
 > bộ dần khi tới lượt. Tài liệu này mô tả *trạng thái đang có*, không phải mục tiêu.
 >
-> Cập nhật lần cuối: 2026-09-22 (module **device** đã nối backend thật: `/devices` (danh sách +
+> Cập nhật lần cuối: 2026-09-30 — đồng bộ lại với code sau 2 vòng **Cấp phát - Thu hồi**
+> (2026-09-24/25, module `allocation`, `/allocation` + `/allocation/new`, đơn do Trưởng phòng Kỹ
+> thuật tạo, Quản trị viên duyệt) và **Điều chuyển** (2026-09-25, module `transfer`, `/transfers` +
+> `/transfers/new`, lệnh do Quản trị viên tạo, Trưởng phòng Kỹ thuật duyệt); cả hai in biên bản PDF
+> bằng `jspdf` + font `shared/print/DejaVuSansBase64.ts`. Thêm "Dọn thùng rác" (xoá cứng) ở
+> `/users` và `/devices`; session có thêm `roleName` + `departmentCode`. Chỉ còn `/audit` là
+> placeholder. Trước đó 2026-09-22 (module **device** đã nối backend thật: `/devices` (danh sách +
 > tìm kiếm/lọc phía server + tạo + sửa + xoá mềm) qua `HttpDeviceRepository`, thêm route
 > `/devices/:id/edit`; mã thiết bị bắt buộc theo tiền tố `DeviceType.Prefix`; `AllocateRecoverPage`
 > bị xoá, `/allocation` đổi thành `ComingSoonPage` — xem mục 1, 2, 3, 4). Trước đó 2026-09-19:
@@ -16,8 +22,8 @@
 > xuất ở sidebar. 2026-09-17: backend `identity` đã dựng, bỏ thư mục `database/`. 2026-09-11: tách
 > repo thành `frontend/` + `backend/`, cập nhật module Xác thực theo Figma mới.
 
-> **Bố cục repo:** `frontend/` (React app, npm workspace; **auth, quản lý người dùng và device gọi
-> backend thật**, `dashboard`/`settings` vẫn chạy mock) ·
+> **Bố cục repo:** `frontend/` (React app, npm workspace; **auth, quản lý người dùng, device,
+> cấp phát - thu hồi và điều chuyển gọi backend thật**, `dashboard`/`settings` vẫn chạy mock) ·
 > `backend/` (NestJS + Prisma, project pnpm riêng, xem `backend/README.md`; schema + migration ở
 > `backend/prisma/`). **Mọi đường dẫn code trong tài liệu này đều tính từ
 > `frontend/`** — ví dụ `src/app/router.tsx` = `frontend/src/app/router.tsx`. Chạy lệnh:
@@ -67,10 +73,11 @@
 | CSS | **Tailwind CSS 3** (`tailwind.config.js`, tokens tuỳ biến) + 1 file `src/styles/index.css` |
 | Routing | **react-router-dom 6** — `createBrowserRouter` (data router) |
 | Icons | **lucide-react** |
+| PDF | **jspdf** (dependency runtime duy nhất ngoài React/router/icons) — xuất biên bản cấp phát/thu hồi/điều chuyển. Nạp bằng `import()` động khi bấm "In biên bản", nên font DejaVu Sans nhúng (~1MB base64, `shared/print/DejaVuSansBase64.ts`) không vào bundle chính. |
 | Fonts | Google Fonts CDN trong `index.html` — **Inter** (body), **Poppins** (display) |
 | Test | **Vitest 2** + jsdom + `@testing-library/react` + `@testing-library/jest-dom`. Config chạy fork với `--no-experimental-webstorage` (Node ≥ 25 có `localStorage` toàn cục hỏng, che mất bản của jsdom). Test component dùng `MemoryRouter`, không dùng data router (lỗi `AbortSignal` trên jsdom + Node 25). |
 | State mgmt | React local state + **1 Context** (`SessionContext`). Không có Redux/Zustand/RTK. |
-| Data fetching | `fetch` gốc qua `shared/lib/apiClient.ts` (`apiRequest` + `apiGet/apiPost/apiPatch/apiDelete`), base URL = `VITE_API_URL` (mặc định `http://localhost:3000`, xem `frontend/.env.example`). Module `auth`, `user` (`/users` — danh sách/tạo/khoá/xoá) và `device` (`/devices`, `/device-types`) dùng; `dashboard` và `/settings` (hồ sơ cá nhân) vẫn là repository mock in-memory. Không có axios. |
+| Data fetching | `fetch` gốc qua `shared/lib/apiClient.ts` (`apiRequest` + `apiGet/apiPost/apiPatch/apiDelete`), base URL = `VITE_API_URL` (mặc định `http://localhost:3000`, xem `frontend/.env.example`). Module `auth`, `user` (`/users` — danh sách/tạo/khoá/xoá/dọn thùng rác), `device` (`/devices`, `/device-types`), `allocation` (`/device-orders`) và `transfer` (`/device-transfers`) dùng; `dashboard` và `/settings` (hồ sơ cá nhân) vẫn là repository mock in-memory. Không có axios. |
 
 ### Cấu trúc thư mục
 
@@ -85,17 +92,22 @@ src/
       SessionContext.tsx       useSession() — session + signIn/signOut, lưu localStorage "idsm.session"
       RequireAuth.tsx          Guard: chưa đăng nhập -> <Navigate to="/login">
       RequireAdmin.tsx         Guard: role khác Quản trị viên -> <Navigate to="/dashboard"> (đặt trong RequireAuth, bọc /users, /users/new)
+      RequireOrderAccess.tsx   Guard: không phải Quản trị viên / Trưởng phòng Kỹ thuật -> /dashboard (bọc /allocation, /allocation/new)
+      RequireTransferAccess.tsx  Guard: như trên (bọc /transfers, /transfers/new)
   shared/                      Dùng chung toàn app
     ui/                        Design-system kit (xem mục 2)
     layout/                    Khung màn hình (AppShell, AuthLayout, Sidebar, PageHeader, ComingSoonPage, navItems)
     lib/                       Helper: cn, apiClient, useAsyncData, useAsyncAction, useCountdown
+    print/DejaVuSansBase64.ts  Font DejaVu Sans (base64) cho jsPDF — dùng chung bởi allocation + transfer
+  modules/                     auth · dashboard · device · user · allocation (Cấp phát - Thu hồi) · transfer (Điều chuyển)
   modules/<context>/           Mỗi bounded context = 4 lớp
     domain/                    Model + rule thuần, không import React/infra. Có unit test.
-    application/               Port (interface repository) + service (make<X>Service) + <X>ValidationError
+    application/               Port (interface repository) + service (make<X>Service) + <X>ValidationError — cả 3 nằm chung 1 file <X>Repository.ts
     infrastructure/            InMemory<X>Repository hoặc Http<X>Repository + container.ts (điểm ghép DI, export sẵn 1 service)
     presentation/              Page React, hook, mapping riêng cho UI
   styles/index.css             @tailwind + class .field-base, .bg-select-caret
   test/setup.ts                import '@testing-library/jest-dom/vitest'
+  test/fakeJwt.ts              Sinh JWT giả (có exp) cho test session
 ```
 
 Alias: **`@/` -> `frontend/src/`** (khai báo ở cả `frontend/vite.config.ts` và `frontend/tsconfig.app.json`).
@@ -113,7 +125,7 @@ Alias: **`@/` -> `frontend/src/`** (khai báo ở cả `frontend/vite.config.ts`
 Hai kiểu luồng dữ liệu:
 
 ```
-auth, /users (quản lý), device:  Page → service (container.ts) → Http*Repository → apiGet/Post/Patch/Delete → backend NestJS → PostgreSQL
+auth, /users (quản lý), device, allocation, transfer:  Page → service (container.ts) → Http*Repository → apiGet/Post/Patch/Delete → backend NestJS → PostgreSQL
 dashboard, /settings (cá nhân):  Page → hook (useAsyncData / useX) → service (container.ts) → InMemoryXRepository → setTimeout(...) → dữ liệu seed cứng
 ```
 
@@ -133,8 +145,16 @@ dashboard, /settings (cá nhân):  Page → hook (useAsyncData / useX) → servi
 ### State
 
 - **Phiên đăng nhập**: `SessionContext` (React Context), đồng bộ `localStorage["idsm.session"]`.
-  Session = `{ userId, displayName, email, token }`, trong đó `token` là **JWT access token** do backend
-  cấp (map từ `data.accessToken`, `displayName` = `user.fullName`). Không có cookie. Xem mục 6.
+  Session = `{ userId, displayName, email, token, roleName, departmentCode }`, trong đó `token` là
+  **JWT access token** do backend cấp (map từ `data.accessToken`, `displayName` = `user.fullName`),
+  `departmentCode` = `null` nếu không thuộc phòng ban (vd. Quản trị viên). Phiên lưu từ bản cũ thiếu
+  `roleName` hoặc có `departmentCode === undefined` bị bỏ khi mở app (so `undefined`, **không** kiểm
+  falsy — `null` hợp lệ). Không có cookie. Xem mục 6.
+- **Quyền phía FE** (`modules/auth/domain/session.ts`, chỉ để ẩn/hiện — backend mới là chốt chặn
+  thật): `isAdmin`, `isTechHead` (role "Trưởng phòng" + phòng `KYTHUAT`), `canWriteDevices` /
+  `canAccessOrders` / `canAccessTransfers` (Admin hoặc Trưởng phòng Kỹ thuật), `canCreateOrder` (chỉ
+  Trưởng phòng Kỹ thuật) / `canDecideOrder` (chỉ Admin), `canCreateTransfer` (chỉ Admin) /
+  `canDecideTransfer` (chỉ Trưởng phòng Kỹ thuật) — Điều chuyển **ngược** Cấp phát - Thu hồi.
 - **State màn hình**: `useState` cục bộ trong page; form dùng hook `useXDraft` (giữ `draft` + `errors`).
 - Không có global store, không có cache layer. URL-state: `?email=` ở `/verify-otp`. Email + OTP sang
   `/reset-password` đi bằng **router state** (không nằm trên URL).
@@ -176,9 +196,9 @@ Cài thêm package cho frontend: `npm install <pkg> -w frontend`.
 | `Sidebar` | `layout/Sidebar.tsx` | — (đọc `useSession`) | Logo "IDSM" + `PRIMARY_NAV` + `SETTINGS_NAV`, dùng `NavLink` (active = nền `surface-sunken`). Cuối cùng là nút **"Đăng xuất"** (icon `LogOut`, cùng style item): `signOut()` rồi `navigate('/login', { replace: true })`. Có test `Sidebar.test.tsx`. |
 | `PageHeader` | `layout/PageHeader.tsx` | `breadcrumb?: Crumb[]` (`Crumb = {label, to?}`), `title: ReactNode`, `actions?: ReactNode` | Breadcrumb + H2 + actions phải. Crumb cuối (không `to`) tô màu brand. |
 | `ComingSoonPage` | `layout/ComingSoonPage.tsx` | `title: string` | Placeholder "đang được phát triển" (icon Construction + 2 dòng chữ). |
-| `navItems` | `layout/navItems.ts` | — | `PRIMARY_NAV: NavItem[]` (6 mục) + `SETTINGS_NAV: NavItem`. `NavItem = { label, to, icon }`. |
+| `navItems` | `layout/navItems.ts` | — | `PRIMARY_NAV: NavItem[]` (6 mục) + `SETTINGS_NAV: NavItem`. `NavItem = { label, to, icon, adminOnly?, orderAccessOnly?, transferAccessOnly? }` — `Sidebar` lọc mục theo cờ quyền. |
 
-`PRIMARY_NAV`: Tổng quan `/dashboard` · Người dùng `/users` · Tài sản `/devices` · Điều chuyển `/transfers` · Cấp phát - Thu hồi `/allocation` · Kiểm kê `/audit`.
+`PRIMARY_NAV`: Tổng quan `/dashboard` · Người dùng `/users` (`adminOnly`) · Tài sản `/devices` · Điều chuyển `/transfers` (`transferAccessOnly`) · Cấp phát - Thu hồi `/allocation` (`orderAccessOnly`) · Kiểm kê `/audit`.
 `SETTINGS_NAV`: Cài đặt `/settings`. Nút Đăng xuất không nằm trong `navItems` (là hành động, không phải route).
 
 ### `src/shared/lib/`
@@ -198,8 +218,10 @@ Cài thêm package cho frontend: `npm install <pkg> -w frontend`.
 |---|---|---|
 | `LineField` | `modules/auth/presentation/LoginPage.tsx` | Input gạch chân, chỉ dùng ở màn login. |
 | `AuthHeading` | `modules/auth/presentation/AuthHeading.tsx` | Icon + tiêu đề UPPERCASE cho các màn auth phụ. |
-| `AssetGeneralInfoFields` | `modules/device/presentation/form/` | Nhóm trường "Thông tin chung" của thiết bị (loại thiết bị/phòng ban/người sở hữu đọc từ `useDeviceLookups`, gọi `GET /device-types`, `/departments`, `/users`). Dùng ở `AssetFormPage` — chung cho tạo mới (`/devices/new`) và sửa (`/devices/:id/edit`). |
+| `AssetGeneralInfoFields` | `modules/device/presentation/form/` | Nhóm trường "Thông tin chung" của thiết bị (loại thiết bị/phòng ban/người sở hữu đọc từ `useDeviceLookups`, gọi `GET /device-types`, `/departments`, `/users/lookup`). Dùng ở `AssetFormPage` — chung cho tạo mới (`/devices/new`) và sửa (`/devices/:id/edit`). |
 | `ComponentsTable` | `modules/device/presentation/form/` | Bảng linh kiện thêm/sửa/xoá dòng. Dùng ở `AssetFormPage` như trên. |
+| `generateBienBan` (`buildBienBanContent` + `downloadBienBan`) | `modules/allocation/presentation/print/`, `modules/transfer/presentation/print/` | 2 bản riêng (nội dung biên bản khác nhau), dùng chung font `shared/print/`. File tải về: `bien-ban-{cap-phat\|thu-hoi}-<id>.pdf` / `bien-ban-dieu-chuyen-<id>.pdf`. |
+| `ORDER_STATUS_TONE` / `TRANSFER_STATUS_TONE` / `STATUS_TONE` | `orderStatusTone.ts`, `transferStatusTone.ts`, `device/presentation/statusTone.ts` | Map trạng thái → `BadgeTone`. |
 | `PrefToggle` | `modules/user/presentation/PrefToggle.tsx` | Checkbox + dòng mô tả. Dùng trong tab Thông báo & Bảo mật. |
 | `SettingsRail` (inline) | `modules/user/presentation/UserSettingsPage.tsx` | Rail điều hướng **dọc** có icon — hiện viết thẳng trong page, chưa tách. |
 
@@ -235,13 +257,15 @@ Route khai báo trong `src/app/router.tsx`.
 |---|---|---|---|
 | `/` | → `<Navigate to="/dashboard">` | — | Redirect. |
 | `/dashboard` | `modules/dashboard/presentation/DashboardPage.tsx` | `dashboardService.getStats` → **hardcode** 4 số: 128 / 86 / 34 / 8 + hint cứng. | Chỉ hiển thị. Có skeleton. Không refresh/lọc/drill-down. |
-| `/devices` | `modules/device/presentation/DeviceCatalogPage.tsx` | `deviceService.list(query)` → `GET /devices` (BE thật qua `HttpDeviceRepository`; tìm kiếm + lọc trạng thái gửi lên BE, lọc server-side). | Bảng **hoạt động**. 👁 dẫn sang `/devices/:id/edit`; ⋮ xoá mềm (`window.confirm` rồi `DELETE /devices/:id`). Cả 2 nút, cộng "Thêm thiết bị", chỉ hiện khi `canWriteDevices(session)` (Quản trị viên hoặc Trưởng phòng Kỹ thuật). Xem mục 4 cho nút vẫn chết. |
+| `/devices` | `modules/device/presentation/DeviceCatalogPage.tsx` | `deviceService.list(query)` → `GET /devices` (BE thật qua `HttpDeviceRepository`; tìm kiếm + lọc trạng thái gửi lên BE, lọc server-side). | Bảng **hoạt động**. 👁 dẫn sang `/devices/:id/edit`; ⋮ xoá mềm (`window.confirm` rồi `DELETE /devices/:id`). Cả 2 nút, cộng "Thêm thiết bị", chỉ hiện khi `canWriteDevices(session)` (Quản trị viên hoặc Trưởng phòng Kỹ thuật). Lọc trạng thái "Đã xóa" + là Quản trị viên → nút **"Dọn thùng rác"**: xoá cứng mọi thiết bị đang hiện (`POST /devices/purge { ids }`); backend chỉ xoá thiết bị ở trạng thái "Đã xóa" và bỏ qua thiết bị còn được đơn cấp phát/lệnh điều chuyển tham chiếu. Xem mục 4 cho nút vẫn chết. |
 | `/devices/new` | `modules/device/presentation/AssetFormPage.tsx` | Tạo mới qua `deviceService.create` → `POST /devices`. | Form nhiều section, validate **hoạt động** (kể cả định dạng mã thiết bị `PREFIX-NNNNNN`). Lưu xong → `/devices`. Bọc quyền ghi ở nút mở trang, không có route guard riêng. |
 | `/devices/:id/edit` | `modules/device/presentation/AssetFormPage.tsx` (cùng file với `/devices/new`, đọc `useParams<{id}>`) | Nạp thiết bị qua `deviceService.get(id)` → `GET /devices/:id`; lưu qua `deviceService.update` → `PATCH /devices/:id`. | Cùng form tạo mới, nạp sẵn dữ liệu (`toDraft`). Chỉ vào được từ nút 👁 (chỉ hiện khi có quyền ghi). |
-| `/allocation` | `<ComingSoonPage title="Cấp phát - Thu hồi" />` | — | Placeholder. Màn cũ `AllocateRecoverPage` (thực chất là form tạo tài sản rút gọn, chưa có luồng cấp phát/thu hồi thật) đã bị xoá — xem mục 5 điểm 4. |
-| `/users` | `modules/user/presentation/UserListPage.tsx` | `userAdminService.list(query)` → `GET /users` (BE thật). Bọc trong `RequireAdmin` — chỉ Quản trị viên vào được, role khác bị `<Navigate to="/dashboard">`. | Bảng người dùng: tìm kiếm + lọc trạng thái/vai trò/phòng ban (query gửi lên BE, không lọc client), khoá/mở khoá (`PATCH /users/:id/status`), xoá mềm (`DELETE /users/:id`) — confirm bằng `window.confirm` (native, chưa có Modal). Không tự thao tác trên chính mình hay user đã xoá. Không phân trang, không sửa thông tin user. |
+| `/allocation` | `modules/allocation/presentation/DeviceOrderListPage.tsx` | `deviceOrderService.list({ type, status })` → `GET /device-orders` (BE thật). Bọc `RequireOrderAccess` (Quản trị viên hoặc Trưởng phòng Kỹ thuật). | Bảng đơn Cấp phát / Thu hồi, lọc theo Loại + Trạng thái ("Chờ duyệt" / "Đã duyệt" / "Từ chối") gửi lên BE. "Tạo đơn" chỉ hiện với `canCreateOrder` (Trưởng phòng Kỹ thuật). Đơn "Chờ duyệt": **Duyệt** (`window.confirm` → `PATCH /device-orders/:id/approve`, BE đổi trạng thái thiết bị) / **Từ chối** (`window.prompt` lý do → `PATCH .../reject`) — chỉ `canDecideOrder` (Quản trị viên). Đơn "Đã duyệt": **In biên bản** (`GET /device-orders/:id` → PDF). |
+| `/allocation/new` | `modules/allocation/presentation/CreateOrderPage.tsx` | Người liên quan từ `GET /users/lookup`; thiết bị hợp lệ từ `deviceService.list`: Cấp phát → thiết bị "Trong kho", Thu hồi → thiết bị "Đã cấp phát" của đúng người đang giữ. Lưu `POST /device-orders`. | Chọn loại (radio) → người → tick thiết bị (đổi loại/người thì xoá danh sách đã tick) → ghi chú. `validateOrderDraft` (domain): loại, người, ≥ 1 thiết bị; sai → 1 dòng lỗi chung (không lỗi theo từng ô). Xong → `/allocation`. Không có guard riêng ngoài `RequireOrderAccess` — Admin vào URL được nhưng BE từ chối tạo. |
+| `/users` | `modules/user/presentation/UserListPage.tsx` | `userAdminService.list(query)` → `GET /users` (BE thật). Bọc trong `RequireAdmin` — chỉ Quản trị viên vào được, role khác bị `<Navigate to="/dashboard">`. | Bảng người dùng: tìm kiếm + lọc trạng thái/vai trò/phòng ban (query gửi lên BE, không lọc client), khoá/mở khoá (`PATCH /users/:id/status`), xoá mềm (`DELETE /users/:id`) — confirm bằng `window.confirm` (native, chưa có Modal). Không tự thao tác trên chính mình hay user đã xoá. Lọc "Đã xóa" → nút **"Dọn thùng rác"** xoá cứng các user đang hiện (`POST /users/purge { ids }`; backend xoá kèm `PasswordResetToken` của họ và bỏ qua user còn được đơn/lệnh điều chuyển tham chiếu). Không phân trang, không sửa thông tin user. |
 | `/users/new` | `modules/user/presentation/CreateUserPage.tsx` | `userAdminService.create(dto)` → `POST /users` (BE thật). Dropdown vai trò/phòng ban đọc `GET /roles`, `GET /departments`. | Bọc trong `RequireAdmin`. Validate ở `domain` + BE (trùng username/email → lỗi). Tạo xong → `/users`. |
-| `/transfers` | `<ComingSoonPage title="Điều chuyển" />` | — | Placeholder. |
+| `/transfers` | `modules/transfer/presentation/DeviceTransferListPage.tsx` | `deviceTransferService.list({ status })` → `GET /device-transfers` (BE thật). Bọc `RequireTransferAccess` (Quản trị viên hoặc Trưởng phòng Kỹ thuật). | Bảng lệnh điều chuyển (Người giao → Người nhận), lọc Trạng thái. Quyền **ngược** `/allocation`: "Tạo lệnh" chỉ `canCreateTransfer` (Quản trị viên); **Duyệt** / **Từ chối** (`window.confirm` / `window.prompt`, `PATCH /device-transfers/:id/approve\|reject`) chỉ `canDecideTransfer` (Trưởng phòng Kỹ thuật). Lệnh "Đã duyệt": **In biên bản** PDF. Thiết bị giữ trạng thái "Đã cấp phát" suốt, chỉ đổi người giữ. |
+| `/transfers/new` | `modules/transfer/presentation/CreateTransferPage.tsx` | Người từ `GET /users/lookup`; thiết bị = "Đã cấp phát" của người giao (`deviceService.list({ status, currentUserId: fromUserId })`). Lưu `POST /device-transfers`. | Chọn người giao → người nhận → tick thiết bị → ghi chú. `validateTransferDraft`: 2 người bắt buộc và phải khác nhau, ≥ 1 thiết bị. Xong → `/transfers`. |
 | `/audit` | `<ComingSoonPage title="Kiểm kê" />` | — | Placeholder. |
 | `/settings` | `modules/user/presentation/UserSettingsPage.tsx` | `userSettingsService.get/save` → **seed 1 hồ sơ** (Hàn Nguyễn, SGB-IT-0142), mock. | Hồ sơ cá nhân — rail dọc + 3 tab, 1 cặp nút Hủy/Lưu, gating theo `dirty`. Lưu chỉ vào in-memory (mất khi F5). Tab 2/3 tự thiết kế. |
 | `*` | `app/NotFoundPage.tsx` | — | 404. |
@@ -254,6 +278,9 @@ Nguồn thiết kế — **2 nguồn khác nhau tuỳ module**:
   800×512 (`Group 1..16`, thiếu 6). Map: 1=Login(cũ), 3=Quên MK(cũ), 4=OTP(cũ), 5=Đổi MK(cũ),
   2=Dashboard, 7/8/9=User settings, 10=Danh mục thiết bị, 11=DS đơn cấp phát, 12=Tạo đơn cấp
   phát, 13=Approvals Center, 14+15=Thêm tài sản, 16=Cấp phát-Thu hồi.
+- **allocation/transfer**: không dựng theo Figma — code thẳng bằng UI kit sẵn có theo spec
+  `docs/superpowers/specs/2026-09-24-cap-phat-thu-hoi-design.md` và `2026-09-25-dieu-chuyen-design.md`.
+  Duyệt/từ chối nằm ngay trên dòng của bảng danh sách (không có màn Approvals Center riêng).
 
 Bảng màu/spacing trong `tailwind.config.js` vẫn là **ước lượng bằng mắt**, kể cả sau khi auth
 đọc được Figma sống — vì các node đọc được dùng hex/rgba trực tiếp trên từng lớp, không phải
@@ -269,10 +296,10 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 | Nơi | Phần tử | File |
 |---|---|---|
 | AppShell (thanh trên cùng, mọi màn app) | Nút **chuông thông báo** (`aria-label="Thông báo"`) | `shared/layout/AppShell.tsx:21` |
-| AppShell | **Avatar** (span chữ cái) — không phải nút, không có menu (Đăng xuất nằm ở cuối sidebar) | `shared/layout/AppShell.tsx:27` |
-| Danh mục thiết bị — header | Nút **"Xuất dữ liệu"** (icon Upload) | `modules/device/presentation/DeviceCatalogPage.tsx:95` |
-| Thêm tài sản — section "Tệp đính kèm" | Nút **"Thêm tài liệu"** — không có `<input type=file>` | `modules/device/presentation/AssetFormPage.tsx:198` |
-| Thêm tài sản — section "Thông tin khác" | Nút **"Thêm thông tin tùy chỉnh"** | `AssetFormPage.tsx:206` |
+| AppShell | **Avatar** (span chữ cái) — không phải nút, không có menu (Đăng xuất nằm ở cuối sidebar) | `shared/layout/AppShell.tsx:28` |
+| Danh mục thiết bị — header | Nút **"Xuất dữ liệu"** (icon Upload) | `modules/device/presentation/DeviceCatalogPage.tsx:104` |
+| Thêm tài sản — section "Tệp đính kèm" | Nút **"Thêm tài liệu"** — không có `<input type=file>` | `modules/device/presentation/AssetFormPage.tsx:174` |
+| Thêm tài sản — section "Thông tin khác" | Nút **"Thêm thông tin tùy chỉnh"** | `AssetFormPage.tsx:182` |
 
 ### 4.2 Không có / thiếu tương tác
 
@@ -285,6 +312,7 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 | **Không sửa được thông tin người dùng** | `/users` đã có tạo / khoá / mở khoá / xoá mềm, nhưng không có màn sửa (họ tên, email, vai trò, phòng ban) — cố ý bỏ ngoài phạm vi đợt 2026-09-19. Cũng chưa phân trang. |
 | **Không có "đổi mật khẩu khi đang đăng nhập"** | Nút "Đổi mật khẩu" ở tab Bảo mật (`/settings`) dẫn sang `/forgot-password` (luồng OTP qua email). Backend chưa có endpoint đổi mật khẩu bằng mật khẩu cũ. |
 | **Dashboard** | Không refresh, không lọc theo kỳ, thẻ không bấm được. |
+| **Đơn cấp phát / lệnh điều chuyển** | Không có màn chi tiết (chỉ tải chi tiết khi in biên bản), không sửa/huỷ đơn đã tạo, không phân trang. Lý do từ chối nhập bằng `window.prompt` (chưa có Modal). |
 | **Bảng (`DataTable`)** | Không sort, không phân trang, không chọn dòng. Dữ liệu nhiều sẽ chỉ tràn/cuộn. |
 
 ### 4.3 Dữ liệu cứng trong code (không phải API)
@@ -308,7 +336,7 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 | Chạy FE cần backend | Không còn mock auth: muốn đăng nhập phải chạy backend (`backend/`, cổng 3000) + PostgreSQL. |
 | Session mock cũ | Trình duyệt từng chạy bản mock có thể còn `localStorage["idsm.session"]` với token giả `mock.*`. `RequireAuth` chỉ kiểm có session hay không, nên vẫn cho vào app → xoá tay khoá này 1 lần. |
 | Token hết hạn | JWT sống `JWT_EXPIRES_IN` (1 ngày). FE kiểm `exp` khi mở app và tự `signOut` khi BE trả 401 trên request **có token** → về `/login` kèm "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại". Không có refresh token. |
-| Sau đăng nhập | `/users` (chỉ Quản trị viên) và `/devices` (Tài sản) gọi BE thật kèm `Authorization: Bearer`; Dashboard / `/settings` **vẫn là mock**. |
+| Sau đăng nhập | `/users` (chỉ Quản trị viên), `/devices` (Tài sản), `/allocation` và `/transfers` gọi BE thật kèm `Authorization: Bearer`; Dashboard / `/settings` **vẫn là mock**. |
 
 ### 4.5 Form / validate
 
@@ -319,6 +347,8 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 | OTP | Nút disabled tới khi đủ 4 số; service kiểm regex `^\d{4}$`, backend so mã (hash SHA-256, tối đa 5 lần sai mỗi mã). | |
 | Đổi mật khẩu | `validatePasswordReset` (domain, tái dùng trực tiếp ở `presentation` để validate "sống"): khớp + độ dài ≥ 6. Checkbox "Hiện mật khẩu" hoạt động. **Nút "Lưu mật khẩu" disable tới khi 2 ô khớp** (2026-09-11, trước đó chỉ báo lỗi sau khi bấm). | Không kiểm độ mạnh mật khẩu (chỉ độ dài). |
 | Thêm / sửa thiết bị | `validateDeviceDraft` (`domain/deviceDraft.ts`): 5 trường bắt buộc (gồm `deviceCode` khớp `DEVICE_CODE_PATTERN = /^[A-Z]{2,4}-\d{6}$/`, khớp regex phía backend) + khi `allocated` thì thêm `currentUserId`. Lỗi hiện theo từng `Field`. **Hoạt động.** | "Hạn bảo hành" không tự tính từ số tháng/năm. Regex FE chưa kiểm tiền tố đúng `DeviceType` đã chọn — việc đó backend kiểm (`Mã thiết bị phải bắt đầu bằng "..." theo loại thiết bị đã chọn`). |
+| Tạo đơn cấp phát / thu hồi | `validateOrderDraft` (`allocation/domain/validateOrderDraft.ts`): loại, người liên quan, ≥ 1 thiết bị. | Service ném `OrderValidationError`; page chỉ hiện 1 dòng "Vui lòng kiểm tra các trường bắt buộc", không lỗi theo ô. |
+| Tạo lệnh điều chuyển | `validateTransferDraft` (`transfer/domain/validateTransferDraft.ts`): người giao, người nhận (phải khác người giao), ≥ 1 thiết bị. | Như trên. |
 | User — Thông tin chung | `validateUserSettings`: 5 trường bắt buộc + định dạng email. Lỗi theo `Field`. Submit sai → nhảy về tab 1. **Hoạt động.** | |
 | User — Thông báo / Bảo mật | Không có trường bắt buộc. | Bộ field là **phỏng đoán** (Figma cũ Group 8/9 chỉ lặp lại mock của tab 1), đánh dấu `ponytail:` trong file. |
 
@@ -328,15 +358,15 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 |---|---|
 | Chuyển tab ở `/settings` | **Hoạt động** (`useState<TabId>`), title H2 đổi theo tab. |
 | `shared/ui/Tabs` (tab ngang dùng chung) | Component có sẵn, **hiện chưa màn nào dùng**. |
-| Modal | **Không có** — chưa màn nào cần, chưa có component. |
+| Modal | **Không có component**. Xác nhận dùng `window.confirm` (xoá/khoá user, xoá thiết bị, dọn thùng rác, duyệt đơn/lệnh), nhập lý do từ chối dùng `window.prompt`. |
 | "Đổi mật khẩu" trong tab Bảo mật | Điều hướng sang `/forgot-password` (luồng OTP qua email; `/reset-password` bắt buộc có OTP nên không vào thẳng được). |
 | Đăng xuất | Nút cuối sidebar → xoá session → `/login` (xem mục 6). |
-| `ComingSoonPage` (`/transfers`, `/audit`) | Chỉ chữ, không tương tác. |
+| `ComingSoonPage` (`/audit`) | Chỉ chữ, không tương tác. Là route placeholder duy nhất còn lại. |
 
 ### 4.7 TODO / dấu vết trong code
 
 - Không có comment `TODO`/`FIXME` nào trong `src/`.
-- Có các comment `ponytail:` đánh dấu chỗ cố tình làm tối giản: mock repo ở `dashboard`/`user`, và 2 tab tự thiết kế của `user` (tab Bảo mật: đổi mật khẩu đi qua luồng OTP cho tới khi có API đổi mật khẩu). Backend: bộ đếm số lần nhập sai OTP nằm trong RAM (`password-reset.service.ts`).
+- Có các comment `ponytail:` đánh dấu chỗ cố tình làm tối giản: mock repo ở `dashboard`/`user`, 2 tab tự thiết kế của `user` (tab Bảo mật: đổi mật khẩu đi qua luồng OTP cho tới khi có API đổi mật khẩu), và `window.confirm` thay Modal ở `DeviceCatalogPage` + `UserListPage`. Backend: bộ đếm số lần nhập sai OTP nằm trong RAM (`password-reset.service.ts`), `GET /users` + `GET /devices` chưa phân trang (`users.service.ts`, `devices.service.ts`).
 - `*.tsbuildinfo` đã được `.gitignore` loại trừ và gỡ khỏi repo (2026-09-11).
 
 ---
@@ -360,11 +390,10 @@ bằng mắt với screenshot mà `get_design_context` trả về.
    Các module chưa đọc lại từ Figma sống (dashboard/device/user) vẫn có thể lệch màu/khoảng
    cách đáng kể so với bản Figma mới.
 
-4. **Luồng "Cấp phát - Thu hồi" đúng ra phải làm gì** — `AllocateRecoverPage` (từng gần như
-   trùng form thêm tài sản, không có luồng thật) đã bị **xoá 2026-09-22**; `/allocation` giờ là
-   `<ComingSoonPage>`. Nghiệp vụ thật (chọn thiết bị trong kho → gán nhân viên/phòng ban → sinh
-   biên bản → thu hồi về kho) vẫn chưa được mô hình hoá, để dành vòng riêng (12 frame Figma).
-   Figma cũ Group 16 quá sơ sài.
+4. ~~**Luồng "Cấp phát - Thu hồi" đúng ra phải làm gì**~~ — **Đã giải quyết 2026-09-25**: dựng
+   thành module `allocation` theo spec `2026-09-24-cap-phat-thu-hoi-design.md` (đơn Cấp phát / Thu
+   hồi, Trưởng phòng Kỹ thuật tạo, Quản trị viên duyệt, duyệt xong mới đổi thiết bị, in biên bản).
+   Điều chuyển làm cùng mẫu (module `transfer`). Giao diện chưa đối chiếu với Figma mới.
 
 5. **Chrome điều hướng** — memory ghi chú Figma cũ không nhất quán: vài frame có sidebar
    tiếng Anh, vài frame có thanh bar xanh trên đầu. Bản đang code chọn "sidebar tiếng Việt,
@@ -380,14 +409,15 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 8. **Đăng nhập có cần validate/hiển thị lỗi theo từng ô không?** — hiện chỉ 1 dòng lỗi chung,
    không có yêu cầu định dạng username, không "nhớ đăng nhập", không khoá sau N lần sai.
 
-9. **Độ phủ test** — unit test cho `domain` (5 file: `credentials.test.ts`, `session.test.ts`,
-   `deviceDraft.test.ts`, `userAccount.test.ts`, `userSettings.test.ts`), `HttpDeviceRepository`,
-   `HttpAuthRepository` (fetch giả lập), `useCountdown`, và 1 test component (`Sidebar` — đăng
-   xuất). Các page auth chưa có test component. Không rõ hành vi UI có được kỳ vọng kiểm thử
-   đầy đủ không.
+9. **Độ phủ test** (2026-09-30: **98 test / 22 file**, `npm test` xanh) — `domain` (7 file:
+   `credentials`, `session`, `deviceDraft`, `userAccount`, `userSettings`, `validateOrderDraft`,
+   `validateTransferDraft`), 5 `Http*Repository` (fetch giả lập), `apiClient`, `useCountdown`,
+   `SessionContext`, 2 `generateBienBan` (nội dung biên bản), và test component `Sidebar`,
+   `DeviceCatalogPage`, `UserListPage`, `DeviceOrderListPage`, `DeviceTransferListPage`. Các page
+   auth và 2 trang tạo đơn/lệnh chưa có test component.
 
-10. **Các module chưa dựng**: Điều chuyển, Kiểm kê, Danh sách/Tạo đơn cấp phát (Figma cũ
-    Group 11–12), Approvals Center (Group 13). Chưa rõ thứ tự ưu tiên và mức độ thay đổi ở
+10. **Các module chưa dựng**: Kiểm kê (`/audit`), QR thiết bị. Approvals Center (Figma cũ Group 13)
+    không làm riêng — duyệt nằm trên bảng `/allocation`, `/transfers`. Chưa rõ mức độ thay đổi ở
     bản Figma mới.
 
 ---
@@ -422,6 +452,7 @@ mở app (`readStored`) — cả hai đều đưa về `/login` kèm thông báo
 **Chưa làm:** đồng bộ đăng xuất giữa nhiều tab (sự kiện `storage`), hộp xác nhận trước khi đăng
 xuất (chưa có Modal).
 
-**Tài khoản dev** (tạo bởi `npx prisma db seed` trong `backend/`): `admin` / `Admin@123`; thêm
+**Tài khoản dev** (tạo bởi `npx prisma db seed`, hoặc `pnpm db:setup` = migrate deploy + seed,
+trong `backend/`; seed **từ chối chạy khi `NODE_ENV=production`**): `admin` / `Admin@123`; thêm
 user `dev` nếu `.env` có `DEV_USER_EMAIL` (mật khẩu seed `Dev@1234`) — dùng để test luồng quên
 mật khẩu, vì Resend `onboarding@resend.dev` chỉ gửi được tới email chủ tài khoản Resend.

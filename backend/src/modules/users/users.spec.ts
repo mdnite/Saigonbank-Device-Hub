@@ -11,7 +11,7 @@ import { hashPassword } from '../../shared/security/password';
 import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { USER_STATUS } from '../identity/user-status';
 
-// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
+// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Cộng tác viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
 
 describe('Users: /users, /roles, /departments', () => {
   let app: INestApplication;
@@ -132,6 +132,7 @@ describe('Users: /users, /roles, /departments', () => {
         { id: 1, roleName: 'Quản trị viên' },
         { id: 2, roleName: 'Trưởng phòng' },
         { id: 3, roleName: 'Nhân viên' },
+        { id: 4, roleName: 'Cộng tác viên' },
       ]);
       const deps = await http()
         .get('/departments')

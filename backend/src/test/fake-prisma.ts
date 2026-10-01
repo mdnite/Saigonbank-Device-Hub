@@ -119,6 +119,7 @@ export function createFakePrisma() {
     { id: 1, roleName: 'Quản trị viên' },
     { id: 2, roleName: 'Trưởng phòng' },
     { id: 3, roleName: 'Nhân viên' },
+    { id: 4, roleName: 'Cộng tác viên' },
   ];
   const departments: Department[] = [
     { id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' },
@@ -213,9 +214,15 @@ export function createFakePrisma() {
     include
       ? {
           ...t,
-          ...(include.fromUser && { fromUser: users.find((u) => u.id === t.fromUserId)! }),
-          ...(include.toUser && { toUser: users.find((u) => u.id === t.toUserId)! }),
-          ...(include.createdBy && { createdBy: users.find((u) => u.id === t.createdById)! }),
+          ...(include.fromUser && {
+            fromUser: users.find((u) => u.id === t.fromUserId)!,
+          }),
+          ...(include.toUser && {
+            toUser: users.find((u) => u.id === t.toUserId)!,
+          }),
+          ...(include.createdBy && {
+            createdBy: users.find((u) => u.id === t.createdById)!,
+          }),
           ...(include.decidedBy && {
             decidedBy: users.find((u) => u.id === t.decidedById) ?? null,
           }),
@@ -573,13 +580,25 @@ export function createFakePrisma() {
             .map((t) => project(withTransferRelations(t, include), select)),
       ),
       findUnique: jest.fn(
-        async ({ where, include }: { where: Where; include?: TransferInclude }) => {
+        async ({
+          where,
+          include,
+        }: {
+          where: Where;
+          include?: TransferInclude;
+        }) => {
           const hit = deviceTransfers.find((t) => matches(t, where));
           return hit ? withTransferRelations(hit, include) : null;
         },
       ),
       create: jest.fn(
-        async ({ data, include }: { data: TransferCreateData; include?: TransferInclude }) => {
+        async ({
+          data,
+          include,
+        }: {
+          data: TransferCreateData;
+          include?: TransferInclude;
+        }) => {
           const { items, ...rest } = data;
           const row: DeviceTransfer = {
             id: deviceTransfers.length + 1,
@@ -603,7 +622,13 @@ export function createFakePrisma() {
         },
       ),
       updateMany: jest.fn(
-        async ({ where, data }: { where: Where; data: Partial<DeviceTransfer> }) => {
+        async ({
+          where,
+          data,
+        }: {
+          where: Where;
+          data: Partial<DeviceTransfer>;
+        }) => {
           const hit = deviceTransfers.filter((t) => matches(t, where));
           hit.forEach((t) => Object.assign(t, data));
           return { count: hit.length };

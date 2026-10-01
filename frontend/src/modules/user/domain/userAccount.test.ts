@@ -18,7 +18,19 @@ describe('validateNewUser', () => {
     );
   });
 
-  it('form hợp lệ (phòng ban không bắt buộc)', () => {
+  it('form hợp lệ (Nhân viên không bắt buộc phòng ban)', () => {
+    expect(validateNewUser(valid, 'Nhân viên')).toEqual({});
+  });
+
+  it.each(['Trưởng phòng', 'Cộng tác viên'])('%s thiếu phòng ban: báo lỗi', (roleName) => {
+    expect(validateNewUser(valid, roleName)).toEqual({ departmentId: 'Vui lòng chọn phòng ban' });
+  });
+
+  it.each(['Trưởng phòng', 'Cộng tác viên'])('%s có phòng ban: hợp lệ', (roleName) => {
+    expect(validateNewUser({ ...valid, departmentId: '1' }, roleName)).toEqual({});
+  });
+
+  it('chưa biết tên role (danh mục chưa tải xong): không chặn, backend sẽ kiểm', () => {
     expect(validateNewUser(valid)).toEqual({});
   });
 

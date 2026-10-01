@@ -26,7 +26,7 @@ export function CreateUserPage() {
   const patch = (p: Partial<NewUserDraft>) => setDraft((d) => ({ ...d, ...p }));
 
   const submit = useAsyncAction(async () => {
-    const next = validateNewUser(draft);
+    const next = validateNewUser(draft, roles.find((r) => String(r.id) === draft.roleId)?.roleName);
     setErrors(next);
     if (Object.keys(next).length) throw new Error(INVALID);
     try {
@@ -91,7 +91,8 @@ export function CreateUserPage() {
               <Field
                 label="Phòng ban"
                 htmlFor="departmentId"
-                hint="Trưởng phòng Kế toán / Kỹ thuật được phân biệt theo phòng ban"
+                hint="Trưởng phòng / Cộng tác viên được phân biệt theo phòng ban"
+                error={errors.departmentId}
               >
                 <Select
                   id="departmentId"

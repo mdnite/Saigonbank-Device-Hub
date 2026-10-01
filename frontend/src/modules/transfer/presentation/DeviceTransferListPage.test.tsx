@@ -52,10 +52,17 @@ function renderPage(roleName: string, departmentCode: string | null, transfers =
   );
 }
 
-it('Admin: thấy nút "Tạo lệnh", không thấy Duyệt/Từ chối', async () => {
-  renderPage('Quản trị viên', null);
+it('Cộng tác viên Kỹ thuật: thấy nút "Tạo lệnh", không thấy Duyệt/Từ chối', async () => {
+  renderPage('Cộng tác viên', 'KYTHUAT');
   await waitFor(() => expect(screen.getByText('Nhân viên A')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'Tạo lệnh' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Duyệt' })).toBeNull();
+});
+
+it('Quản trị viên chỉ xem: không "Tạo lệnh", không Duyệt/Từ chối', async () => {
+  renderPage('Quản trị viên', null);
+  await waitFor(() => expect(screen.getByText('Nhân viên A')).toBeInTheDocument());
+  expect(screen.queryByRole('button', { name: 'Tạo lệnh' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Duyệt' })).toBeNull();
 });
 

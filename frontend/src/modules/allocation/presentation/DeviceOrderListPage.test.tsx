@@ -52,24 +52,31 @@ function renderPage(roleName: string, departmentCode: string | null, orders = [o
   );
 }
 
-it('Trưởng phòng Kỹ thuật: thấy nút "Tạo đơn", không thấy Duyệt/Từ chối', async () => {
-  renderPage('Trưởng phòng', 'KYTHUAT');
+it('Cộng tác viên Kỹ thuật: thấy nút "Tạo đơn", không thấy Duyệt/Từ chối', async () => {
+  renderPage('Cộng tác viên', 'KYTHUAT');
   await waitFor(() => expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'Tạo đơn' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Duyệt' })).toBeNull();
 });
 
-it('Admin: thấy Duyệt/Từ chối trên đơn Chờ duyệt, không thấy "Tạo đơn"', async () => {
-  renderPage('Quản trị viên', null);
+it('Trưởng phòng Kỹ thuật: thấy Duyệt/Từ chối trên đơn Chờ duyệt, không thấy "Tạo đơn"', async () => {
+  renderPage('Trưởng phòng', 'KYTHUAT');
   await waitFor(() => expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument());
   expect(screen.queryByRole('button', { name: 'Tạo đơn' })).toBeNull();
   expect(screen.getByRole('button', { name: 'Duyệt' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Từ chối' })).toBeInTheDocument();
 });
 
-it('Admin: đơn "Đã duyệt" hiện nút "In biên bản", không hiện Duyệt/Từ chối', async () => {
+it('Quản trị viên chỉ xem: không "Tạo đơn", không Duyệt/Từ chối', async () => {
+  renderPage('Quản trị viên', null);
+  await waitFor(() => expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument());
+  expect(screen.queryByRole('button', { name: 'Tạo đơn' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Duyệt' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Từ chối' })).toBeNull();
+});
+
+it('Quản trị viên: đơn "Đã duyệt" vẫn hiện nút "In biên bản"', async () => {
   renderPage('Quản trị viên', null, [order(1, 'Đã duyệt')]);
   await waitFor(() => expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'In biên bản' })).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Duyệt' })).toBeNull();
 });

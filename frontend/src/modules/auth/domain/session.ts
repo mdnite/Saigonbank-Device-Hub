@@ -12,36 +12,46 @@ export interface AuthSession {
 
 export const ADMIN_ROLE = 'Quản trị viên';
 export const HEAD_ROLE = 'Trưởng phòng';
+export const COLLAB_ROLE = 'Cộng tác viên';
 export const TECH_DEPARTMENT_CODE = 'KYTHUAT';
 
-export const isAdmin = (session: AuthSession | null): boolean => session?.roleName === ADMIN_ROLE;
+// Backend mới là chốt chặn thật (backend/src/shared/auth/actors.ts) — các hàm dưới chỉ để ẩn/hiện UI.
+type Can = (session: AuthSession | null) => boolean;
 
-export const isTechHead = (session: AuthSession | null): boolean =>
+export const isAdmin: Can = (session) => session?.roleName === ADMIN_ROLE;
+
+export const isTechHead: Can = (session) =>
   session?.roleName === HEAD_ROLE && session?.departmentCode === TECH_DEPARTMENT_CODE;
 
-/** Ghi thiết bị: Quản trị viên, hoặc Trưởng phòng Kỹ thuật. Backend mới là chốt chặn thật. */
-export const canWriteDevices = (session: AuthSession | null): boolean =>
-  isAdmin(session) || isTechHead(session);
+export const isTechCollab: Can = (session) =>
+  session?.roleName === COLLAB_ROLE && session?.departmentCode === TECH_DEPARTMENT_CODE;
 
-/** Xem đơn Cấp phát - Thu hồi: Quản trị viên hoặc Trưởng phòng Kỹ thuật. */
-export const canAccessOrders = (session: AuthSession | null): boolean =>
-  isAdmin(session) || isTechHead(session);
+const isTechTeam: Can = (session) => isTechHead(session) || isTechCollab(session);
+const isAdminOrTechTeam: Can = (session) => isAdmin(session) || isTechTeam(session);
 
-/** Tạo đơn: CHỈ Trưởng phòng Kỹ thuật — Admin không tạo đơn (khác canWriteDevices). */
-export const canCreateOrder = (session: AuthSession | null): boolean => isTechHead(session);
+/** Thêm/sửa thông tin thiết bị: Trưởng phòng Kỹ thuật hoặc Cộng tác viên Kỹ thuật. */
+export const canWriteDevices = isTechTeam;
 
-/** Duyệt/từ chối đơn: CHỈ Quản trị viên. */
-export const canDecideOrder = (session: AuthSession | null): boolean => isAdmin(session);
+/** Xoá mềm + dọn thùng rác thiết bị: CHỈ Trưởng phòng Kỹ thuật. */
+export const canDeleteDevices = isTechHead;
 
-/** Xem lệnh Điều chuyển: Quản trị viên hoặc Trưởng phòng Kỹ thuật. */
-export const canAccessTransfers = (session: AuthSession | null): boolean =>
-  isAdmin(session) || isTechHead(session);
+/** Xem đơn Cấp phát - Thu hồi: Quản trị viên (chỉ xem), Trưởng phòng và Cộng tác viên Kỹ thuật. */
+export const canAccessOrders = isAdminOrTechTeam;
 
-/** Tạo lệnh điều chuyển: CHỈ Quản trị viên — ngược với canCreateOrder. */
-export const canCreateTransfer = (session: AuthSession | null): boolean => isAdmin(session);
+/** Tạo đơn: CHỈ Cộng tác viên Kỹ thuật. */
+export const canCreateOrder = isTechCollab;
 
-/** Duyệt/từ chối lệnh điều chuyển: CHỈ Trưởng phòng Kỹ thuật — ngược với canDecideOrder. */
-export const canDecideTransfer = (session: AuthSession | null): boolean => isTechHead(session);
+/** Duyệt/từ chối đơn: CHỈ Trưởng phòng Kỹ thuật. */
+export const canDecideOrder = isTechHead;
+
+/** Xem lệnh Điều chuyển: cùng tập với canAccessOrders. */
+export const canAccessTransfers = isAdminOrTechTeam;
+
+/** Tạo lệnh điều chuyển: CHỈ Cộng tác viên Kỹ thuật. */
+export const canCreateTransfer = isTechCollab;
+
+/** Duyệt/từ chối lệnh điều chuyển: CHỈ Trưởng phòng Kỹ thuật. */
+export const canDecideTransfer = isTechHead;
 
 /** Đọc `exp` (giây) trong payload JWT. Token hỏng / thiếu exp coi như hết hạn. */
 export function isTokenExpired(token: string, now: number = Date.now()): boolean {

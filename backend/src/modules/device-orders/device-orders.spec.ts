@@ -11,7 +11,7 @@ import { hashPassword } from '../../shared/security/password';
 import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { USER_STATUS } from '../identity/user-status';
 
-// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
+// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Cộng tác viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
 // DeviceType id trong fake: 1 Laptop (LT), 2 Máy tính để bàn (PC).
 
 describe('Device orders: /device-orders', () => {
@@ -59,7 +59,7 @@ describe('Device orders: /device-orders', () => {
   ): Promise<number> {
     const res = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice(over))
       .expect(201);
     return res.body.data.id as number;
@@ -69,6 +69,7 @@ describe('Device orders: /device-orders', () => {
   let techHead: User;
   let financeHead: User;
   let staff: User;
+  let collab: User;
 
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret';
@@ -92,6 +93,7 @@ describe('Device orders: /device-orders', () => {
     techHead = addUser('techhead', 2, 1);
     financeHead = addUser('financehead', 2, 2);
     staff = addUser('staff', 3, 1);
+    collab = addUser('collab', 4, 1);
   }, 30_000);
 
   afterEach(async () => {
@@ -104,7 +106,7 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice();
       const res = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -125,7 +127,7 @@ describe('Device orders: /device-orders', () => {
       });
       const res = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Thu hồi',
           targetUserId: staff.id,
@@ -139,7 +141,7 @@ describe('Device orders: /device-orders', () => {
     it('thiếu deviceIds: 400', async () => {
       const res = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [] })
         .expect(400);
       expect(res.body.message).toContain('Vui lòng chọn ít nhất 1 thiết bị');
@@ -149,7 +151,7 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice();
       const res = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -163,7 +165,7 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice({ currentUserId: staff.id });
       const res = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -178,7 +180,7 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice({ currentUserId: other.id });
       const res = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Thu hồi',
           targetUserId: staff.id,
@@ -192,10 +194,23 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice();
       const res = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({ type: 'Cấp phát', targetUserId: 9999, deviceIds: [deviceId] })
         .expect(400);
       expect(res.body.message).toBe('Người dùng không tồn tại');
+    });
+
+    it('Trưởng phòng Kỹ thuật không còn được tạo đơn: 403', async () => {
+      const deviceId = await createDevice();
+      await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(techHead))
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
+        .expect(403);
     });
 
     it('Admin không được tạo đơn: 403', async () => {
@@ -229,6 +244,23 @@ describe('Device orders: /device-orders', () => {
   });
 
   describe('GET /device-orders', () => {
+    it('Quản trị viên, Trưởng phòng Kỹ thuật, Cộng tác viên Kỹ thuật đều xem được', async () => {
+      for (const actor of [admin, techHead, collab]) {
+        await http()
+          .get('/device-orders')
+          .set('Authorization', tokenOf(actor))
+          .expect(200);
+      }
+    });
+
+    it('Cộng tác viên Kế toán không xem được: 403', async () => {
+      const financeCollab = addUser('financecollab', 4, 2);
+      await http()
+        .get('/device-orders')
+        .set('Authorization', tokenOf(financeCollab))
+        .expect(403);
+    });
+
     it('Nhân viên không xem được: 403', async () => {
       await http()
         .get('/device-orders')
@@ -250,7 +282,7 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice();
       const created = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -261,7 +293,7 @@ describe('Device orders: /device-orders', () => {
 
       const res = await http()
         .patch(`/device-orders/${orderId}/approve`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .expect(200);
       expect(res.body.data.status).toBe('Đã duyệt');
       expect(res.body.message).toBe('Đã duyệt đơn');
@@ -285,7 +317,7 @@ describe('Device orders: /device-orders', () => {
       });
       const created = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Thu hồi',
           targetUserId: staff.id,
@@ -295,7 +327,7 @@ describe('Device orders: /device-orders', () => {
 
       await http()
         .patch(`/device-orders/${created.body.data.id}/approve`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .expect(200);
 
       const device = (
@@ -313,7 +345,7 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice();
       const created = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -323,12 +355,12 @@ describe('Device orders: /device-orders', () => {
       const orderId = created.body.data.id;
       await http()
         .patch(`/device-orders/${orderId}/approve`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .expect(200);
 
       const res = await http()
         .patch(`/device-orders/${orderId}/approve`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .expect(400);
       expect(res.body.message).toBe('Đơn đã được xử lý');
     });
@@ -337,7 +369,7 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice();
       const created = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -349,13 +381,13 @@ describe('Device orders: /device-orders', () => {
       // Thiết bị được cấp phát qua đường khác trước khi đơn này kịp duyệt.
       await http()
         .patch(`/devices/${deviceId}`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .send({ currentUserId: staff.id, status: 'Đã cấp phát' })
         .expect(200);
 
       const res = await http()
         .patch(`/device-orders/${orderId}/approve`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .expect(400);
       expect(res.body.message).toContain('không còn trong kho');
     });
@@ -374,7 +406,7 @@ describe('Device orders: /device-orders', () => {
       // thiết bị vẫn còn "Trong kho".
       const order1 = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -383,7 +415,7 @@ describe('Device orders: /device-orders', () => {
         .expect(201);
       const order2 = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: otherStaff.id,
@@ -396,7 +428,7 @@ describe('Device orders: /device-orders', () => {
         async (fn: (tx: unknown) => Promise<unknown>) => {
           await http()
             .patch(`/device-orders/${order2.body.data.id}/approve`)
-            .set('Authorization', tokenOf(admin))
+            .set('Authorization', tokenOf(techHead))
             .expect(200);
           return realTransaction(fn);
         },
@@ -404,7 +436,7 @@ describe('Device orders: /device-orders', () => {
 
       const res1 = await http()
         .patch(`/device-orders/${order1.body.data.id}/approve`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .expect(400);
       expect(res1.body.message).toContain('không còn trong kho');
 
@@ -422,7 +454,7 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice();
       const created = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -431,7 +463,7 @@ describe('Device orders: /device-orders', () => {
         .expect(201);
       const res = await http()
         .patch(`/device-orders/${created.body.data.id}/reject`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .send({ reason: '' })
         .expect(400);
       expect(res.body.message).toContain('Vui lòng nhập lý do từ chối');
@@ -441,7 +473,7 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice();
       const created = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -452,7 +484,7 @@ describe('Device orders: /device-orders', () => {
 
       const res = await http()
         .patch(`/device-orders/${orderId}/reject`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .send({ reason: 'Không đủ thiết bị dự phòng' })
         .expect(200);
       expect(res.body.data.status).toBe('Từ chối');
@@ -468,11 +500,11 @@ describe('Device orders: /device-orders', () => {
       expect(device.currentUser).toBeNull();
     });
 
-    it('Trưởng phòng Kỹ thuật không được duyệt/từ chối: 403', async () => {
+    it('Quản trị viên và Cộng tác viên Kỹ thuật không được duyệt/từ chối: 403', async () => {
       const deviceId = await createDevice();
       const created = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -480,21 +512,45 @@ describe('Device orders: /device-orders', () => {
         })
         .expect(201);
       const orderId = created.body.data.id;
-      await http()
-        .patch(`/device-orders/${orderId}/approve`)
+      for (const actor of [admin, collab]) {
+        await http()
+          .patch(`/device-orders/${orderId}/approve`)
+          .set('Authorization', tokenOf(actor))
+          .expect(403);
+        await http()
+          .patch(`/device-orders/${orderId}/reject`)
+          .set('Authorization', tokenOf(actor))
+          .send({ reason: 'x' })
+          .expect(403);
+      }
+    });
+
+    it('đơn Chờ duyệt cũ do chính Trưởng phòng Kỹ thuật tạo: vẫn duyệt được', async () => {
+      const deviceId = await createDevice();
+      prisma.deviceOrders.push({
+        id: 1,
+        type: 'Cấp phát',
+        status: 'Chờ duyệt',
+        targetUserId: staff.id,
+        note: null,
+        createdById: techHead.id,
+        decidedById: null,
+        decidedAt: null,
+        rejectReason: null,
+        createdAt: new Date(),
+      });
+      prisma.deviceOrderItems.push({ id: 1, orderId: 1, deviceId });
+      const res = await http()
+        .patch('/device-orders/1/approve')
         .set('Authorization', tokenOf(techHead))
-        .expect(403);
-      await http()
-        .patch(`/device-orders/${orderId}/reject`)
-        .set('Authorization', tokenOf(techHead))
-        .send({ reason: 'x' })
-        .expect(403);
+        .expect(200);
+      expect(res.body.data.status).toBe('Đã duyệt');
     });
 
     it('id đơn ngoài phạm vi int32: 404', async () => {
       await http()
         .patch('/device-orders/9999999999/approve')
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .expect(404);
     });
 
@@ -505,7 +561,7 @@ describe('Device orders: /device-orders', () => {
         .expect(404);
       await http()
         .patch('/device-orders/abc/approve')
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .expect(404);
     });
 
@@ -513,7 +569,7 @@ describe('Device orders: /device-orders', () => {
       const deviceId = await createDevice();
       const created = await http()
         .post('/device-orders')
-        .set('Authorization', tokenOf(techHead))
+        .set('Authorization', tokenOf(collab))
         .send({
           type: 'Cấp phát',
           targetUserId: staff.id,
@@ -526,7 +582,7 @@ describe('Device orders: /device-orders', () => {
 
       const res = await http()
         .patch(`/device-orders/${orderId}/approve`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .expect(400);
       expect(res.body.message).toBe('Người dùng không tồn tại');
 

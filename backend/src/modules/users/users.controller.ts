@@ -12,10 +12,9 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ACTOR, Allow } from '../../shared/auth/actors';
 import { AuthGuard, type AuthedRequest } from '../../shared/auth/auth.guard';
-import { Roles } from '../../shared/auth/roles.decorator';
 import { ResponseMessage } from '../../shared/http/api-response';
-import { ROLE } from '../identity/roles';
 import {
   CreateUserDto,
   ListUsersQuery,
@@ -35,7 +34,7 @@ const UserId = () =>
 
 @Controller('users')
 @UseGuards(AuthGuard)
-@Roles(ROLE.ADMIN)
+@Allow(ACTOR.ADMIN)
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
@@ -66,7 +65,7 @@ export class UsersController {
     return this.users.softDelete(req.user.id, id);
   }
 
-  /** Dọn thùng rác — xoá cứng, chỉ Quản trị viên (đã áp ở @Roles class-level). */
+  /** Dọn thùng rác — xoá cứng, chỉ Quản trị viên (đã áp ở @Allow class-level). */
   @Post('purge')
   @ResponseMessage('Đã dọn thùng rác')
   async purge(@Body() dto: PurgeUsersDto) {

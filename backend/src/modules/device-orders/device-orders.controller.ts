@@ -11,12 +11,9 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ACTOR, Allow } from '../../shared/auth/actors';
 import { AuthGuard, type AuthedRequest } from '../../shared/auth/auth.guard';
-import { OrderAccessGuard } from '../../shared/auth/order-access.guard';
-import { OrderCreateGuard } from '../../shared/auth/order-create.guard';
-import { Roles } from '../../shared/auth/roles.decorator';
 import { ResponseMessage } from '../../shared/http/api-response';
-import { ROLE } from '../identity/roles';
 import {
   CreateDeviceOrderDto,
   ListDeviceOrdersQuery,
@@ -33,7 +30,8 @@ const OrderId = () =>
   );
 
 @Controller('device-orders')
-@UseGuards(AuthGuard, OrderAccessGuard)
+@UseGuards(AuthGuard)
+@Allow(ACTOR.ADMIN, ACTOR.TECH_HEAD, ACTOR.TECH_COLLAB)
 export class DeviceOrdersController {
   constructor(private readonly orders: DeviceOrdersService) {}
 
@@ -48,21 +46,21 @@ export class DeviceOrdersController {
   }
 
   @Post()
-  @UseGuards(OrderCreateGuard)
+  @Allow(ACTOR.TECH_COLLAB)
   @ResponseMessage('Đã tạo đơn')
   create(@Body() dto: CreateDeviceOrderDto, @Req() req: AuthedRequest) {
     return this.orders.create(dto, req.user.id);
   }
 
   @Patch(':id/approve')
-  @Roles(ROLE.ADMIN)
+  @Allow(ACTOR.TECH_HEAD)
   @ResponseMessage('Đã duyệt đơn')
   approve(@OrderId() id: number, @Req() req: AuthedRequest) {
     return this.orders.approve(id, req.user.id);
   }
 
   @Patch(':id/reject')
-  @Roles(ROLE.ADMIN)
+  @Allow(ACTOR.TECH_HEAD)
   @ResponseMessage('Đã từ chối đơn')
   reject(
     @OrderId() id: number,

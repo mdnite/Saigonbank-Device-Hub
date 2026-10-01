@@ -11,7 +11,7 @@ import { hashPassword } from '../../shared/security/password';
 import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { USER_STATUS } from '../identity/user-status';
 
-// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
+// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Cộng tác viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
 // DeviceType id trong fake: 1 Laptop (LT), 2 Máy tính để bàn (PC).
 
 describe('Devices: /devices, /device-types', () => {
@@ -47,6 +47,8 @@ describe('Devices: /devices, /device-types', () => {
 
   let admin: User;
   let staff: User;
+  let techHead: User;
+  let collab: User;
 
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret';
@@ -68,6 +70,8 @@ describe('Devices: /devices, /device-types', () => {
 
     admin = addUser('admin', 1);
     staff = addUser('staff', 3);
+    techHead = addUser('techhead', 2); // addUser đặt departmentId = 1 (KYTHUAT)
+    collab = addUser('collab', 4);
   }, 30_000);
 
   afterEach(async () => {
@@ -87,7 +91,7 @@ describe('Devices: /devices, /device-types', () => {
   it('tạo thiết bị thành công', async () => {
     const res = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice())
       .expect(201);
     expect(res.body.data.deviceCode).toBe('LT-000001');
@@ -98,7 +102,7 @@ describe('Devices: /devices, /device-types', () => {
   it('đặt trạng thái "Đã cấp phát" khi có người sở hữu', async () => {
     const res = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ currentUserId: staff.id }))
       .expect(201);
     expect(res.body.data.status).toBe('Đã cấp phát');
@@ -107,18 +111,18 @@ describe('Devices: /devices, /device-types', () => {
   it('lọc theo currentUserId', async () => {
     const owned = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ currentUserId: staff.id }))
       .expect(201);
     await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ deviceCode: 'LT-000002' }))
       .expect(201);
 
     const res = await http()
       .get(`/devices?currentUserId=${staff.id}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].id).toBe(owned.body.data.id);
@@ -127,12 +131,12 @@ describe('Devices: /devices, /device-types', () => {
   it('chặn mã thiết bị trùng', async () => {
     await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice())
       .expect(201);
     const res = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice())
       .expect(409);
     expect(res.body.message).toBe('Mã thiết bị đã tồn tại');
@@ -141,12 +145,12 @@ describe('Devices: /devices, /device-types', () => {
   it('chặn số serial trùng', async () => {
     await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ serialNumber: 'SN-1' }))
       .expect(201);
     const res = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ deviceCode: 'LT-000002', serialNumber: 'SN-1' }))
       .expect(409);
     expect(res.body.message).toBe('Số serial đã tồn tại');
@@ -155,7 +159,7 @@ describe('Devices: /devices, /device-types', () => {
   it('chặn mã sai định dạng', async () => {
     const res = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ deviceCode: 'LT-1' }))
       .expect(400);
     expect(res.body.message).toContain('Mã thiết bị phải có dạng PC-000123');
@@ -164,7 +168,7 @@ describe('Devices: /devices, /device-types', () => {
   it('chặn mã có tiền tố không khớp loại thiết bị', async () => {
     const res = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ deviceCode: 'PC-000001', deviceTypeId: 1 }))
       .expect(400);
     expect(res.body.message).toBe(
@@ -175,7 +179,7 @@ describe('Devices: /devices, /device-types', () => {
   it('chặn loại thiết bị không tồn tại', async () => {
     const res = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ deviceTypeId: 99 }))
       .expect(400);
     expect(res.body.message).toBe('Loại thiết bị không tồn tại');
@@ -184,12 +188,12 @@ describe('Devices: /devices, /device-types', () => {
   it('PATCH không cho đặt trạng thái "Đã xóa"', async () => {
     const created = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice())
       .expect(201);
     const res = await http()
       .patch(`/devices/${created.body.data.id}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send({ status: 'Đã xóa' })
       .expect(400);
     expect(res.body.message).toBe('Trạng thái không hợp lệ');
@@ -198,7 +202,7 @@ describe('Devices: /devices, /device-types', () => {
   it('PATCH gửi accessories thay toàn bộ danh sách linh kiện cũ', async () => {
     const created = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(
         newDevice({
           accessories: [
@@ -214,7 +218,7 @@ describe('Devices: /devices, /device-types', () => {
       .expect(201);
     const res = await http()
       .patch(`/devices/${created.body.data.id}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send({
         accessories: [
           {
@@ -236,12 +240,12 @@ describe('Devices: /devices, /device-types', () => {
   it('PATCH đổi loại thiết bị mà không gửi mã: kiểm mã cũ theo tiền tố loại mới', async () => {
     const created = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice())
       .expect(201);
     const res = await http()
       .patch(`/devices/${created.body.data.id}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send({ deviceTypeId: 2 })
       .expect(400);
     expect(res.body.message).toBe(
@@ -252,19 +256,19 @@ describe('Devices: /devices, /device-types', () => {
   it('xoá mềm: không xoá row, thiết bị biến khỏi danh sách', async () => {
     const created = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice())
       .expect(201);
     const id = created.body.data.id;
     await http()
       .delete(`/devices/${id}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
     expect(prisma.device.delete).not.toHaveBeenCalled();
     expect(prisma.devices.find((d) => d.id === id)!.status).toBe('Đã xóa');
     const list = await http()
       .get('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
     expect(list.body.data.some((d: { id: number }) => d.id === id)).toBe(false);
   });
@@ -272,18 +276,18 @@ describe('Devices: /devices, /device-types', () => {
   it('lọc theo trạng thái "Đã xóa" trả về thiết bị đã xoá mềm', async () => {
     const created = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice())
       .expect(201);
     const id = created.body.data.id;
     await http()
       .delete(`/devices/${id}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
     const res = await http()
       .get('/devices')
       .query({ status: 'Đã xóa' })
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
     expect(res.body.data.some((d: { id: number }) => d.id === id)).toBe(true);
   });
@@ -291,17 +295,17 @@ describe('Devices: /devices, /device-types', () => {
   it('thao tác trên thiết bị đã xoá trả 404', async () => {
     const created = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice())
       .expect(201);
     const id = created.body.data.id;
     await http()
       .delete(`/devices/${id}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
     const res = await http()
       .delete(`/devices/${id}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(404);
     expect(res.body.message).toBe('Thiết bị không tồn tại');
   });
@@ -309,32 +313,32 @@ describe('Devices: /devices, /device-types', () => {
   it('id vượt phạm vi int32 trả 404 chứ không phải 500', async () => {
     await http()
       .get('/devices/9999999999')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(404);
   });
 
-  it('POST /devices/purge (Admin): xoá vĩnh viễn thiết bị đã xoá mềm, bỏ qua id chưa xoá', async () => {
+  it('POST /devices/purge (Trưởng phòng Kỹ thuật): xoá vĩnh viễn thiết bị đã xoá mềm, bỏ qua id chưa xoá', async () => {
     const deleted = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice())
       .expect(201);
     const deletedId = deleted.body.data.id;
     await http()
       .delete(`/devices/${deletedId}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
 
     const active = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ deviceCode: 'LT-000002' }))
       .expect(201);
     const activeId = active.body.data.id;
 
     const res = await http()
       .post('/devices/purge')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send({ ids: [deletedId, activeId] })
       .expect(201);
 
@@ -349,13 +353,13 @@ describe('Devices: /devices, /device-types', () => {
   it('POST /devices/purge: bỏ qua id còn bị tham chiếu trong DeviceOrderItem', async () => {
     const referenced = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice())
       .expect(201);
     const referencedId = referenced.body.data.id;
     await http()
       .delete(`/devices/${referencedId}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
     prisma.deviceOrders.push({
       id: 1,
@@ -373,18 +377,18 @@ describe('Devices: /devices, /device-types', () => {
 
     const unreferenced = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ deviceCode: 'LT-000002' }))
       .expect(201);
     const unreferencedId = unreferenced.body.data.id;
     await http()
       .delete(`/devices/${unreferencedId}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
 
     const res = await http()
       .post('/devices/purge')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send({ ids: [referencedId, unreferencedId] })
       .expect(201);
 
@@ -396,13 +400,13 @@ describe('Devices: /devices, /device-types', () => {
   it('POST /devices/purge: bỏ qua id còn bị tham chiếu trong DeviceTransferItem', async () => {
     const referenced = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ deviceCode: 'LT-000003' }))
       .expect(201);
     const referencedId = referenced.body.data.id;
     await http()
       .delete(`/devices/${referencedId}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
     prisma.deviceTransfers.push({
       id: 1,
@@ -416,22 +420,26 @@ describe('Devices: /devices, /device-types', () => {
       rejectReason: null,
       createdAt: new Date(),
     });
-    prisma.deviceTransferItems.push({ id: 1, transferId: 1, deviceId: referencedId });
+    prisma.deviceTransferItems.push({
+      id: 1,
+      transferId: 1,
+      deviceId: referencedId,
+    });
 
     const unreferenced = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice({ deviceCode: 'LT-000004' }))
       .expect(201);
     const unreferencedId = unreferenced.body.data.id;
     await http()
       .delete(`/devices/${unreferencedId}`)
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .expect(200);
 
     const res = await http()
       .post('/devices/purge')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send({ ids: [referencedId, unreferencedId] })
       .expect(201);
 
@@ -458,23 +466,6 @@ describe('Devices: /devices, /device-types', () => {
     expect(res.body.message).toBe('Bạn không có quyền thực hiện thao tác này');
   });
 
-  it('Trưởng phòng Kế toán không được tạo, Trưởng phòng Kỹ thuật thì được', async () => {
-    const ketoan = addUser('tpketoan', 2);
-    ketoan.departmentId = 2;
-    await http()
-      .post('/devices')
-      .set('Authorization', tokenOf(ketoan))
-      .send(newDevice())
-      .expect(403);
-
-    const kythuat = addUser('tpkythuat', 2); // addUser đặt departmentId = 1 (KYTHUAT)
-    await http()
-      .post('/devices')
-      .set('Authorization', tokenOf(kythuat))
-      .send(newDevice({ deviceCode: 'LT-000009' }))
-      .expect(201);
-  });
-
   it('Nhân viên vẫn đọc được danh sách và danh mục loại thiết bị', async () => {
     await http()
       .get('/devices')
@@ -485,5 +476,80 @@ describe('Devices: /devices, /device-types', () => {
       .set('Authorization', tokenOf(staff))
       .expect(200);
     expect(types.body.data.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('Quản trị viên chỉ đọc: POST/PATCH/DELETE/purge đều 403, GET 200', async () => {
+    const created = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(techHead))
+      .send(newDevice())
+      .expect(201);
+    const id = created.body.data.id;
+    const auth = tokenOf(admin);
+    await http()
+      .post('/devices')
+      .set('Authorization', auth)
+      .send(newDevice({ deviceCode: 'LT-000002' }))
+      .expect(403);
+    await http()
+      .patch(`/devices/${id}`)
+      .set('Authorization', auth)
+      .send({ deviceName: 'X' })
+      .expect(403);
+    await http()
+      .delete(`/devices/${id}`)
+      .set('Authorization', auth)
+      .expect(403);
+    await http()
+      .post('/devices/purge')
+      .set('Authorization', auth)
+      .send({ ids: [id] })
+      .expect(403);
+    await http().get(`/devices/${id}`).set('Authorization', auth).expect(200);
+  });
+
+  it('Cộng tác viên Kỹ thuật: tạo + sửa được, xoá mềm và dọn thùng rác 403', async () => {
+    const auth = tokenOf(collab);
+    const created = await http()
+      .post('/devices')
+      .set('Authorization', auth)
+      .send(newDevice())
+      .expect(201);
+    const id = created.body.data.id;
+    const patched = await http()
+      .patch(`/devices/${id}`)
+      .set('Authorization', auth)
+      .send({ deviceName: 'Đã sửa' })
+      .expect(200);
+    expect(patched.body.data.deviceName).toBe('Đã sửa');
+    const del = await http()
+      .delete(`/devices/${id}`)
+      .set('Authorization', auth)
+      .expect(403);
+    expect(del.body.message).toBe('Bạn không có quyền thực hiện thao tác này');
+    await http()
+      .post('/devices/purge')
+      .set('Authorization', auth)
+      .send({ ids: [id] })
+      .expect(403);
+    expect(prisma.devices.find((d) => d.id === id)!.status).toBe('Trong kho');
+  });
+
+  it('Trưởng phòng / Cộng tác viên Kế toán hoặc không phòng ban: không được tạo', async () => {
+    const cases: Array<[number, number | null]> = [
+      [2, 2],
+      [4, 2],
+      [2, null],
+      [4, null],
+    ];
+    for (const [roleId, departmentId] of cases) {
+      const u = addUser(`u${roleId}${departmentId}`, roleId);
+      u.departmentId = departmentId;
+      await http()
+        .post('/devices')
+        .set('Authorization', tokenOf(u))
+        .send(newDevice())
+        .expect(403);
+    }
   });
 });

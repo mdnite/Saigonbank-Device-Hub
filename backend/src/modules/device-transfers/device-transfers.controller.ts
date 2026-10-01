@@ -11,18 +11,18 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ACTOR, Allow } from '../../shared/auth/actors';
 import { AuthGuard, type AuthedRequest } from '../../shared/auth/auth.guard';
-import { Roles } from '../../shared/auth/roles.decorator';
-import { TransferAccessGuard } from '../../shared/auth/transfer-access.guard';
-import { TransferDecideGuard } from '../../shared/auth/transfer-decide.guard';
 import { ResponseMessage } from '../../shared/http/api-response';
-import { ROLE } from '../identity/roles';
 import {
   CreateDeviceTransferDto,
   ListDeviceTransfersQuery,
   RejectDeviceTransferDto,
 } from './device-transfers.dto';
-import { DeviceTransfersService, TRANSFER_NOT_FOUND } from './device-transfers.service';
+import {
+  DeviceTransfersService,
+  TRANSFER_NOT_FOUND,
+} from './device-transfers.service';
 
 const TransferId = () =>
   Param(
@@ -33,7 +33,8 @@ const TransferId = () =>
   );
 
 @Controller('device-transfers')
-@UseGuards(AuthGuard, TransferAccessGuard)
+@UseGuards(AuthGuard)
+@Allow(ACTOR.ADMIN, ACTOR.TECH_HEAD, ACTOR.TECH_COLLAB)
 export class DeviceTransfersController {
   constructor(private readonly transfers: DeviceTransfersService) {}
 
@@ -48,21 +49,21 @@ export class DeviceTransfersController {
   }
 
   @Post()
-  @Roles(ROLE.ADMIN)
+  @Allow(ACTOR.TECH_COLLAB)
   @ResponseMessage('Đã tạo lệnh điều chuyển')
   create(@Body() dto: CreateDeviceTransferDto, @Req() req: AuthedRequest) {
     return this.transfers.create(dto, req.user.id);
   }
 
   @Patch(':id/approve')
-  @UseGuards(TransferDecideGuard)
+  @Allow(ACTOR.TECH_HEAD)
   @ResponseMessage('Đã duyệt lệnh điều chuyển')
   approve(@TransferId() id: number, @Req() req: AuthedRequest) {
     return this.transfers.approve(id, req.user.id);
   }
 
   @Patch(':id/reject')
-  @UseGuards(TransferDecideGuard)
+  @Allow(ACTOR.TECH_HEAD)
   @ResponseMessage('Đã từ chối lệnh điều chuyển')
   reject(
     @TransferId() id: number,

@@ -11,7 +11,7 @@ import { hashPassword } from '../../shared/security/password';
 import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { USER_STATUS } from '../identity/user-status';
 
-// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
+// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Cộng tác viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
 // DeviceType id trong fake: 1 Laptop (LT), 2 Máy tính để bàn (PC).
 
 describe('Device transfers: /device-transfers', () => {
@@ -54,17 +54,26 @@ describe('Device transfers: /device-transfers', () => {
     deviceTypeId: 1,
     ...over,
   });
-  async function createDevice(over: Record<string, unknown> = {}): Promise<number> {
+  async function createDevice(
+    over: Record<string, unknown> = {},
+  ): Promise<number> {
     const res = await http()
       .post('/devices')
-      .set('Authorization', tokenOf(admin))
+      .set('Authorization', tokenOf(techHead))
       .send(newDevice(over))
       .expect(201);
     return res.body.data.id as number;
   }
   /** Tạo thiết bị "Đã cấp phát" cho đúng `holder` — dùng làm dữ liệu nền cho các test điều chuyển. */
-  async function createAllocatedDevice(holder: User, over: Record<string, unknown> = {}): Promise<number> {
-    return createDevice({ currentUserId: holder.id, departmentId: holder.departmentId, ...over });
+  async function createAllocatedDevice(
+    holder: User,
+    over: Record<string, unknown> = {},
+  ): Promise<number> {
+    return createDevice({
+      currentUserId: holder.id,
+      departmentId: holder.departmentId,
+      ...over,
+    });
   }
 
   let admin: User;
@@ -72,6 +81,7 @@ describe('Device transfers: /device-transfers', () => {
   let financeHead: User;
   let staffA: User;
   let staffB: User;
+  let collab: User;
 
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret';
@@ -96,6 +106,7 @@ describe('Device transfers: /device-transfers', () => {
     financeHead = addUser('financehead', 2, 2);
     staffA = addUser('staffa', 3, 1);
     staffB = addUser('staffb', 3, 2);
+    collab = addUser('collab', 4, 1);
   }, 30_000);
 
   afterEach(async () => {
@@ -108,8 +119,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const res = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       expect(res.body.data.status).toBe('Chờ duyệt');
       expect(res.body.data.fromUser.id).toBe(staffA.id);
@@ -121,7 +136,7 @@ describe('Device transfers: /device-transfers', () => {
     it('thiếu deviceIds: 400', async () => {
       const res = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(collab))
         .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [] })
         .expect(400);
       expect(res.body.message).toContain('Vui lòng chọn ít nhất 1 thiết bị');
@@ -131,8 +146,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const res = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId, deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId, deviceId],
+        })
         .expect(400);
       expect(res.body.message).toContain('trùng');
     });
@@ -141,8 +160,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const res = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffA.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffA.id,
+          deviceIds: [deviceId],
+        })
         .expect(400);
       expect(res.body.message).toBe('Người nhận phải khác người đang giữ');
     });
@@ -151,8 +174,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffB);
       const res = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(400);
       expect(res.body.message).toContain('không do người này đang giữ');
     });
@@ -161,8 +188,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createDevice();
       const res = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(400);
       expect(res.body.message).toContain('không do người này đang giữ');
     });
@@ -171,10 +202,23 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const res = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(collab))
         .send({ fromUserId: staffA.id, toUserId: 9999, deviceIds: [deviceId] })
         .expect(400);
       expect(res.body.message).toBe('Người dùng không tồn tại');
+    });
+
+    it('Quản trị viên không còn được tạo lệnh: 403', async () => {
+      const deviceId = await createAllocatedDevice(staffA);
+      await http()
+        .post('/device-transfers')
+        .set('Authorization', tokenOf(admin))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
+        .expect(403);
     });
 
     it('Trưởng phòng Kỹ thuật không được tạo lệnh: 403', async () => {
@@ -182,15 +226,33 @@ describe('Device transfers: /device-transfers', () => {
       const res = await http()
         .post('/device-transfers')
         .set('Authorization', tokenOf(techHead))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(403);
-      expect(res.body.message).toBe('Bạn không có quyền thực hiện thao tác này');
+      expect(res.body.message).toBe(
+        'Bạn không có quyền thực hiện thao tác này',
+      );
     });
   });
 
   describe('GET /device-transfers', () => {
+    it('Quản trị viên, Trưởng phòng Kỹ thuật, Cộng tác viên Kỹ thuật đều xem được', async () => {
+      for (const actor of [admin, techHead, collab]) {
+        await http()
+          .get('/device-transfers')
+          .set('Authorization', tokenOf(actor))
+          .expect(200);
+      }
+    });
+
     it('Nhân viên không xem được: 403', async () => {
-      await http().get('/device-transfers').set('Authorization', tokenOf(staffA)).expect(403);
+      await http()
+        .get('/device-transfers')
+        .set('Authorization', tokenOf(staffA))
+        .expect(403);
     });
 
     it('lệnh không tồn tại: 404', async () => {
@@ -221,8 +283,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const created = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const transferId = created.body.data.id;
 
@@ -234,7 +300,9 @@ describe('Device transfers: /device-transfers', () => {
       expect(res.body.message).toBe('Đã duyệt lệnh điều chuyển');
 
       const device = (
-        await http().get(`/devices/${deviceId}`).set('Authorization', tokenOf(admin))
+        await http()
+          .get(`/devices/${deviceId}`)
+          .set('Authorization', tokenOf(admin))
       ).body.data;
       expect(device.status).toBe('Đã cấp phát');
       expect(device.currentUser.id).toBe(staffB.id);
@@ -246,8 +314,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const created = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const transferId = created.body.data.id;
       await http()
@@ -266,15 +338,19 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const created = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const transferId = created.body.data.id;
 
       // Thiết bị đổi chủ qua đường khác trước khi lệnh này kịp duyệt.
       await http()
         .patch(`/devices/${deviceId}`)
-        .set('Authorization', tokenOf(admin))
+        .set('Authorization', tokenOf(techHead))
         .send({ currentUserId: staffB.id, status: 'Đã cấp phát' })
         .expect(200);
 
@@ -289,27 +365,37 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const order1 = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const order2 = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: financeHead.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: financeHead.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
 
       const realTransaction = prisma.$transaction;
       let intercepted = false;
-      prisma.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => Promise<unknown>) => {
-        if (!intercepted) {
-          intercepted = true;
-          await http()
-            .patch(`/device-transfers/${order2.body.data.id}/approve`)
-            .set('Authorization', tokenOf(techHead))
-            .expect(200);
-        }
-        return realTransaction(fn);
-      });
+      prisma.$transaction.mockImplementationOnce(
+        async (fn: (tx: unknown) => Promise<unknown>) => {
+          if (!intercepted) {
+            intercepted = true;
+            await http()
+              .patch(`/device-transfers/${order2.body.data.id}/approve`)
+              .set('Authorization', tokenOf(techHead))
+              .expect(200);
+          }
+          return realTransaction(fn);
+        },
+      );
 
       const res = await http()
         .patch(`/device-transfers/${order1.body.data.id}/approve`)
@@ -318,7 +404,9 @@ describe('Device transfers: /device-transfers', () => {
       expect(res.body.message).toContain('không do người này đang giữ');
 
       const device = (
-        await http().get(`/devices/${deviceId}`).set('Authorization', tokenOf(admin))
+        await http()
+          .get(`/devices/${deviceId}`)
+          .set('Authorization', tokenOf(admin))
       ).body.data;
       expect(device.currentUser.id).toBe(financeHead.id);
     });
@@ -327,8 +415,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const created = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const transferId = created.body.data.id;
 
@@ -337,7 +429,10 @@ describe('Device transfers: /device-transfers', () => {
         .set('Authorization', tokenOf(admin))
         .send({ status: 'Ngừng hoạt động' })
         .expect(200);
-      await http().delete(`/users/${staffB.id}`).set('Authorization', tokenOf(admin)).expect(200);
+      await http()
+        .delete(`/users/${staffB.id}`)
+        .set('Authorization', tokenOf(admin))
+        .expect(200);
 
       const res = await http()
         .patch(`/device-transfers/${transferId}/approve`)
@@ -346,7 +441,9 @@ describe('Device transfers: /device-transfers', () => {
       expect(res.body.message).toBe('Người dùng không tồn tại');
 
       const device = (
-        await http().get(`/devices/${deviceId}`).set('Authorization', tokenOf(admin))
+        await http()
+          .get(`/devices/${deviceId}`)
+          .set('Authorization', tokenOf(admin))
       ).body.data;
       expect(device.currentUser.id).toBe(staffA.id);
     });
@@ -355,8 +452,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const created = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const res = await http()
         .patch(`/device-transfers/${created.body.data.id}/reject`)
@@ -370,8 +471,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const created = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const transferId = created.body.data.id;
 
@@ -384,7 +489,9 @@ describe('Device transfers: /device-transfers', () => {
       expect(res.body.data.rejectReason).toBe('Thiết bị đang cần bảo trì');
 
       const device = (
-        await http().get(`/devices/${deviceId}`).set('Authorization', tokenOf(admin))
+        await http()
+          .get(`/devices/${deviceId}`)
+          .set('Authorization', tokenOf(admin))
       ).body.data;
       expect(device.currentUser.id).toBe(staffA.id);
     });
@@ -393,8 +500,12 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const created = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       const transferId = created.body.data.id;
       await http()
@@ -412,12 +523,33 @@ describe('Device transfers: /device-transfers', () => {
       const deviceId = await createAllocatedDevice(staffA);
       const created = await http()
         .post('/device-transfers')
-        .set('Authorization', tokenOf(admin))
-        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
         .expect(201);
       await http()
         .patch(`/device-transfers/${created.body.data.id}/approve`)
         .set('Authorization', tokenOf(financeHead))
+        .expect(403);
+    });
+
+    it('Cộng tác viên Kỹ thuật không được duyệt lệnh mình tạo: 403', async () => {
+      const deviceId = await createAllocatedDevice(staffA);
+      const created = await http()
+        .post('/device-transfers')
+        .set('Authorization', tokenOf(collab))
+        .send({
+          fromUserId: staffA.id,
+          toUserId: staffB.id,
+          deviceIds: [deviceId],
+        })
+        .expect(201);
+      await http()
+        .patch(`/device-transfers/${created.body.data.id}/approve`)
+        .set('Authorization', tokenOf(collab))
         .expect(403);
     });
   });

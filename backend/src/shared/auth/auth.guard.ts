@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { USER_STATUS } from '../../modules/identity/user-status';
 import { PrismaService } from '../prisma/prisma.service';
-import { ROLES_KEY } from './roles.decorator';
+import { ALLOW_KEY, type Actor } from './actors';
 
 export interface JwtPayload {
   userId: number;
@@ -62,19 +62,20 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException(SESSION_EXPIRED);
     }
 
-    const allowed = this.reflector.getAllAndOverride<string[] | undefined>(
-      ROLES_KEY,
-      [context.getHandler(), context.getClass()],
-    );
-    if (allowed && !allowed.includes(user.role.roleName)) {
-      throw new ForbiddenException('Bạn không có quyền thực hiện thao tác này');
-    }
-
-    req.user = {
+    const authUser: AuthUser = {
       id: user.id,
       roleName: user.role.roleName,
       departmentCode: user.department?.departmentCode ?? null,
     };
+    const allowed = this.reflector.getAllAndOverride<Actor[] | undefined>(
+      ALLOW_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (allowed && !allowed.some((actor) => actor(authUser))) {
+      throw new ForbiddenException('Bạn không có quyền thực hiện thao tác này');
+    }
+
+    req.user = authUser;
     return true;
   }
 }

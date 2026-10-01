@@ -1,7 +1,13 @@
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
-import { RequireAdmin } from './session/RequireAdmin';
-import { RequireOrderAccess } from './session/RequireOrderAccess';
-import { RequireTransferAccess } from './session/RequireTransferAccess';
+import { RequireCan } from './session/RequireCan';
+import {
+  canAccessOrders,
+  canAccessTransfers,
+  canCreateOrder,
+  canCreateTransfer,
+  canWriteDevices,
+  isAdmin,
+} from '@/modules/auth/domain/session';
 import { RequireAuth } from './session/RequireAuth';
 import { NotFoundPage } from './NotFoundPage';
 import { AppShell } from '@/shared/layout/AppShell';
@@ -50,17 +56,25 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/devices', element: <DeviceCatalogPage /> },
-          { path: '/devices/new', element: <AssetFormPage /> },
-          { path: '/devices/:id/edit', element: <AssetFormPage /> },
           {
-            element: <RequireOrderAccess />,
+            element: <RequireCan can={canWriteDevices} to="/devices" />,
             children: [
-              { path: '/allocation', element: <DeviceOrderListPage /> },
-              { path: '/allocation/new', element: <CreateOrderPage /> },
+              { path: '/devices/new', element: <AssetFormPage /> },
+              { path: '/devices/:id/edit', element: <AssetFormPage /> },
             ],
           },
           {
-            element: <RequireAdmin />,
+            element: <RequireCan can={canAccessOrders} />,
+            children: [
+              { path: '/allocation', element: <DeviceOrderListPage /> },
+              {
+                element: <RequireCan can={canCreateOrder} to="/allocation" />,
+                children: [{ path: '/allocation/new', element: <CreateOrderPage /> }],
+              },
+            ],
+          },
+          {
+            element: <RequireCan can={isAdmin} />,
             children: [
               { path: '/users', element: <UserListPage /> },
               { path: '/users/new', element: <CreateUserPage /> },
@@ -68,10 +82,13 @@ export const router = createBrowserRouter([
           },
           { path: '/settings', element: <UserSettingsPage /> },
           {
-            element: <RequireTransferAccess />,
+            element: <RequireCan can={canAccessTransfers} />,
             children: [
               { path: '/transfers', element: <DeviceTransferListPage /> },
-              { path: '/transfers/new', element: <CreateTransferPage /> },
+              {
+                element: <RequireCan can={canCreateTransfer} to="/transfers" />,
+                children: [{ path: '/transfers/new', element: <CreateTransferPage /> }],
+              },
             ],
           },
           { path: '/audit', element: <ComingSoonPage title="Kiểm kê" /> },

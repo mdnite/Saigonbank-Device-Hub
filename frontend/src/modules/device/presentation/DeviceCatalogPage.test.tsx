@@ -27,7 +27,7 @@ const envelope = (data: unknown) =>
     new Response(JSON.stringify({ success: true, data, error: null, message: 'OK' }), { status: 200 }),
   );
 
-function renderPage(roleName: string) {
+function renderPage(roleName: string, departmentCode: string | null = null) {
   localStorage.setItem(
     'idsm.session',
     JSON.stringify({
@@ -36,7 +36,7 @@ function renderPage(roleName: string) {
       email: 'a@b.vn',
       token: fakeJwt(inOneHour()),
       roleName,
-      departmentCode: null,
+      departmentCode,
     }),
   );
   let purged = false;
@@ -59,9 +59,9 @@ function renderPage(roleName: string) {
   return fetchMock;
 }
 
-it('Dọn thùng rác (Admin, đang lọc "Đã xóa"): xoá vĩnh viễn toàn bộ thiết bị đang hiển thị', async () => {
+it('Dọn thùng rác (Trưởng phòng Kỹ thuật, đang lọc "Đã xóa"): xoá vĩnh viễn toàn bộ thiết bị đang hiển thị', async () => {
   vi.spyOn(window, 'confirm').mockReturnValue(true);
-  const fetchMock = renderPage('Quản trị viên');
+  const fetchMock = renderPage('Trưởng phòng', 'KYTHUAT');
   await waitFor(() => expect(screen.getByText('LT-000001')).toBeInTheDocument());
 
   fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Đã xóa' } });
@@ -74,15 +74,34 @@ it('Dọn thùng rác (Admin, đang lọc "Đã xóa"): xoá vĩnh viễn toàn 
   expect(JSON.parse((purgeCall[1] as RequestInit).body as string)).toEqual({ ids: [9] });
 });
 
-it('Không phải Quản trị viên: không thấy nút "Dọn thùng rác" dù đang lọc "Đã xóa"', async () => {
-  renderPage('Nhân viên');
+it('Trưởng phòng Kỹ thuật chưa lọc "Đã xóa": không thấy "Dọn thùng rác", thấy Xoá và Xem', async () => {
+  renderPage('Trưởng phòng', 'KYTHUAT');
+  await waitFor(() => expect(screen.getByText('LT-000001')).toBeInTheDocument());
+  expect(screen.queryByRole('button', { name: 'Dọn thùng rác' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Xoá thiết bị' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xem chi tiết' })).toBeInTheDocument();
+});
+
+it('Cộng tác viên Kỹ thuật: thêm/sửa được, không thấy Xoá và "Dọn thùng rác"', async () => {
+  renderPage('Cộng tác viên', 'KYTHUAT');
+  await waitFor(() => expect(screen.getByText('LT-000001')).toBeInTheDocument());
+  expect(screen.getByRole('button', { name: 'Thêm thiết bị' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xem chi tiết' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Xoá thiết bị' })).toBeNull();
+
   fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Đã xóa' } });
   await waitFor(() => expect(screen.getByText('PC-000009')).toBeInTheDocument());
   expect(screen.queryByRole('button', { name: 'Dọn thùng rác' })).toBeNull();
 });
 
-it('Admin nhưng chưa lọc "Đã xóa": không thấy nút "Dọn thùng rác"', async () => {
+it('Quản trị viên chỉ xem: không Thêm, không Xoá, không Xem chi tiết, không "Dọn thùng rác"', async () => {
   renderPage('Quản trị viên');
   await waitFor(() => expect(screen.getByText('LT-000001')).toBeInTheDocument());
+  expect(screen.queryByRole('button', { name: 'Thêm thiết bị' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Xoá thiết bị' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Xem chi tiết' })).toBeNull();
+
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Đã xóa' } });
+  await waitFor(() => expect(screen.getByText('PC-000009')).toBeInTheDocument());
   expect(screen.queryByRole('button', { name: 'Dọn thùng rác' })).toBeNull();
 });

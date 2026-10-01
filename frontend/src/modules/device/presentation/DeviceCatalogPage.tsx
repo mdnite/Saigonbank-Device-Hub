@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, MoreVertical, Plus, Upload } from 'lucide-react';
 import { useSession } from '@/app/session/SessionContext';
-import { canWriteDevices, isAdmin } from '@/modules/auth/domain/session';
+import { canDeleteDevices, canWriteDevices } from '@/modules/auth/domain/session';
 import { PageHeader } from '@/shared/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
@@ -23,6 +23,7 @@ export function DeviceCatalogPage() {
   const navigate = useNavigate();
   const { session } = useSession();
   const canWrite = canWriteDevices(session);
+  const canDelete = canDeleteDevices(session);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<DeviceStatus | ''>('');
   const [reloadKey, setReloadKey] = useState(0);
@@ -36,7 +37,7 @@ export function DeviceCatalogPage() {
     setReloadKey((k) => k + 1);
   });
 
-  const canPurge = status === DEVICE_STATUS.DELETED && isAdmin(session);
+  const canPurge = status === DEVICE_STATUS.DELETED && canDelete;
   const purge = useAsyncAction(async () => {
     const ids = (devices ?? []).map((d) => d.id);
     if (ids.length === 0) return;
@@ -70,16 +71,18 @@ export function DeviceCatalogPage() {
       cell: (d) =>
         !canWrite ? null : (
           <div className="flex justify-end gap-1 text-ink-muted">
-            <button
-              type="button"
-              className={ICON_BTN}
-              disabled={del.pending}
-              aria-label="Xoá thiết bị"
-              title="Xoá thiết bị"
-              onClick={() => void del.run(d)}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                className={ICON_BTN}
+                disabled={del.pending}
+                aria-label="Xoá thiết bị"
+                title="Xoá thiết bị"
+                onClick={() => void del.run(d)}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            )}
             <button
               type="button"
               className={ICON_BTN}

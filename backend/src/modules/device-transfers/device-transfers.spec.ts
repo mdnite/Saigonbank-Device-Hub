@@ -64,16 +64,24 @@ describe('Device transfers: /device-transfers', () => {
       .expect(201);
     return res.body.data.id as number;
   }
+  /** Dựng thẳng "Đã cấp phát" trong fake — API thiết bị không còn gán người giữ (chỉ đơn/lệnh). */
+  function allocate(deviceId: number, holder: User): number {
+    Object.assign(
+      prisma.devices.find((d) => d.id === deviceId)!,
+      {
+        status: 'Đã cấp phát',
+        currentUserId: holder.id,
+        allocatedOn: new Date('2026-01-01'),
+      },
+    );
+    return deviceId;
+  }
   /** Tạo thiết bị "Đã cấp phát" cho đúng `holder` — dùng làm dữ liệu nền cho các test điều chuyển. */
   async function createAllocatedDevice(
     holder: User,
     over: Record<string, unknown> = {},
   ): Promise<number> {
-    return createDevice({
-      currentUserId: holder.id,
-      departmentId: holder.departmentId,
-      ...over,
-    });
+    return allocate(await createDevice(over), holder);
   }
 
   let admin: User;

@@ -64,6 +64,18 @@ describe('Device orders: /device-orders', () => {
       .expect(201);
     return res.body.data.id as number;
   }
+  /** Dựng thẳng "Đã cấp phát" trong fake — API thiết bị không còn gán người giữ (chỉ đơn/lệnh). */
+  function allocate(deviceId: number, holder: User): number {
+    Object.assign(
+      prisma.devices.find((d) => d.id === deviceId)!,
+      {
+        status: 'Đã cấp phát',
+        currentUserId: holder.id,
+        allocatedOn: new Date('2026-01-01'),
+      },
+    );
+    return deviceId;
+  }
 
   let admin: User;
   let techHead: User;
@@ -121,10 +133,7 @@ describe('Device orders: /device-orders', () => {
     });
 
     it('tạo đơn Thu hồi thành công', async () => {
-      const deviceId = await createDevice({
-        currentUserId: staff.id,
-        departmentId: staff.departmentId,
-      });
+      const deviceId = allocate(await createDevice(), staff);
       const res = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(collab))
@@ -224,7 +233,7 @@ describe('Device orders: /device-orders', () => {
     });
 
     it('Cấp phát thiết bị không còn trong kho: 400', async () => {
-      const deviceId = await createDevice({ currentUserId: staff.id });
+      const deviceId = allocate(await createDevice(), staff);
       const res = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(collab))
@@ -239,7 +248,7 @@ describe('Device orders: /device-orders', () => {
 
     it('Thu hồi thiết bị không do người này giữ: 400', async () => {
       const other = addUser('other', 3, 1);
-      const deviceId = await createDevice({ currentUserId: other.id });
+      const deviceId = allocate(await createDevice(), other);
       const res = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(collab))
@@ -371,11 +380,7 @@ describe('Device orders: /device-orders', () => {
     });
 
     it('duyệt đơn Thu hồi: xoá người giữ và ngày cấp', async () => {
-      const deviceId = await createDevice({
-        currentUserId: staff.id,
-        departmentId: staff.departmentId,
-        allocatedOn: '2026-01-01',
-      });
+      const deviceId = allocate(await createDevice(), staff);
       const created = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(collab))
@@ -426,7 +431,7 @@ describe('Device orders: /device-orders', () => {
     });
 
     it('từ chối đơn Thu hồi: thiết bị về "Đã cấp phát", vẫn do người đó giữ', async () => {
-      const deviceId = await createDevice({ currentUserId: staff.id });
+      const deviceId = allocate(await createDevice(), staff);
       const created = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(collab))

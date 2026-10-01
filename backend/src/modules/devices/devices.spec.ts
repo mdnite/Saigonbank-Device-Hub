@@ -44,6 +44,18 @@ describe('Devices: /devices, /device-types', () => {
   }
   const tokenOf = (user: User) =>
     `Bearer ${app.get(JwtService).sign({ userId: user.id, roleId: user.roleId })}`;
+  /** Dựng thẳng "Đã cấp phát" trong fake — API thiết bị không còn gán người giữ (chỉ đơn/lệnh). */
+  function allocate(deviceId: number, holder: User): number {
+    Object.assign(
+      prisma.devices.find((d) => d.id === deviceId)!,
+      {
+        status: 'Đã cấp phát',
+        currentUserId: holder.id,
+        allocatedOn: new Date('2026-01-01'),
+      },
+    );
+    return deviceId;
+  }
 
   let admin: User;
   let staff: User;
@@ -99,21 +111,33 @@ describe('Devices: /devices, /device-types', () => {
     expect(res.body.message).toBe('Đã tạo thiết bị');
   });
 
-  it('đặt trạng thái "Đã cấp phát" khi có người sở hữu', async () => {
+  it('POST lờ đi currentUserId/departmentId/allocatedOn: thiết bị mới luôn "Trong kho", không người giữ', async () => {
     const res = await http()
       .post('/devices')
       .set('Authorization', tokenOf(techHead))
-      .send(newDevice({ currentUserId: staff.id }))
+      .send(
+        newDevice({
+          currentUserId: staff.id,
+          departmentId: 1,
+          allocatedOn: '2026-01-01',
+        }),
+      )
       .expect(201);
-    expect(res.body.data.status).toBe('Đã cấp phát');
+    expect(res.body.data).toMatchObject({
+      status: 'Trong kho',
+      currentUser: null,
+      allocatedOn: null,
+    });
+    expect(res.body.data).not.toHaveProperty('department');
   });
 
   it('lọc theo currentUserId', async () => {
     const owned = await http()
       .post('/devices')
       .set('Authorization', tokenOf(techHead))
-      .send(newDevice({ currentUserId: staff.id }))
+      .send(newDevice())
       .expect(201);
+    allocate(owned.body.data.id, staff);
     await http()
       .post('/devices')
       .set('Authorization', tokenOf(techHead))
@@ -185,7 +209,7 @@ describe('Devices: /devices, /device-types', () => {
     expect(res.body.message).toBe('Loại thiết bị không tồn tại');
   });
 
-  it('PATCH không cho đặt trạng thái "Đã xóa"', async () => {
+  it('PATCH lờ đi status/currentUserId/allocatedOn, chỉ sửa thông tin thiết bị', async () => {
     const created = await http()
       .post('/devices')
       .set('Authorization', tokenOf(techHead))
@@ -194,9 +218,46 @@ describe('Devices: /devices, /device-types', () => {
     const res = await http()
       .patch(`/devices/${created.body.data.id}`)
       .set('Authorization', tokenOf(techHead))
-      .send({ status: 'Đã xóa' })
+      .send({
+        status: 'Đã cấp phát',
+        currentUserId: staff.id,
+        allocatedOn: '2026-01-01',
+        deviceName: 'Đổi tên',
+      })
+      .expect(200);
+    expect(res.body.data).toMatchObject({
+      status: 'Trong kho',
+      currentUser: null,
+      allocatedOn: null,
+      deviceName: 'Đổi tên',
+    });
+  });
+
+  it('thiết bị "Đang chờ duyệt": PATCH và DELETE đều 400, không đổi gì', async () => {
+    const created = await http()
+      .post('/devices')
+      .set('Authorization', tokenOf(techHead))
+      .send(newDevice())
+      .expect(201);
+    const id = created.body.data.id;
+    prisma.devices.find((d) => d.id === id)!.status = 'Đang chờ duyệt';
+
+    const patch = await http()
+      .patch(`/devices/${id}`)
+      .set('Authorization', tokenOf(collab))
+      .send({ deviceName: 'X' })
       .expect(400);
-    expect(res.body.message).toBe('Trạng thái không hợp lệ');
+    expect(patch.body.message).toBe(
+      'Thiết bị đang chờ duyệt, không thể sửa hoặc xoá',
+    );
+    await http()
+      .delete(`/devices/${id}`)
+      .set('Authorization', tokenOf(techHead))
+      .expect(400);
+    expect(prisma.devices.find((d) => d.id === id)).toMatchObject({
+      status: 'Đang chờ duyệt',
+      deviceName: 'Dell Latitude 5420',
+    });
   });
 
   it('PATCH gửi accessories thay toàn bộ danh sách linh kiện cũ', async () => {

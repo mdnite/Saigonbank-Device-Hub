@@ -11,10 +11,10 @@ import { DEVICE_STATUS } from './device-status';
 import type { CreateDeviceDto, UpdateDeviceDto } from './devices.dto';
 
 export const DEVICE_NOT_FOUND = 'Thiết bị không tồn tại';
+export const DEVICE_PENDING = 'Thiết bị đang chờ duyệt, không thể sửa hoặc xoá';
 
 export const DEVICE_WITH_RELATIONS = {
   deviceType: true,
-  department: true,
   currentUser: true,
   accessories: true,
 } as const;
@@ -44,11 +44,6 @@ export function toDeviceItem(d: DeviceWithRelations) {
       typeName: d.deviceType.typeName,
       prefix: d.deviceType.prefix,
     },
-    department: d.department && {
-      id: d.department.id,
-      departmentCode: d.department.departmentCode,
-      departmentName: d.department.departmentName,
-    },
     currentUser: d.currentUser && {
       id: d.currentUser.id,
       fullName: d.currentUser.fullName,
@@ -73,7 +68,6 @@ export class DevicesService {
     search?: string;
     status?: string;
     deviceTypeId?: number;
-    departmentId?: number;
     currentUserId?: number;
   }) {
     const s = q.search?.trim();
@@ -81,7 +75,6 @@ export class DevicesService {
       where: {
         status: q.status ?? { not: DEVICE_STATUS.DELETED },
         deviceTypeId: q.deviceTypeId,
-        departmentId: q.departmentId,
         currentUserId: q.currentUserId,
         ...(s
           ? {
@@ -128,16 +121,13 @@ export class DevicesService {
     this.requirePrefix(dto.deviceCode, type.prefix);
     await this.requireUniqueCode(dto.deviceCode);
     await this.requireUniqueSerial(dto.serialNumber);
-    await this.requireDepartment(dto.departmentId);
-    await this.requireUser(dto.currentUserId);
 
     try {
       const device = await this.prisma.device.create({
         data: {
           ...this.createScalars(dto),
-          status: dto.currentUserId
-            ? DEVICE_STATUS.ALLOCATED
-            : DEVICE_STATUS.IN_STOCK,
+          // Thiết bị mới luôn vào kho — người giữ chỉ được gán khi đơn Cấp phát được duyệt.
+          status: DEVICE_STATUS.IN_STOCK,
           accessories: dto.accessories?.length
             ? { create: dto.accessories }
             : undefined,
@@ -152,6 +142,7 @@ export class DevicesService {
 
   async update(id: number, dto: UpdateDeviceDto) {
     const current = await this.findLiveDevice(id);
+    this.requireNotPending(current.status);
 
     const typeId = dto.deviceTypeId ?? current.deviceTypeId;
     const type = await this.requireDeviceType(typeId);
@@ -164,15 +155,12 @@ export class DevicesService {
     if (dto.serialNumber && dto.serialNumber !== current.serialNumber) {
       await this.requireUniqueSerial(dto.serialNumber);
     }
-    await this.requireDepartment(dto.departmentId);
-    await this.requireUser(dto.currentUserId);
 
     try {
       const device = await this.prisma.device.update({
         where: { id },
         data: {
           ...this.updateScalars(dto),
-          ...(dto.status ? { status: dto.status } : {}),
           // PATCH gửi accessories => thay thế toàn bộ danh sách.
           ...(dto.accessories
             ? { accessories: { deleteMany: {}, create: dto.accessories } }
@@ -188,7 +176,8 @@ export class DevicesService {
 
   /** Xoá mềm: chỉ đổi Status, không bao giờ xoá row. */
   async softDelete(id: number): Promise<void> {
-    await this.findLiveDevice(id);
+    const current = await this.findLiveDevice(id);
+    this.requireNotPending(current.status);
     await this.prisma.device.update({
       where: { id },
       data: { status: DEVICE_STATUS.DELETED },
@@ -248,9 +237,6 @@ export class DevicesService {
       warrantyExpiresOn: dto.warrantyExpiresOn
         ? new Date(dto.warrantyExpiresOn)
         : undefined,
-      departmentId: dto.departmentId,
-      currentUserId: dto.currentUserId,
-      allocatedOn: dto.allocatedOn ? new Date(dto.allocatedOn) : undefined,
     };
   }
 
@@ -270,9 +256,6 @@ export class DevicesService {
       warrantyExpiresOn: dto.warrantyExpiresOn
         ? new Date(dto.warrantyExpiresOn)
         : undefined,
-      departmentId: dto.departmentId,
-      currentUserId: dto.currentUserId,
-      allocatedOn: dto.allocatedOn ? new Date(dto.allocatedOn) : undefined,
     };
   }
 
@@ -303,17 +286,10 @@ export class DevicesService {
     }
   }
 
-  private async requireDepartment(id?: number) {
-    if (id === undefined) return;
-    if (!(await this.prisma.department.findUnique({ where: { id } }))) {
-      throw new BadRequestException('Phòng ban không tồn tại');
-    }
-  }
-
-  private async requireUser(id?: number) {
-    if (id === undefined) return;
-    if (!(await this.prisma.user.findUnique({ where: { id } }))) {
-      throw new BadRequestException('Người dùng không tồn tại');
+  /** Thiết bị đang nằm trong đơn/lệnh chờ duyệt bị khoá — sửa/xoá lúc này làm lệch đơn/lệnh đó. */
+  private requireNotPending(status: string) {
+    if (status === DEVICE_STATUS.PENDING_APPROVAL) {
+      throw new BadRequestException(DEVICE_PENDING);
     }
   }
 

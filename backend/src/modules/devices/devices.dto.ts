@@ -16,7 +16,6 @@ import {
 } from 'class-validator';
 import { MAX_INT32 } from '../users/users.dto';
 import {
-  ASSIGNABLE_DEVICE_STATUSES,
   DEVICE_CODE_MESSAGE,
   DEVICE_CODE_PATTERN,
   DEVICE_STATUS,
@@ -56,7 +55,7 @@ export class ListDevicesQuery {
   @IsString()
   search?: string;
 
-  // Lọc danh sách chấp nhận cả "Đã xóa" — khác với PATCH (ASSIGNABLE_DEVICE_STATUSES) vốn cấm đặt nó.
+  // Lọc danh sách chấp nhận mọi trạng thái, kể cả "Đã xóa".
   @IsOptional()
   @IsIn(Object.values(DEVICE_STATUS), { message: 'Trạng thái không hợp lệ' })
   status?: string;
@@ -67,13 +66,6 @@ export class ListDevicesQuery {
   @Min(1, { message: 'Loại thiết bị không hợp lệ' })
   @Max(MAX_INT32, { message: 'Loại thiết bị không hợp lệ' })
   deviceTypeId?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt({ message: 'Phòng ban không hợp lệ' })
-  @Min(1, { message: 'Phòng ban không hợp lệ' })
-  @Max(MAX_INT32, { message: 'Phòng ban không hợp lệ' })
-  departmentId?: number;
 
   @IsOptional()
   @Type(() => Number)
@@ -161,29 +153,13 @@ export class CreateDeviceDto {
   warrantyExpiresOn?: string;
 
   @IsOptional()
-  @IsInt({ message: 'Phòng ban không hợp lệ' })
-  @Min(1, { message: 'Phòng ban không hợp lệ' })
-  @Max(MAX_INT32, { message: 'Phòng ban không hợp lệ' })
-  departmentId?: number;
-
-  @IsOptional()
-  @IsInt({ message: 'Người sở hữu không hợp lệ' })
-  @Min(1, { message: 'Người sở hữu không hợp lệ' })
-  @Max(MAX_INT32, { message: 'Người sở hữu không hợp lệ' })
-  currentUserId?: number;
-
-  @IsOptional()
-  @IsDateString({}, { message: 'Ngày cấp phát không hợp lệ' })
-  allocatedOn?: string;
-
-  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => AccessoryDto)
   accessories?: AccessoryDto[];
 }
 
-/** Mọi trường của Create ở dạng optional, cộng thêm status (3 giá trị). */
+/** Mọi trường của Create ở dạng optional. Người giữ / trạng thái chỉ đổi qua đơn/lệnh được duyệt. */
 export class UpdateDeviceDto {
   @IsOptional()
   @Transform(upper)
@@ -217,10 +193,6 @@ export class UpdateDeviceDto {
   @Min(1, { message: 'Loại thiết bị không hợp lệ' })
   @Max(MAX_INT32, { message: 'Loại thiết bị không hợp lệ' })
   deviceTypeId?: number;
-
-  @IsOptional()
-  @IsIn([...ASSIGNABLE_DEVICE_STATUSES], { message: 'Trạng thái không hợp lệ' })
-  status?: string;
 
   @IsOptional()
   @Transform(trim)
@@ -259,22 +231,6 @@ export class UpdateDeviceDto {
   @IsOptional()
   @IsDateString({}, { message: 'Hạn bảo hành không hợp lệ' })
   warrantyExpiresOn?: string;
-
-  @IsOptional()
-  @IsInt({ message: 'Phòng ban không hợp lệ' })
-  @Min(1, { message: 'Phòng ban không hợp lệ' })
-  @Max(MAX_INT32, { message: 'Phòng ban không hợp lệ' })
-  departmentId?: number;
-
-  @IsOptional()
-  @IsInt({ message: 'Người sở hữu không hợp lệ' })
-  @Min(1, { message: 'Người sở hữu không hợp lệ' })
-  @Max(MAX_INT32, { message: 'Người sở hữu không hợp lệ' })
-  currentUserId?: number;
-
-  @IsOptional()
-  @IsDateString({}, { message: 'Ngày cấp phát không hợp lệ' })
-  allocatedOn?: string;
 
   @IsOptional()
   @IsArray()

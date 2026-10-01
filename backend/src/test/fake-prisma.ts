@@ -21,13 +21,11 @@ type Include = { role?: boolean; department?: boolean };
 type Select = Record<string, boolean>;
 type DeviceInclude = {
   deviceType?: boolean;
-  department?: boolean;
   currentUser?: boolean;
   accessories?: boolean;
 };
 type DeviceWithRelations = Device & {
   deviceType?: DeviceType;
-  department?: Department | null;
   currentUser?: User | null;
   accessories?: DeviceAccessory[];
 };
@@ -163,10 +161,6 @@ export function createFakePrisma() {
           ...d,
           ...(include.deviceType && {
             deviceType: deviceTypes.find((t) => t.id === d.deviceTypeId)!,
-          }),
-          ...(include.department && {
-            department:
-              departments.find((x) => x.id === d.departmentId) ?? null,
           }),
           ...(include.currentUser && {
             currentUser: users.find((u) => u.id === d.currentUserId) ?? null,
@@ -396,7 +390,6 @@ export function createFakePrisma() {
             warrantyCondition: null,
             warrantyExpiresOn: null,
             allocatedOn: null,
-            departmentId: null,
             currentUserId: null,
             createdAt: now,
             updatedAt: now,

@@ -65,8 +65,7 @@ model Department {
   departmentCode String @unique @map("DepartmentCode") @db.VarChar(50)
   departmentName String @map("DepartmentName") @db.VarChar(150)
 
-  users   User[]
-  devices Device[]
+  users User[]
 
   @@map("Department")
 }
@@ -182,14 +181,12 @@ model Device {
   allocatedOn DateTime? @map("AllocatedOn") @db.Date
 
   deviceTypeId  Int  @map("DeviceTypeId")
-  departmentId  Int? @map("DepartmentId")
   currentUserId Int? @map("CurrentUserId")
 
   createdAt DateTime @default(now()) @map("CreatedAt")
   updatedAt DateTime @updatedAt @map("UpdatedAt")
 
   deviceType  DeviceType  @relation(fields: [deviceTypeId], references: [id])
-  department  Department? @relation(fields: [departmentId], references: [id])
   currentUser User?       @relation(fields: [currentUserId], references: [id])
   accessories DeviceAccessory[]
   orderItems DeviceOrderItem[]

@@ -2,22 +2,24 @@
 export const DEVICE_STATUS = {
   IN_STOCK: 'Trong kho',
   ALLOCATED: 'Đã cấp phát',
+  /** Đang nằm trong đơn/lệnh chờ duyệt — bị khoá, không sửa/xoá được. */
+  PENDING_APPROVAL: 'Đang chờ duyệt',
   PENDING_DISPOSAL: 'Chờ thanh lý',
   DELETED: 'Đã xóa',
 } as const;
 
 export type DeviceStatus = (typeof DEVICE_STATUS)[keyof typeof DEVICE_STATUS];
 
-/** 4 trạng thái hiện trong bộ lọc danh mục — soft-delete nên "Đã xóa" vẫn xem lại được. */
+/** Trạng thái hiện trong bộ lọc danh mục — soft-delete nên "Đã xóa" vẫn xem lại được. */
 export const DEVICE_STATUS_OPTIONS: DeviceStatus[] = [
   DEVICE_STATUS.IN_STOCK,
   DEVICE_STATUS.ALLOCATED,
+  DEVICE_STATUS.PENDING_APPROVAL,
   DEVICE_STATUS.PENDING_DISPOSAL,
   DEVICE_STATUS.DELETED,
 ];
 
 export interface DeviceTypeRef { id: number; typeName: string; prefix: string }
-export interface DepartmentRef { id: number; departmentCode: string; departmentName: string }
 export interface UserRef { id: number; fullName: string; username: string }
 
 export interface Device {
@@ -36,7 +38,6 @@ export interface Device {
   warrantyCondition: string | null;
   warrantyExpiresOn: string | null;
   deviceType: DeviceTypeRef;
-  department: DepartmentRef | null;
   currentUser: UserRef | null;
   accessories: {
     id: number;

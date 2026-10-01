@@ -44,7 +44,6 @@ const device = (over: Partial<Device> = {}): Device => ({
   warrantyCondition: null,
   warrantyExpiresOn: null,
   deviceType: { id: 1, typeName: 'Laptop', prefix: 'LT' },
-  department: null,
   currentUser: null,
   accessories: [],
   ...over,
@@ -56,30 +55,23 @@ describe('deviceToDraft', () => {
       device({
         purchaseDate: '2026-09-22T00:00:00.000Z',
         warrantyExpiresOn: '2028-09-22T00:00:00.000Z',
-        allocatedOn: '2026-10-01T00:00:00.000Z',
       }),
     );
     expect(d.purchaseDate).toBe('2026-09-22');
     expect(d.warrantyExpiresOn).toBe('2028-09-22');
-    expect(d.allocatedOn).toBe('2026-10-01');
   });
 
-  it('tick "đã cấp phát" khi có người sở hữu dù chưa có ngày cấp phát', () => {
+  it('draft không mang người giữ / ngày cấp / phòng ban — các trường đó chỉ đổi qua đơn/lệnh', () => {
     const d = deviceToDraft(
       device({
         status: 'Đã cấp phát',
         currentUser: { id: 7, fullName: 'Nguyễn Văn A', username: 'anv' },
-        allocatedOn: null,
+        allocatedOn: '2026-10-01T00:00:00.000Z',
       }),
     );
-    expect(d.allocated).toBe(true);
-    expect(d.currentUserId).toBe(7);
-  });
-
-  it('thiết bị chưa cấp phát: không tick, các ô ngày rỗng', () => {
-    const d = deviceToDraft(device());
-    expect(d.allocated).toBe(false);
+    for (const key of ['currentUserId', 'allocated', 'allocatedOn', 'departmentId']) {
+      expect(d).not.toHaveProperty(key);
+    }
     expect(d.purchaseDate).toBe('');
-    expect(d.allocatedOn).toBe('');
   });
 });

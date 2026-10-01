@@ -1,15 +1,13 @@
 import { Field } from '@/shared/ui/Field';
 import { Input, Select } from '@/shared/ui/inputs';
 import type { DeviceDraft, DeviceDraftErrors } from '../../domain/deviceDraft';
-import type { DepartmentRef, DeviceTypeRef, UserRef } from '../../domain/device';
+import type { DeviceTypeRef } from '../../domain/device';
 
 export interface AssetFieldsProps {
   draft: DeviceDraft;
   errors: DeviceDraftErrors;
   onChange: (patch: Partial<DeviceDraft>) => void;
   deviceTypes: DeviceTypeRef[];
-  departments: DepartmentRef[];
-  users: UserRef[];
 }
 
 export function AssetGeneralInfoFields({
@@ -17,8 +15,6 @@ export function AssetGeneralInfoFields({
   errors,
   onChange,
   deviceTypes,
-  departments,
-  users,
 }: AssetFieldsProps) {
   return (
     <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
@@ -61,34 +57,6 @@ export function AssetGeneralInfoFields({
           value={draft.specDetail}
           onChange={(e) => onChange({ specDetail: e.target.value })}
         />
-      </Field>
-
-      <Field label="Đơn vị quản lý">
-        <Select
-          value={draft.departmentId !== null ? String(draft.departmentId) : ''}
-          onChange={(e) => onChange({ departmentId: e.target.value ? Number(e.target.value) : null })}
-        >
-          <option value="">Chưa gán phòng ban</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.departmentName}
-            </option>
-          ))}
-        </Select>
-      </Field>
-
-      <Field label="Người sở hữu" required={draft.allocated} error={errors.currentUserId}>
-        <Select
-          value={draft.currentUserId !== null ? String(draft.currentUserId) : ''}
-          onChange={(e) => onChange({ currentUserId: e.target.value ? Number(e.target.value) : null })}
-        >
-          <option value="">Chưa gán người sở hữu</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.fullName} ({u.username})
-            </option>
-          ))}
-        </Select>
       </Field>
 
       <Field label="Nhà cung cấp">

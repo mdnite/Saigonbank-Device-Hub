@@ -1,11 +1,10 @@
 import { hasErrors, validateDeviceDraft, type DeviceDraft } from '../domain/deviceDraft';
-import type { DepartmentRef, Device, DeviceStatus, DeviceTypeRef, UserRef } from '../domain/device';
+import type { Device, DeviceStatus, DeviceTypeRef } from '../domain/device';
 
 export interface DeviceQuery {
   search?: string;
   status?: DeviceStatus;
   deviceTypeId?: number;
-  departmentId?: number;
   currentUserId?: number;
 }
 
@@ -18,9 +17,6 @@ export interface DeviceRepository {
   /** Xoá cứng hàng loạt (dọn thùng rác) — chỉ xoá được thiết bị đã ở Status "Đã xóa". */
   purge(ids: number[]): Promise<number>;
   deviceTypes(): Promise<DeviceTypeRef[]>;
-  departments(): Promise<DepartmentRef[]>;
-  /** Danh sách rút gọn cho dropdown "Người sở hữu". */
-  users(): Promise<UserRef[]>;
 }
 
 export class DeviceValidationError extends Error {
@@ -50,8 +46,6 @@ export function makeDeviceService(repo: DeviceRepository) {
     remove: (id: number) => repo.remove(id),
     purge: (ids: number[]) => repo.purge(ids),
     deviceTypes: () => repo.deviceTypes(),
-    departments: () => repo.departments(),
-    users: () => repo.users(),
   };
 }
 

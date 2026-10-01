@@ -19,7 +19,6 @@ const device = (over: Partial<Device> = {}): Device => ({
   warrantyCondition: null,
   warrantyExpiresOn: null,
   deviceType: { id: 1, typeName: 'Laptop', prefix: 'LT' },
-  department: null,
   currentUser: null,
   accessories: [],
   ...over,

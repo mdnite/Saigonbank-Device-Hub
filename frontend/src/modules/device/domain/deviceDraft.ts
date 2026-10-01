@@ -7,6 +7,7 @@ export interface DeviceAccessoryDraft {
   unit: string;
 }
 
+/** Chỉ thông tin thiết bị. Người giữ / ngày cấp / trạng thái chỉ đổi qua đơn Cấp phát - Thu hồi và lệnh Điều chuyển. */
 export interface DeviceDraft {
   deviceCode: string;
   deviceName: string;
@@ -20,10 +21,6 @@ export interface DeviceDraft {
   warrantyMonths: string;
   warrantyCondition: string;
   warrantyExpiresOn: string;
-  departmentId: number | null;
-  currentUserId: number | null;
-  allocated: boolean;
-  allocatedOn: string;
   accessories: DeviceAccessoryDraft[];
 }
 
@@ -41,10 +38,6 @@ export function emptyDeviceDraft(): DeviceDraft {
     warrantyMonths: '',
     warrantyCondition: '',
     warrantyExpiresOn: '',
-    departmentId: null,
-    currentUserId: null,
-    allocated: false,
-    allocatedOn: '',
     accessories: [],
   };
 }
@@ -69,12 +62,6 @@ export function deviceToDraft(d: Device): DeviceDraft {
     warrantyMonths: d.warrantyMonths != null ? String(d.warrantyMonths) : '',
     warrantyCondition: d.warrantyCondition ?? '',
     warrantyExpiresOn: dateOnly(d.warrantyExpiresOn),
-    departmentId: d.department?.id ?? null,
-    currentUserId: d.currentUser?.id ?? null,
-    // Backend suy trạng thái "Đã cấp phát" từ người sở hữu, allocatedOn là tuỳ chọn —
-    // chỉ nhìn allocatedOn sẽ bỏ tick ô cấp phát của thiết bị đã có người sở hữu.
-    allocated: d.currentUser != null || d.allocatedOn != null,
-    allocatedOn: dateOnly(d.allocatedOn),
     accessories: d.accessories.map(({ accessoryCode, accessoryName, accessoryType, unit }) => ({
       accessoryCode,
       accessoryName,
@@ -101,7 +88,6 @@ export function validateDeviceDraft(d: DeviceDraft): DeviceDraftErrors {
   if (!d.specDetail.trim()) errors.specDetail = REQUIRED;
   if (!d.unit.trim()) errors.unit = REQUIRED;
   if (d.deviceTypeId === null) errors.deviceTypeId = REQUIRED;
-  if (d.allocated && d.currentUserId === null) errors.currentUserId = REQUIRED;
   return errors;
 }
 

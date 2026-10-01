@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/shared/lib/apiClient';
-import type { DepartmentRef, Device, DeviceTypeRef, UserRef } from '../domain/device';
+import type { Device, DeviceTypeRef } from '../domain/device';
 import type { DeviceDraft } from '../domain/deviceDraft';
 import type { DeviceQuery, DeviceRepository } from '../application/DeviceRepository';
 
@@ -19,9 +19,6 @@ export function toBody(d: DeviceDraft) {
     warrantyMonths: d.warrantyMonths.trim() ? Number(d.warrantyMonths) : undefined,
     warrantyCondition: text(d.warrantyCondition),
     warrantyExpiresOn: text(d.warrantyExpiresOn),
-    departmentId: d.departmentId ?? undefined,
-    currentUserId: d.allocated ? (d.currentUserId ?? undefined) : undefined,
-    allocatedOn: d.allocated ? text(d.allocatedOn) : undefined,
     accessories: d.accessories,
   };
 }
@@ -49,12 +46,5 @@ export class HttpDeviceRepository implements DeviceRepository {
   }
   deviceTypes(): Promise<DeviceTypeRef[]> {
     return apiGet<DeviceTypeRef[]>('/device-types');
-  }
-  departments(): Promise<DepartmentRef[]> {
-    return apiGet<DepartmentRef[]>('/departments');
-  }
-  /** /users/lookup chứ không phải /users: GET /users chỉ Quản trị viên gọi được. */
-  users(): Promise<UserRef[]> {
-    return apiGet<UserRef[]>('/users/lookup');
   }
 }

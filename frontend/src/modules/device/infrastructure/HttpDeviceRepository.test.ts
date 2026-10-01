@@ -59,18 +59,12 @@ describe('HttpDeviceRepository', () => {
     expect(sentBody(fetchMock)).not.toHaveProperty('serialNumber');
   });
 
-  it('không gửi currentUserId khi chưa tick "đã cấp phát"', async () => {
-    await new HttpDeviceRepository().create(
-      draft({ allocated: false, currentUserId: 7, allocatedOn: '2026-09-22' }),
-    );
+  it('không bao giờ gửi người giữ / ngày cấp / phòng ban / trạng thái', async () => {
+    await new HttpDeviceRepository().create(draft());
     const body = sentBody(fetchMock);
-    expect(body).not.toHaveProperty('currentUserId');
-    expect(body).not.toHaveProperty('allocatedOn');
-  });
-
-  it('gửi currentUserId khi đã tick "đã cấp phát"', async () => {
-    await new HttpDeviceRepository().create(draft({ allocated: true, currentUserId: 7 }));
-    expect(sentBody(fetchMock).currentUserId).toBe(7);
+    for (const key of ['currentUserId', 'allocatedOn', 'departmentId', 'status']) {
+      expect(body).not.toHaveProperty(key);
+    }
   });
 
   it('purge: gọi POST /devices/purge với ids, trả về count', async () => {

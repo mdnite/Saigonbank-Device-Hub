@@ -4,12 +4,12 @@ import { PageHeader } from '@/shared/layout/PageHeader';
 import { Card } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui/Button';
 import { Field } from '@/shared/ui/Field';
-import { Checkbox, Input } from '@/shared/ui/inputs';
+import { Input } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { useAsyncData } from '@/shared/lib/useAsyncData';
 import { DeviceValidationError } from '../application/DeviceRepository';
 import { deviceService } from '../infrastructure/container';
-import type { DepartmentRef, DeviceTypeRef, UserRef } from '../domain/device';
+import type { DeviceTypeRef } from '../domain/device';
 import { deviceToDraft, emptyDeviceDraft, type DeviceDraft } from '../domain/deviceDraft';
 import { AssetGeneralInfoFields } from './form/AssetGeneralInfoFields';
 import { ComponentsTable } from './form/ComponentsTable';
@@ -24,7 +24,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 export function AssetFormPage() {
   const { id } = useParams<{ id: string }>();
   const deviceId = id ? Number(id) : null;
-  const { deviceTypes, departments, users } = useDeviceLookups();
+  const { deviceTypes } = useDeviceLookups();
   const { data: existing, loading, error } = useAsyncData(
     () => (deviceId !== null ? deviceService.get(deviceId) : Promise.resolve(null)),
     [deviceId],
@@ -44,8 +44,6 @@ export function AssetFormPage() {
       deviceId={deviceId}
       initial={existing ? deviceToDraft(existing) : { ...emptyDeviceDraft(), unit: 'Cái' }}
       deviceTypes={deviceTypes}
-      departments={departments}
-      users={users}
     />
   );
 }
@@ -54,14 +52,10 @@ function DeviceForm({
   deviceId,
   initial,
   deviceTypes,
-  departments,
-  users,
 }: {
   deviceId: number | null;
   initial: DeviceDraft;
   deviceTypes: DeviceTypeRef[];
-  departments: DepartmentRef[];
-  users: UserRef[];
 }) {
   const navigate = useNavigate();
   const { draft, errors, patch, validate } = useDeviceDraft(initial);
@@ -106,8 +100,6 @@ function DeviceForm({
               errors={errors}
               onChange={patch}
               deviceTypes={deviceTypes}
-              departments={departments}
-              users={users}
             />
           </section>
 
@@ -117,28 +109,6 @@ function DeviceForm({
               components={draft.accessories}
               onChange={(accessories) => patch({ accessories })}
             />
-          </section>
-
-          <section className="p-6">
-            <SectionTitle>Đã cấp phát</SectionTitle>
-            <div className="flex flex-wrap items-end gap-4">
-              <Checkbox
-                id="allocated"
-                label="Đã cấp phát ngày"
-                checked={draft.allocated}
-                onChange={(e) => patch({ allocated: e.target.checked })}
-              />
-              <Input
-                type="date"
-                className="w-48"
-                disabled={!draft.allocated}
-                value={draft.allocatedOn}
-                onChange={(e) => patch({ allocatedOn: e.target.value })}
-              />
-            </div>
-            {draft.allocated && (
-              <p className="mt-2 text-xs text-ink-muted">Chọn "Người sở hữu" ở phần Thông tin chung.</p>
-            )}
           </section>
 
           <section className="p-6">

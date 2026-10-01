@@ -445,6 +445,11 @@ describe('Device orders: /device-orders', () => {
         status: 'Đã cấp phát',
         currentUserId: staff.id,
       });
+      // Khoá theo thứ tự Device → đơn/lệnh, giống approve (tránh deadlock khi duyệt + từ chối đồng thời).
+      const last = (f: jest.Mock) => f.mock.invocationCallOrder.at(-1)!;
+      expect(last(prisma.device.updateMany)).toBeLessThan(
+        last(prisma.deviceOrder.updateMany),
+      );
     });
 
     it('đơn cũ (trước khi có giữ chỗ) mà thiết bị chưa "Đang chờ duyệt": duyệt 400, đơn vẫn Chờ duyệt', async () => {

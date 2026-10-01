@@ -483,6 +483,11 @@ describe('Device transfers: /device-transfers', () => {
       ).body.data;
       expect(device.currentUser.id).toBe(staffA.id);
       expect(device.status).toBe('Đã cấp phát');
+      // Khoá theo thứ tự Device → đơn/lệnh, giống approve (tránh deadlock khi duyệt + từ chối đồng thời).
+      const last = (f: jest.Mock) => f.mock.invocationCallOrder.at(-1)!;
+      expect(last(prisma.device.updateMany)).toBeLessThan(
+        last(prisma.deviceTransfer.updateMany),
+      );
     });
 
     it('Admin không được duyệt/từ chối: 403', async () => {

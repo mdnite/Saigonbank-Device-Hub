@@ -155,7 +155,8 @@ export class DeviceTransfersService {
   async reject(id: number, decidedById: number, reason: string) {
     const transfer = await this.findPendingTransfer(id);
     await this.prisma.$transaction(async (tx) => {
-      await this.decide(tx, id, decidedById, TRANSFER_STATUS.REJECTED, reason);
+      // Revert thiết bị TRƯỚC rồi mới decide: cùng thứ tự khoá với approve (Device → đơn/lệnh),
+      // tránh deadlock khi duyệt + từ chối đồng thời. decide thua race → transaction rollback revert.
       // Chỉ trả lại thiết bị còn "Đang chờ duyệt" — xem ghi chú cùng chỗ ở device-orders.service.ts.
       await tx.device.updateMany({
         where: {
@@ -164,6 +165,7 @@ export class DeviceTransfersService {
         },
         data: { status: DEVICE_STATUS.ALLOCATED },
       });
+      await this.decide(tx, id, decidedById, TRANSFER_STATUS.REJECTED, reason);
     });
     return this.getById(id);
   }

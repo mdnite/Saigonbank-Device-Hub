@@ -7,6 +7,7 @@ import {
 import { Department, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { hashPassword } from '../../shared/security/password';
+import { DEPARTMENT_REQUIRED_ROLES } from '../identity/roles';
 import { USER_STATUS } from '../identity/user-status';
 import { CreateUserDto, ListUsersQuery, MAX_INT32 } from './users.dto';
 
@@ -76,11 +77,16 @@ export class UsersService {
     if (await this.prisma.user.findUnique({ where: { email: dto.email } })) {
       throw new ConflictException('Email đã tồn tại');
     }
-    if (!(await this.prisma.role.findUnique({ where: { id: dto.roleId } }))) {
-      throw new BadRequestException('Vai trò không tồn tại');
-    }
-    if (
-      dto.departmentId !== undefined &&
+    const role = await this.prisma.role.findUnique({
+      where: { id: dto.roleId },
+    });
+    if (!role) throw new BadRequestException('Vai trò không tồn tại');
+    // `== null`: @IsOptional cho cả null lẫn undefined lọt qua DTO.
+    if (dto.departmentId == null) {
+      if (DEPARTMENT_REQUIRED_ROLES.includes(role.roleName)) {
+        throw new BadRequestException('Vui lòng chọn phòng ban');
+      }
+    } else if (
       !(await this.prisma.department.findUnique({
         where: { id: dto.departmentId },
       }))
@@ -167,7 +173,12 @@ export class UsersService {
             { decidedById: { in: ids } },
           ],
         },
-        select: { fromUserId: true, toUserId: true, createdById: true, decidedById: true },
+        select: {
+          fromUserId: true,
+          toUserId: true,
+          createdById: true,
+          decidedById: true,
+        },
       });
       const blocked = new Set<number>();
       for (const o of referencedOrders) {

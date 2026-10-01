@@ -261,9 +261,33 @@ describe('Users: /users, /roles, /departments', () => {
       const res = await http()
         .post('/users')
         .set('Authorization', tokenOf(admin))
-        .send({ ...body, departmentId: undefined })
+        .send({ ...body, roleId: 3, departmentId: undefined })
         .expect(201);
       expect(res.body.data.department).toBeNull();
+    });
+
+    it.each([
+      ['Trưởng phòng thiếu phòng ban', 2, undefined],
+      ['Cộng tác viên thiếu phòng ban', 4, undefined],
+      ['Cộng tác viên gửi departmentId: null', 4, null],
+    ])('400 %s', async (_label, roleId, departmentId) => {
+      const res = await http()
+        .post('/users')
+        .set('Authorization', tokenOf(admin))
+        .send({ ...body, roleId, departmentId })
+        .expect(400);
+      expect(res.body.message).toBe('Vui lòng chọn phòng ban');
+      expect(prisma.users.some((u) => u.username === 'tp.ketoan')).toBe(false);
+    });
+
+    it('201 Cộng tác viên có phòng ban', async () => {
+      const res = await http()
+        .post('/users')
+        .set('Authorization', tokenOf(admin))
+        .send({ ...body, roleId: 4, departmentId: 1 })
+        .expect(201);
+      expect(res.body.data.role).toEqual({ id: 4, roleName: 'Cộng tác viên' });
+      expect(res.body.data.department.departmentCode).toBe('KYTHUAT');
     });
 
     it('409 trùng username', async () => {

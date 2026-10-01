@@ -15,9 +15,9 @@ export interface NavItem {
   icon: LucideIcon;
   /** Chỉ hiện với Quản trị viên. */
   adminOnly?: boolean;
-  /** Chỉ hiện với Quản trị viên hoặc Trưởng phòng Kỹ thuật. */
+  /** Chỉ hiện với Quản trị viên, Trưởng phòng Kỹ thuật hoặc Cộng tác viên Kỹ thuật. */
   orderAccessOnly?: boolean;
-  /** Chỉ hiện với Quản trị viên hoặc Trưởng phòng Kỹ thuật. */
+  /** Chỉ hiện với Quản trị viên, Trưởng phòng Kỹ thuật hoặc Cộng tác viên Kỹ thuật. */
   transferAccessOnly?: boolean;
 }
 

@@ -72,18 +72,21 @@ người dùng (tạo/sửa/khoá tài khoản) — hiện chỉ tạo qua seed.
 
 ### Thiết bị (`/devices`, `/device-types`)
 
-Quyền đọc: mọi role đã đăng nhập. Quyền **ghi** (`POST`/`PATCH`/`DELETE /devices`): **Quản trị
-viên**, hoặc **Trưởng phòng** thuộc phòng Kỹ thuật (`departmentCode === 'KYTHUAT'`) — kiểm bởi
-`DeviceWriteGuard` (`backend/src/shared/auth/device-write.guard.ts`, chạy sau `AuthGuard`, đọc
-`req.user.departmentCode`; login response và `AuthGuard` đều đã gắn `departmentCode` vào user).
+Phân quyền dùng `@Allow(...ACTOR)` (`backend/src/shared/auth/actors.ts`), kiểm trong `AuthGuard`
+(`@Allow` ở handler ghi đè `@Allow` ở class; không có `@Allow` = mọi user đã đăng nhập). Actor:
+`ADMIN` (Quản trị viên), `TECH_HEAD` (Trưởng phòng + phòng `KYTHUAT`), `TECH_COLLAB` (Cộng tác viên +
+`KYTHUAT`). Với thiết bị: đọc = mọi role đã đăng nhập; `POST`/`PATCH` = `TECH_HEAD`, `TECH_COLLAB`;
+`DELETE` và `POST /devices/purge` = chỉ `TECH_HEAD`. Quản trị viên chỉ xem. Đơn cấp phát / thu hồi và
+lệnh điều chuyển: đọc = `ADMIN`, `TECH_HEAD`, `TECH_COLLAB`; tạo = `TECH_COLLAB`; duyệt / từ chối =
+`TECH_HEAD`. `/users` = `ADMIN`.
 
 | Endpoint | Ghi chú |
 |---|---|
-| `GET /devices` | Danh sách; lọc `search`/`status`/`deviceTypeId`/`departmentId` phía server. Mặc định ẩn thiết bị "Đã xóa". Chưa phân trang. |
+| `GET /devices` | Danh sách; lọc `search`/`status`/`deviceTypeId` phía server. Mặc định ẩn thiết bị "Đã xóa". Chưa phân trang. |
 | `GET /devices/:id` | Chi tiết 1 thiết bị. |
-| `POST /devices` | Tạo mới — cần quyền ghi. `deviceCode` phải khớp `/^[A-Z]{2,4}-\d{6}$/` **và** bắt đầu bằng `prefix` của `DeviceType` đã chọn. |
-| `PATCH /devices/:id` | Sửa — cần quyền ghi. Gửi `accessories` sẽ thay thế toàn bộ danh sách linh kiện cũ (`deleteMany` + `create`). |
-| `DELETE /devices/:id` | Xoá **mềm** — cần quyền ghi. Chỉ đổi `Status` thành "Đã xóa", không bao giờ xoá row. |
+| `POST /devices` | Tạo mới — `TECH_HEAD`/`TECH_COLLAB`. Luôn ở trạng thái "Trong kho"; bỏ qua `currentUserId`/`departmentId`/`allocatedOn`/`status` trong body. `deviceCode` phải khớp `/^[A-Z]{2,4}-\d{6}$/` **và** bắt đầu bằng `prefix` của `DeviceType` đã chọn. |
+| `PATCH /devices/:id` | Sửa — `TECH_HEAD`/`TECH_COLLAB`; bỏ qua `currentUserId`/`departmentId`/`allocatedOn`/`status` (người giữ chỉ đổi qua đơn Cấp phát / Thu hồi hoặc lệnh Điều chuyển đã duyệt). Thiết bị "Đang chờ duyệt" → 400 "Thiết bị đang chờ duyệt, không thể sửa hoặc xoá". Gửi `accessories` sẽ thay thế toàn bộ danh sách linh kiện cũ (`deleteMany` + `create`). |
+| `DELETE /devices/:id` | Xoá **mềm** — chỉ `TECH_HEAD` (cũng 400 nếu "Đang chờ duyệt"). Chỉ đổi `Status` thành "Đã xóa", không bao giờ xoá row. |
 | `GET /device-types` | Danh mục loại thiết bị, chỉ đọc — seed 4 dòng (Laptop `LT`, Máy tính để bàn `PC`, Màn hình `MN`, Máy in `MI`). Chưa có màn quản lý (CRUD), chỉ có qua seed. |
 
 ## Quy ước
@@ -113,5 +116,5 @@ Script tự sinh username theo timestamp nên chạy lại được nhiều lầ
 `User`. Tham số có thể đổi: `-BaseUrl`, `-AdminPassword`, `-PsqlPath`, `-DbPassword`.
 
 `e2e-devices.ps1` kiểm thêm phần thiết bị trên cùng backend + PostgreSQL thật: tiền tố mã theo
-loại thiết bị, trùng mã, phân quyền ghi (`DeviceWriteGuard`), xoá mềm, và nested write
+loại thiết bị, trùng mã, phân quyền theo `@Allow` (Cộng tác viên / Trưởng phòng Kỹ thuật ghi được, Quản trị viên chỉ xem), thiết bị "Đang chờ duyệt", xoá mềm, và nested write
 `PATCH` accessories (`deleteMany` + `create`) — thứ fake Prisma không mô phỏng được.

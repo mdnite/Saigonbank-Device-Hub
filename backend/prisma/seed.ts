@@ -74,6 +74,41 @@ async function main() {
       `${deviceTypes.length} loại thiết bị, user=${admin.username}`,
   );
 
+  // Tài khoản dev cho 2 vai nghiệp vụ Kỹ thuật — để thử luồng tạo/duyệt mà không phải tạo tay.
+  const techAccounts = [
+    {
+      username: 'truongphong.kt',
+      password: 'Head@1234',
+      fullName: 'Trưởng phòng Kỹ thuật (dev)',
+      roleName: ROLE.HEAD,
+    },
+    {
+      username: 'ctv.kt',
+      password: 'Collab@1234',
+      fullName: 'Cộng tác viên Kỹ thuật (dev)',
+      roleName: ROLE.COLLAB,
+    },
+  ];
+  for (const a of techAccounts) {
+    await prisma.user.upsert({
+      where: { username: a.username },
+      update: {},
+      create: {
+        username: a.username,
+        email: `${a.username}@saigonbank.com.vn`,
+        password: await hashPassword(a.password),
+        fullName: a.fullName,
+        roleId: roleIds[a.roleName],
+        departmentId: departmentIds.KYTHUAT,
+        status: USER_STATUS.ACTIVE,
+        isVerified: true,
+      },
+    });
+  }
+  console.log(
+    `Seed user dev Kỹ thuật: ${techAccounts.map((a) => a.username).join(', ')}`,
+  );
+
   // User để test luồng quên mật khẩu: Resend (onboarding@resend.dev) chỉ gửi được tới email chủ tài khoản.
   // Email lấy từ .env để không commit email cá nhân vào repo.
   const devEmail = process.env.DEV_USER_EMAIL?.trim().toLowerCase();

@@ -116,6 +116,17 @@ else { Fail "không tạo được người dùng"; exit 1 }
 if ($created.isVerified -eq $false) { Ok "người dùng mới có isVerified=false theo đúng quyết định 2026-09-19" }
 else { Fail "isVerified lẽ ra phải là false" }
 
+Step "3b. Trưởng phòng / Cộng tác viên bắt buộc có phòng ban"
+$collabRole = (Api -Method Get -Path '/roles' -Token $adminToken).data |
+  Where-Object { $_.roleName -eq 'Cộng tác viên' } | Select-Object -First 1
+if (-not $collabRole) { Fail "chưa có role 'Cộng tác viên' — chạy lại seed (npm run db:setup)"; exit 1 }
+ExpectStatus -Method Post -Path '/users' -Token $adminToken -Expected 400 -Label "tạo Trưởng phòng thiếu phòng ban" -Body @{
+  username = "${uname}tp"; email = "${uname}tp@e2e.local"; fullName = 'TP thiếu phòng ban'; password = $upass; roleId = 2
+}
+ExpectStatus -Method Post -Path '/users' -Token $adminToken -Expected 400 -Label "tạo Cộng tác viên thiếu phòng ban" -Body @{
+  username = "${uname}ctv"; email = "${uname}ctv@e2e.local"; fullName = 'CTV thiếu phòng ban'; password = $upass; roleId = $collabRole.id
+}
+
 Step "4. Tìm kiếm không phân biệt hoa thường (fake Prisma không kiểm được)"
 $upper = $uname.ToUpper()
 $found = (Api -Method Get -Path "/users?search=$upper" -Token $adminToken).data

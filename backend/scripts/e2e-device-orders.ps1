@@ -85,7 +85,7 @@ try {
   else { Fail "GET /device-types khong token → $([int]$_.Exception.Response.StatusCode), mong 401" }
 }
 
-Step "1. Dang nhap admin, tao Truong phong Ky thuat va nguoi nhan"
+Step "1. Dang nhap admin, tao Truong phong Ky thuat, Cong tac vien va nguoi nhan"
 $login = Api -Method Post -Path '/auth/login' -Body @{ identifier = $AdminUsername; password = $AdminPassword }
 $adminToken = $login.data.accessToken
 if ($adminToken) { Ok "admin dang nhap duoc" } else { Fail "khong lay duoc accessToken"; exit 1 }
@@ -99,6 +99,20 @@ Api -Method Post -Path '/users' -Token $adminToken -Body @{
 $techToken = (Api -Method Post -Path '/auth/login' -Body @{ identifier = $techUname; password = $techPass }).data.accessToken
 if ($techToken) { Ok "$techUname dang nhap duoc" } else { Fail "$techUname khong dang nhap duoc"; exit 1 }
 
+# Role id của 'Cộng tác viên' tra theo tên: role thêm sau nên id trên DB thật không cố định.
+$collabRole = (Api -Method Get -Path '/roles' -Token $adminToken).data |
+  Where-Object { $_.roleName -eq 'Cộng tác viên' } | Select-Object -First 1
+if (-not $collabRole) { Fail "chưa có role 'Cộng tác viên' — chạy lại seed (npm run db:setup)"; exit 1 }
+
+$collabUname = "e2ectv$stamp"
+$collabPass = 'E2e@1234'
+Api -Method Post -Path '/users' -Token $adminToken -Body @{
+  username = $collabUname; email = "$collabUname@e2e.local"; fullName = 'Cong tac vien Ky thuat E2E'
+  password = $collabPass; roleId = $collabRole.id; departmentId = 1
+} | Out-Null
+$collabToken = (Api -Method Post -Path '/auth/login' -Body @{ identifier = $collabUname; password = $collabPass }).data.accessToken
+if ($collabToken) { Ok "$collabUname dang nhap duoc" } else { Fail "$collabUname khong dang nhap duoc"; exit 1 }
+
 $staffUname = "e2estaff$stamp"
 $staffPass = 'E2e@1234'
 $staff = (Api -Method Post -Path '/users' -Token $adminToken -Body @{
@@ -110,7 +124,7 @@ if ($staff.id) { Ok "$staffUname tao duoc (id=$($staff.id))" } else { Fail "khon
 Step "2. Tao thiet bi Trong kho"
 $types = (Api -Method Get -Path '/device-types' -Token $adminToken).data
 $laptop = $types | Where-Object { $_.prefix -eq 'LT' } | Select-Object -First 1
-$device = (Api -Method Post -Path '/devices' -Token $adminToken -Body @{
+$device = (Api -Method Post -Path '/devices' -Token $techToken -Body @{
   deviceCode = "LT-$(Suffix6 0)"; deviceName = "Laptop E2E don $stamp"
   specDetail = 'Core i5, 16GB'; unit = 'Cai'; deviceTypeId = $laptop.id
 }).data
@@ -119,13 +133,23 @@ if ($deviceId -and $device.status -eq 'Trong kho') { Ok "tao thiet bi id=$device
 else { Fail "tao thiet bi that bai hoac sai status"; exit 1 }
 
 Step "3. Tao va duyet don Cap phat"
-$order = (Api -Method Post -Path '/device-orders' -Token $techToken -Body @{
+$order = (Api -Method Post -Path '/device-orders' -Token $collabToken -Body @{
   type = 'Cấp phát'; targetUserId = $staff.id; deviceIds = @($deviceId)
 }).data
 if ($order.id -and $order.status -eq 'Chờ duyệt') { Ok "tao don Cap phat id=$($order.id)" }
 else { Fail "tao don Cap phat that bai"; exit 1 }
 
-Api -Method Patch -Path "/device-orders/$($order.id)/approve" -Token $adminToken | Out-Null
+$pending = (Api -Method Get -Path "/devices/$deviceId" -Token $adminToken).data
+if ($pending.status -eq 'Đang chờ duyệt') { Ok "tao don xong: thiet bi 'Đang chờ duyệt'" }
+else { Fail "sau khi tao don, status='$($pending.status)', mong 'Đang chờ duyệt'" }
+$dbPending = Psql "SELECT ""Status"" FROM ""Device"" WHERE ""Id"" = $deviceId;"
+if ($dbPending -eq 'Đang chờ duyệt') { Ok "DB xac nhan Status='Đang chờ duyệt'" } else { Fail "DB Status='$dbPending', mong 'Đang chờ duyệt'" }
+ExpectStatus -Method Post -Path '/device-orders' -Token $collabToken -Expected 400 -Label "tao don thu hai cung thiet bi" -Body @{
+  type = 'Cấp phát'; targetUserId = $staff.id; deviceIds = @($deviceId)
+}
+ExpectStatus -Method Patch -Path "/devices/$deviceId" -Token $techToken -Expected 400 -Label "PATCH thiet bi dang cho duyet" -Body @{ deviceName = 'x' }
+
+Api -Method Patch -Path "/device-orders/$($order.id)/approve" -Token $techToken | Out-Null
 $afterAllocate = (Api -Method Get -Path "/devices/$deviceId" -Token $adminToken).data
 if ($afterAllocate.status -eq 'Đã cấp phát' -and $afterAllocate.currentUser.id -eq $staff.id) {
   Ok "duyet xong: Device status='Đã cấp phát', currentUser=$($afterAllocate.currentUser.id)"
@@ -136,12 +160,12 @@ $dbStatus = Psql "SELECT ""Status"" FROM ""Device"" WHERE ""Id"" = $deviceId;"
 if ($dbStatus -eq 'Đã cấp phát') { Ok "DB xac nhan Status='Đã cấp phát'" } else { Fail "DB Status='$dbStatus', mong 'Đã cấp phát'" }
 
 Step "4. Tao va duyet don Thu hoi"
-$recoverOrder = (Api -Method Post -Path '/device-orders' -Token $techToken -Body @{
+$recoverOrder = (Api -Method Post -Path '/device-orders' -Token $collabToken -Body @{
   type = 'Thu hồi'; targetUserId = $staff.id; deviceIds = @($deviceId)
 }).data
 if ($recoverOrder.id) { Ok "tao don Thu hoi id=$($recoverOrder.id)" } else { Fail "tao don Thu hoi that bai"; exit 1 }
 
-Api -Method Patch -Path "/device-orders/$($recoverOrder.id)/approve" -Token $adminToken | Out-Null
+Api -Method Patch -Path "/device-orders/$($recoverOrder.id)/approve" -Token $techToken | Out-Null
 $afterRecover = (Api -Method Get -Path "/devices/$deviceId" -Token $adminToken).data
 if ($afterRecover.status -eq 'Trong kho' -and $null -eq $afterRecover.currentUser -and $null -eq $afterRecover.department) {
   Ok "duyet xong: Device ve 'Trong kho', currentUser/department = null"
@@ -150,14 +174,14 @@ if ($afterRecover.status -eq 'Trong kho' -and $null -eq $afterRecover.currentUse
 }
 
 Step "5. Tao don roi tu choi"
-$device2 = (Api -Method Post -Path '/devices' -Token $adminToken -Body @{
+$device2 = (Api -Method Post -Path '/devices' -Token $techToken -Body @{
   deviceCode = "LT-$(Suffix6 1)"; deviceName = "Laptop E2E tu choi $stamp"
   specDetail = 'Core i5, 16GB'; unit = 'Cai'; deviceTypeId = $laptop.id
 }).data
-$rejectOrder = (Api -Method Post -Path '/device-orders' -Token $techToken -Body @{
+$rejectOrder = (Api -Method Post -Path '/device-orders' -Token $collabToken -Body @{
   type = 'Cấp phát'; targetUserId = $staff.id; deviceIds = @($device2.id)
 }).data
-Api -Method Patch -Path "/device-orders/$($rejectOrder.id)/reject" -Token $adminToken -Body @{ reason = 'E2E tu choi' } | Out-Null
+Api -Method Patch -Path "/device-orders/$($rejectOrder.id)/reject" -Token $techToken -Body @{ reason = 'E2E tu choi' } | Out-Null
 $afterReject = (Api -Method Get -Path "/devices/$($device2.id)" -Token $adminToken).data
 if ($afterReject.status -eq 'Trong kho') { Ok "tu choi don: Device van 'Trong kho'" }
 else { Fail "tu choi don nhung Device status='$($afterReject.status)', mong 'Trong kho'" }
@@ -165,6 +189,26 @@ else { Fail "tu choi don nhung Device status='$($afterReject.status)', mong 'Tro
 Step "6. Nhan vien khong xem duoc danh sach don"
 $staffToken = (Api -Method Post -Path '/auth/login' -Body @{ identifier = $staffUname; password = $staffPass }).data.accessToken
 ExpectStatus -Method Get -Path '/device-orders' -Token $staffToken -Expected 403 -Label "Nhan vien GET /device-orders"
+
+Step "7. Quan tri vien khong duyet, Truong phong Ky thuat khong tao don"
+$device3 = (Api -Method Post -Path '/devices' -Token $techToken -Body @{
+  deviceCode = "LT-$(Suffix6 2)"; deviceName = "Laptop E2E phan quyen $stamp"
+  specDetail = 'Core i5, 16GB'; unit = 'Cai'; deviceTypeId = $laptop.id
+}).data
+$order3 = (Api -Method Post -Path '/device-orders' -Token $collabToken -Body @{
+  type = 'Cấp phát'; targetUserId = $staff.id; deviceIds = @($device3.id)
+}).data
+ExpectStatus -Method Patch -Path "/device-orders/$($order3.id)/approve" -Token $adminToken -Expected 403 -Label "Quan tri vien PATCH approve"
+$device4 = (Api -Method Post -Path '/devices' -Token $techToken -Body @{
+  deviceCode = "LT-$(Suffix6 3)"; deviceName = "Laptop E2E TP khong tao don $stamp"
+  specDetail = 'Core i5, 16GB'; unit = 'Cai'; deviceTypeId = $laptop.id
+}).data
+ExpectStatus -Method Post -Path '/device-orders' -Token $techToken -Expected 403 -Label "Truong phong Ky thuat POST /device-orders" -Body @{
+  type = 'Cấp phát'; targetUserId = $staff.id; deviceIds = @($device4.id)
+}
+$adminList = (Api -Method Get -Path '/device-orders' -Token $adminToken).data
+if (@($adminList | Where-Object { $_.id -eq $order3.id }).Count -eq 1) { Ok "Quan tri vien van xem duoc danh sach don" }
+else { Fail "Quan tri vien khong thay don vua tao" }
 
 Write-Host ""
 if ($script:Failed -eq 0) {

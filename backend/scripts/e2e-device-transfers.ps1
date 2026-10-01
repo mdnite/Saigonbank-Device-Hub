@@ -85,7 +85,7 @@ try {
   else { Fail "GET /device-types khong token → $([int]$_.Exception.Response.StatusCode), mong 401" }
 }
 
-Step "1. Dang nhap admin, tao Truong phong Ky thuat va 2 nguoi dung"
+Step "1. Dang nhap admin, tao Truong phong Ky thuat, Cong tac vien va 2 nguoi dung"
 $login = Api -Method Post -Path '/auth/login' -Body @{ identifier = $AdminUsername; password = $AdminPassword }
 $adminToken = $login.data.accessToken
 if ($adminToken) { Ok "admin dang nhap duoc" } else { Fail "khong lay duoc accessToken"; exit 1 }
@@ -98,6 +98,20 @@ Api -Method Post -Path '/users' -Token $adminToken -Body @{
 } | Out-Null
 $techToken = (Api -Method Post -Path '/auth/login' -Body @{ identifier = $techUname; password = $techPass }).data.accessToken
 if ($techToken) { Ok "$techUname dang nhap duoc" } else { Fail "$techUname khong dang nhap duoc"; exit 1 }
+
+# Role id của 'Cộng tác viên' tra theo tên: role thêm sau nên id trên DB thật không cố định.
+$collabRole = (Api -Method Get -Path '/roles' -Token $adminToken).data |
+  Where-Object { $_.roleName -eq 'Cộng tác viên' } | Select-Object -First 1
+if (-not $collabRole) { Fail "chưa có role 'Cộng tác viên' — chạy lại seed (npm run db:setup)"; exit 1 }
+
+$collabUname = "e2ectv$stamp"
+$collabPass = 'E2e@1234'
+Api -Method Post -Path '/users' -Token $adminToken -Body @{
+  username = $collabUname; email = "$collabUname@e2e.local"; fullName = 'Cong tac vien Ky thuat E2E'
+  password = $collabPass; roleId = $collabRole.id; departmentId = 1
+} | Out-Null
+$collabToken = (Api -Method Post -Path '/auth/login' -Body @{ identifier = $collabUname; password = $collabPass }).data.accessToken
+if ($collabToken) { Ok "$collabUname dang nhap duoc" } else { Fail "$collabUname khong dang nhap duoc"; exit 1 }
 
 $staffAUname = "e2estaffa$stamp"
 $staffAPass = 'E2e@1234'
@@ -115,25 +129,37 @@ $staffB = (Api -Method Post -Path '/users' -Token $adminToken -Body @{
 }).data
 if ($staffB.id) { Ok "$staffBUname tao duoc (id=$($staffB.id))" } else { Fail "khong tao duoc $staffBUname"; exit 1 }
 
-Step "2. Tao thiet bi va cap phat truc tiep cho staffA (qua PATCH, khong qua don Cap phat)"
+Step "2. Tao thiet bi va cap phat cho staffA qua don Cap phat"
 $types = (Api -Method Get -Path '/device-types' -Token $adminToken).data
 $laptop = $types | Where-Object { $_.prefix -eq 'LT' } | Select-Object -First 1
-$device = (Api -Method Post -Path '/devices' -Token $adminToken -Body @{
-  deviceCode = "LT-$(Suffix6 0)"; deviceName = "Laptop E2E dieu chuyen $stamp"
-  specDetail = 'Core i5, 16GB'; unit = 'Cai'; deviceTypeId = $laptop.id
-  currentUserId = $staffA.id
-}).data
+# Thiet bi "Đã cấp phát" chi tao duoc qua don Cap phat do CTV tao, TP duyet.
+function NewAllocatedDevice ([int]$Offset, [int]$HolderId, [string]$Name) {
+  $d = (Api -Method Post -Path '/devices' -Token $techToken -Body @{
+    deviceCode = "LT-$(Suffix6 $Offset)"; deviceName = $Name
+    specDetail = 'Core i5, 16GB'; unit = 'Cai'; deviceTypeId = $laptop.id
+  }).data
+  $o = (Api -Method Post -Path '/device-orders' -Token $collabToken -Body @{
+    type = 'Cấp phát'; targetUserId = $HolderId; deviceIds = @($d.id)
+  }).data
+  Api -Method Patch -Path "/device-orders/$($o.id)/approve" -Token $techToken | Out-Null
+  return (Api -Method Get -Path "/devices/$($d.id)" -Token $adminToken).data
+}
+$device = NewAllocatedDevice 0 $staffA.id "Laptop E2E dieu chuyen $stamp"
 $deviceId = $device.id
 if ($deviceId -and $device.status -eq 'Đã cấp phát' -and $device.currentUser.id -eq $staffA.id) {
   Ok "tao thiet bi id=$deviceId, da cap phat cho staffA"
 } else { Fail "tao/cap phat thiet bi that bai"; exit 1 }
 
 Step "3. Tao va duyet lenh dieu chuyen staffA -> staffB"
-$transfer = (Api -Method Post -Path '/device-transfers' -Token $adminToken -Body @{
+$transfer = (Api -Method Post -Path '/device-transfers' -Token $collabToken -Body @{
   fromUserId = $staffA.id; toUserId = $staffB.id; deviceIds = @($deviceId)
 }).data
 if ($transfer.id -and $transfer.status -eq 'Chờ duyệt') { Ok "tao lenh dieu chuyen id=$($transfer.id)" }
 else { Fail "tao lenh dieu chuyen that bai"; exit 1 }
+
+$pending = (Api -Method Get -Path "/devices/$deviceId" -Token $adminToken).data
+if ($pending.status -eq 'Đang chờ duyệt') { Ok "tao lenh xong: thiet bi 'Đang chờ duyệt'" }
+else { Fail "sau khi tao lenh, status='$($pending.status)', mong 'Đang chờ duyệt'" }
 
 Api -Method Patch -Path "/device-transfers/$($transfer.id)/approve" -Token $techToken | Out-Null
 $afterTransfer = (Api -Method Get -Path "/devices/$deviceId" -Token $adminToken).data
@@ -147,33 +173,34 @@ if ($dbCurrentUserId -eq "$($staffB.id)") { Ok "DB xac nhan CurrentUserId=$($sta
 else { Fail "DB CurrentUserId='$dbCurrentUserId', mong $($staffB.id)" }
 
 Step "4. Tao lenh roi tu choi"
-$device2 = (Api -Method Post -Path '/devices' -Token $adminToken -Body @{
-  deviceCode = "LT-$(Suffix6 1)"; deviceName = "Laptop E2E tu choi dieu chuyen $stamp"
-  specDetail = 'Core i5, 16GB'; unit = 'Cai'; deviceTypeId = $laptop.id
-  currentUserId = $staffA.id
-}).data
-$rejectTransfer = (Api -Method Post -Path '/device-transfers' -Token $adminToken -Body @{
+$device2 = NewAllocatedDevice 1 $staffA.id "Laptop E2E tu choi dieu chuyen $stamp"
+$rejectTransfer = (Api -Method Post -Path '/device-transfers' -Token $collabToken -Body @{
   fromUserId = $staffA.id; toUserId = $staffB.id; deviceIds = @($device2.id)
 }).data
 Api -Method Patch -Path "/device-transfers/$($rejectTransfer.id)/reject" -Token $techToken -Body @{ reason = 'E2E tu choi dieu chuyen' } | Out-Null
 $afterReject = (Api -Method Get -Path "/devices/$($device2.id)" -Token $adminToken).data
-if ($afterReject.currentUser.id -eq $staffA.id) { Ok "tu choi lenh: thiet bi van do staffA giu" }
-else { Fail "tu choi lenh nhung currentUser da doi: $($afterReject.currentUser.id)" }
+if ($afterReject.currentUser.id -eq $staffA.id -and $afterReject.status -eq 'Đã cấp phát') { Ok "tu choi lenh: thiet bi ve 'Đã cấp phát', van do staffA giu" }
+else { Fail "tu choi lenh nhung status='$($afterReject.status)', currentUser=$($afterReject.currentUser.id)" }
 
 Step "5. Nhan vien khong xem duoc danh sach lenh"
 $staffAToken = (Api -Method Post -Path '/auth/login' -Body @{ identifier = $staffAUname; password = $staffAPass }).data.accessToken
 ExpectStatus -Method Get -Path '/device-transfers' -Token $staffAToken -Expected 403 -Label "Nhan vien GET /device-transfers"
 
 Step "6. Admin khong duoc duyet lenh (chi Truong phong Ky thuat)"
-$device3 = (Api -Method Post -Path '/devices' -Token $adminToken -Body @{
-  deviceCode = "LT-$(Suffix6 2)"; deviceName = "Laptop E2E admin khong duyet duoc $stamp"
-  specDetail = 'Core i5, 16GB'; unit = 'Cai'; deviceTypeId = $laptop.id
-  currentUserId = $staffA.id
-}).data
-$transfer3 = (Api -Method Post -Path '/device-transfers' -Token $adminToken -Body @{
+$device3 = NewAllocatedDevice 2 $staffA.id "Laptop E2E admin khong duyet duoc $stamp"
+$transfer3 = (Api -Method Post -Path '/device-transfers' -Token $collabToken -Body @{
   fromUserId = $staffA.id; toUserId = $staffB.id; deviceIds = @($device3.id)
 }).data
 ExpectStatus -Method Patch -Path "/device-transfers/$($transfer3.id)/approve" -Token $adminToken -Expected 403 -Label "Admin PATCH approve"
+
+Step "7. Quan tri vien va Truong phong Ky thuat khong tao duoc lenh"
+$device4 = NewAllocatedDevice 3 $staffA.id "Laptop E2E phan quyen dieu chuyen $stamp"
+ExpectStatus -Method Post -Path '/device-transfers' -Token $adminToken -Expected 403 -Label "Quan tri vien POST /device-transfers" -Body @{
+  fromUserId = $staffA.id; toUserId = $staffB.id; deviceIds = @($device4.id)
+}
+ExpectStatus -Method Post -Path '/device-transfers' -Token $techToken -Expected 403 -Label "Truong phong Ky thuat POST /device-transfers" -Body @{
+  fromUserId = $staffA.id; toUserId = $staffB.id; deviceIds = @($device4.id)
+}
 
 Write-Host ""
 if ($script:Failed -eq 0) {

@@ -98,6 +98,29 @@ $login = Api -Method Post -Path '/auth/login' -Body @{ identifier = $AdminUserna
 $adminToken = $login.data.accessToken
 if ($adminToken) { Ok "admin đăng nhập được (vai trò=$($login.data.user.roleName))" }
 else { Fail "không lấy được accessToken"; exit 1 }
+
+$techUname = "e2etech$stamp"
+$techPass = 'E2e@1234'
+Api -Method Post -Path '/users' -Token $adminToken -Body @{
+  username = $techUname; email = "$techUname@e2e.local"; fullName = 'Truong phong Ky thuat E2E'
+  password = $techPass; roleId = 2; departmentId = 1
+} | Out-Null
+$techToken = (Api -Method Post -Path '/auth/login' -Body @{ identifier = $techUname; password = $techPass }).data.accessToken
+if ($techToken) { Ok "$techUname dang nhap duoc" } else { Fail "$techUname khong dang nhap duoc"; exit 1 }
+
+# Role id của 'Cộng tác viên' tra theo tên: role thêm sau nên id trên DB thật không cố định.
+$collabRole = (Api -Method Get -Path '/roles' -Token $adminToken).data |
+  Where-Object { $_.roleName -eq 'Cộng tác viên' } | Select-Object -First 1
+if (-not $collabRole) { Fail "chưa có role 'Cộng tác viên' — chạy lại seed (npm run db:setup)"; exit 1 }
+
+$collabUname = "e2ectv$stamp"
+$collabPass = 'E2e@1234'
+Api -Method Post -Path '/users' -Token $adminToken -Body @{
+  username = $collabUname; email = "$collabUname@e2e.local"; fullName = 'Cong tac vien Ky thuat E2E'
+  password = $collabPass; roleId = $collabRole.id; departmentId = 1
+} | Out-Null
+$collabToken = (Api -Method Post -Path '/auth/login' -Body @{ identifier = $collabUname; password = $collabPass }).data.accessToken
+if ($collabToken) { Ok "$collabUname dang nhap duoc" } else { Fail "$collabUname khong dang nhap duoc"; exit 1 }
 if ($login.data.user.PSObject.Properties.Name -contains 'departmentCode') {
   Ok "user.departmentCode tồn tại trong envelope (giá trị=$($login.data.user.departmentCode))"
 } else {
@@ -115,7 +138,7 @@ else { Fail "không tìm được loại thiết bị prefix LT/PC trong danh m�
 
 Step "3. Tạo thiết bị Laptop"
 $code = "LT-$(Suffix6 0)"
-$created = (Api -Method Post -Path '/devices' -Token $adminToken -Body @{
+$created = (Api -Method Post -Path '/devices' -Token $techToken -Body @{
   deviceCode   = $code
   deviceName   = "Laptop kiểm thử E2E $stamp"
   specDetail   = 'Core i5, 16GB RAM, 512GB SSD'
@@ -142,7 +165,7 @@ else { Fail "danh sách không sắp xếp tăng dần: $ids" }
 
 Step "6. Tiền tố sai — mã PC nhưng chọn loại Laptop"
 try {
-  Api -Method Post -Path '/devices' -Token $adminToken -Body @{
+  Api -Method Post -Path '/devices' -Token $techToken -Body @{
     deviceCode   = "PC-$(Suffix6 1)"
     deviceName   = 'Thiết bị tiền tố sai'
     specDetail   = 'n/a'
@@ -161,7 +184,7 @@ try {
 
 Step "7. Tạo trùng mã thiết bị"
 try {
-  Api -Method Post -Path '/devices' -Token $adminToken -Body @{
+  Api -Method Post -Path '/devices' -Token $techToken -Body @{
     deviceCode   = $code
     deviceName   = 'Trùng mã'
     specDetail   = 'n/a'
@@ -178,28 +201,15 @@ try {
   } else { Fail "trùng mã → $code3, mong 409" }
 }
 
-Step "8. PATCH đổi status sang 'Chờ thanh lý'"
-Api -Method Patch -Path "/devices/$deviceId" -Token $adminToken -Body @{ status = 'Chờ thanh lý' } | Out-Null
+Step "8. PATCH lờ đi status/currentUserId — chỉ đơn/lệnh mới đổi người giữ"
+Api -Method Patch -Path "/devices/$deviceId" -Token $techToken -Body @{ status = 'Đã cấp phát'; currentUserId = 1 } | Out-Null
 $reloaded = (Api -Method Get -Path "/devices/$deviceId" -Token $adminToken).data
-if ($reloaded.status -eq 'Chờ thanh lý') { Ok "PATCH status → đọc lại đúng 'Chờ thanh lý'" }
-else { Fail "đọc lại status='$($reloaded.status)', mong 'Chờ thanh lý'" }
-
-Step "9. PATCH status không hợp lệ ('Đã xóa' không được đặt qua PATCH)"
-try {
-  Api -Method Patch -Path "/devices/$deviceId" -Token $adminToken -Body @{ status = 'Đã xóa' } | Out-Null
-  Fail "PATCH status='Đã xóa' lẽ ra phải bị chặn"
-} catch {
-  $code4 = [int]$_.Exception.Response.StatusCode
-  if ($code4 -eq 400) {
-    $body = ($_.ErrorDetails.Message | ConvertFrom-Json)
-    if ($body.message -match 'Trạng thái không hợp lệ') { Ok "PATCH status='Đã xóa' → 400, message đúng" }
-    else { Fail "PATCH status='Đã xóa' → 400 nhưng message='$($body.message)'" }
-  } else { Fail "PATCH status='Đã xóa' → $code4, mong 400" }
-}
+if ($reloaded.status -eq 'Trong kho' -and $null -eq $reloaded.currentUser) { Ok "PATCH status/currentUserId bị lờ, thiết bị vẫn 'Trong kho'" }
+else { Fail "PATCH đổi được status='$($reloaded.status)' / currentUser — lẽ ra bị lờ" }
 
 Step "10. PATCH accessories thay toàn bộ danh sách (nested write — fake Prisma không mô phỏng được)"
 $accCode = "AE2$(Suffix6 2)"
-$deviceAcc = (Api -Method Post -Path '/devices' -Token $adminToken -Body @{
+$deviceAcc = (Api -Method Post -Path '/devices' -Token $techToken -Body @{
   deviceCode   = "LT-$(Suffix6 3)"
   deviceName   = "Laptop kèm phụ kiện $stamp"
   specDetail   = 'Core i7, 16GB RAM'
@@ -215,7 +225,7 @@ if ($deviceAcc.accessories.Count -eq 2) { Ok "tạo thiết bị kèm 2 phụ ki
 else { Fail "tạo thiết bị kèm phụ kiện: nhận $($deviceAcc.accessories.Count) phụ kiện, mong 2"; }
 
 $newAccCode = "$accCode-C"
-$patched = (Api -Method Patch -Path "/devices/$accDeviceId" -Token $adminToken -Body @{
+$patched = (Api -Method Patch -Path "/devices/$accDeviceId" -Token $techToken -Body @{
   accessories = @(
     @{ accessoryCode = $newAccCode; accessoryName = 'Chuột không dây'; accessoryType = 'Phụ kiện'; unit = 'Cái' }
   )
@@ -253,9 +263,15 @@ ExpectStatus -Method Post -Path '/devices' -Token $staffToken -Expected 403 -Lab
   deviceTypeId = $laptop.id
 }
 
+Step "11b. Quản trị viên chỉ đọc; Cộng tác viên Kỹ thuật sửa được nhưng không xoá"
+ExpectStatus -Method Patch -Path "/devices/$deviceId" -Token $adminToken -Expected 403 -Label "Quản trị viên PATCH /devices" -Body @{ deviceName = 'x' }
+Api -Method Patch -Path "/devices/$deviceId" -Token $collabToken -Body @{ deviceName = "Laptop CTV sửa $stamp" } | Out-Null
+Ok "Cộng tác viên Kỹ thuật PATCH /devices được"
+ExpectStatus -Method Delete -Path "/devices/$deviceId" -Token $collabToken -Expected 403 -Label "Cộng tác viên Kỹ thuật DELETE /devices"
+
 Step "12. Xoá mềm thiết bị"
-Api -Method Delete -Path "/devices/$deviceId" -Token $adminToken | Out-Null
-Ok "admin xoá mềm thiết bị id=$deviceId"
+Api -Method Delete -Path "/devices/$deviceId" -Token $techToken | Out-Null
+Ok "Truong phong Ky thuat xoá mềm thiết bị id=$deviceId"
 $afterDelete = (Api -Method Get -Path '/devices' -Token $adminToken).data
 if (@($afterDelete | Where-Object { $_.id -eq $deviceId }).Count -eq 0) { Ok "thiết bị đã xoá không còn trong danh sách mặc định" }
 else { Fail "thiết bị đã xoá vẫn hiện trong danh sách" }
@@ -267,7 +283,7 @@ elseif ([string]::IsNullOrWhiteSpace($status)) { Fail "DB: row $code đã bị x
 else { Fail "DB: Status='$status', mong 'Đã xóa'" }
 
 Step "14. Id ngoài phạm vi int32 trả 404 chứ không phải 500"
-ExpectStatus -Method Delete -Path '/devices/9999999999' -Token $adminToken -Expected 404 -Label "DELETE /devices/9999999999"
+ExpectStatus -Method Delete -Path '/devices/9999999999' -Token $techToken -Expected 404 -Label "DELETE /devices/9999999999"
 
 Write-Host ""
 if ($script:Failed -eq 0) {

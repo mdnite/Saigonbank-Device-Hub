@@ -138,6 +138,68 @@ describe('Device orders: /device-orders', () => {
       expect(res.body.data.status).toBe('Chờ duyệt');
     });
 
+    it('tạo đơn giữ chỗ thiết bị ("Đang chờ duyệt"); đơn thứ hai cùng thiết bị: 400', async () => {
+      const deviceId = await createDevice();
+      const body = {
+        type: 'Cấp phát',
+        targetUserId: staff.id,
+        deviceIds: [deviceId],
+      };
+      await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(collab))
+        .send(body)
+        .expect(201);
+      expect(prisma.devices.find((d) => d.id === deviceId)!.status).toBe(
+        'Đang chờ duyệt',
+      );
+
+      const res = await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(collab))
+        .send(body)
+        .expect(400);
+      expect(res.body.message).toBe(
+        'Thiết bị "LT-000001" đang chờ duyệt ở đơn/lệnh khác',
+      );
+      expect(prisma.deviceOrders).toHaveLength(1);
+    });
+
+    it('2 đơn tạo gần như đồng thời cùng nhắm 1 thiết bị: đơn ghi sau bị chặn, chỉ còn 1 đơn', async () => {
+      const otherStaff = addUser('staff2', 3, 1);
+      const deviceId = await createDevice();
+      const realTransaction = prisma.$transaction.getMockImplementation()!;
+      // Chèn trọn việc tạo đơn 2 vào đúng lúc đơn 1 đã qua requireEligibleDevices (đọc ngoài
+      // transaction, thấy thiết bị còn "Trong kho") nhưng chưa kịp ghi giữ chỗ.
+      prisma.$transaction.mockImplementationOnce(
+        async (fn: (tx: unknown) => Promise<unknown>) => {
+          await http()
+            .post('/device-orders')
+            .set('Authorization', tokenOf(collab))
+            .send({
+              type: 'Cấp phát',
+              targetUserId: otherStaff.id,
+              deviceIds: [deviceId],
+            })
+            .expect(201);
+          return realTransaction(fn);
+        },
+      );
+
+      const res = await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(collab))
+        .send({
+          type: 'Cấp phát',
+          targetUserId: staff.id,
+          deviceIds: [deviceId],
+        })
+        .expect(400);
+      expect(res.body.message).toContain('không còn trong kho');
+      expect(prisma.deviceOrders).toHaveLength(1);
+      expect(prisma.deviceOrders[0].targetUserId).toBe(otherStaff.id);
+    });
+
     it('thiếu deviceIds: 400', async () => {
       const res = await http()
         .post('/device-orders')
@@ -305,11 +367,10 @@ describe('Device orders: /device-orders', () => {
       ).body.data;
       expect(device.status).toBe('Đã cấp phát');
       expect(device.currentUser.id).toBe(staff.id);
-      expect(device.department.id).toBe(staff.departmentId);
       expect(device.allocatedOn).not.toBeNull();
     });
 
-    it('duyệt đơn Thu hồi: xoá currentUserId/departmentId/allocatedOn', async () => {
+    it('duyệt đơn Thu hồi: xoá người giữ và ngày cấp', async () => {
       const deviceId = await createDevice({
         currentUserId: staff.id,
         departmentId: staff.departmentId,
@@ -337,7 +398,6 @@ describe('Device orders: /device-orders', () => {
       ).body.data;
       expect(device.status).toBe('Trong kho');
       expect(device.currentUser).toBeNull();
-      expect(device.department).toBeNull();
       expect(device.allocatedOn).toBeNull();
     });
 
@@ -365,89 +425,51 @@ describe('Device orders: /device-orders', () => {
       expect(res.body.message).toBe('Đơn đã được xử lý');
     });
 
-    it('duyệt đơn khi thiết bị đã đổi trạng thái sau khi tạo đơn: 400, không ghi đè Device', async () => {
-      const deviceId = await createDevice();
+    it('từ chối đơn Thu hồi: thiết bị về "Đã cấp phát", vẫn do người đó giữ', async () => {
+      const deviceId = await createDevice({ currentUserId: staff.id });
       const created = await http()
         .post('/device-orders')
         .set('Authorization', tokenOf(collab))
         .send({
-          type: 'Cấp phát',
+          type: 'Thu hồi',
           targetUserId: staff.id,
           deviceIds: [deviceId],
         })
         .expect(201);
-      const orderId = created.body.data.id;
-
-      // Thiết bị được cấp phát qua đường khác trước khi đơn này kịp duyệt.
       await http()
-        .patch(`/devices/${deviceId}`)
+        .patch(`/device-orders/${created.body.data.id}/reject`)
         .set('Authorization', tokenOf(techHead))
-        .send({ currentUserId: staff.id, status: 'Đã cấp phát' })
+        .send({ reason: 'Chưa tới hạn thu hồi' })
         .expect(200);
-
-      const res = await http()
-        .patch(`/device-orders/${orderId}/approve`)
-        .set('Authorization', tokenOf(techHead))
-        .expect(400);
-      expect(res.body.message).toContain('không còn trong kho');
+      expect(prisma.devices.find((d) => d.id === deviceId)).toMatchObject({
+        status: 'Đã cấp phát',
+        currentUserId: staff.id,
+      });
     });
 
-    it('2 đơn Cấp phát cùng nhắm 1 thiết bị, duyệt gần như đồng thời: đơn ghi Device sau bị chặn thay vì ghi đè', async () => {
-      // Promise.all() 2 request supertest không đảm bảo tái hiện race thật trong fake-prisma đơn
-      // luồng (đã thử: cả 2 chạy tuần tự hết-lượt-này-mới-tới-lượt-kia, nên request 2 luôn bị
-      // requireEligibleDevices — bước kiểm tra CÓ SẴN từ trước, không liên quan bản vá này — chặn
-      // trước khi vào transaction, khiến test "giả đồng thời" đó pass cả khi chưa vá).
-      // Ở đây ép race thật: chèn thẳng việc duyệt đơn 2 (chạy trọn vẹn, commit trước) vào đúng lúc
-      // đơn 1 đã qua được requireEligibleDevices (đọc trước transaction, thấy thiết bị còn "Trong
-      // kho") nhưng chưa kịp ghi Device — mô phỏng đúng 2 request tới gần như đồng thời.
-      const otherStaff = addUser('staff2', 3, 1);
-      const deviceId = await createDevice();
-      // Không có cơ chế giữ chỗ khi tạo đơn (quyết định #6) — cả 2 đơn cùng tạo được vì lúc tạo
-      // thiết bị vẫn còn "Trong kho".
-      const order1 = await http()
-        .post('/device-orders')
-        .set('Authorization', tokenOf(collab))
-        .send({
-          type: 'Cấp phát',
-          targetUserId: staff.id,
-          deviceIds: [deviceId],
-        })
-        .expect(201);
-      const order2 = await http()
-        .post('/device-orders')
-        .set('Authorization', tokenOf(collab))
-        .send({
-          type: 'Cấp phát',
-          targetUserId: otherStaff.id,
-          deviceIds: [deviceId],
-        })
-        .expect(201);
-
-      const realTransaction = prisma.$transaction.getMockImplementation()!;
-      prisma.$transaction.mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
-          await http()
-            .patch(`/device-orders/${order2.body.data.id}/approve`)
-            .set('Authorization', tokenOf(techHead))
-            .expect(200);
-          return realTransaction(fn);
-        },
-      );
-
-      const res1 = await http()
-        .patch(`/device-orders/${order1.body.data.id}/approve`)
+    it('đơn cũ (trước khi có giữ chỗ) mà thiết bị chưa "Đang chờ duyệt": duyệt 400, đơn vẫn Chờ duyệt', async () => {
+      const deviceId = await createDevice(); // "Trong kho" — migration không giữ chỗ được
+      prisma.deviceOrders.push({
+        id: 1,
+        type: 'Cấp phát',
+        status: 'Chờ duyệt',
+        targetUserId: staff.id,
+        note: null,
+        createdById: techHead.id,
+        decidedById: null,
+        decidedAt: null,
+        rejectReason: null,
+        createdAt: new Date(),
+      });
+      prisma.deviceOrderItems.push({ id: 1, orderId: 1, deviceId });
+      const res = await http()
+        .patch('/device-orders/1/approve')
         .set('Authorization', tokenOf(techHead))
         .expect(400);
-      expect(res1.body.message).toContain('không còn trong kho');
-
-      const device = (
-        await http()
-          .get(`/devices/${deviceId}`)
-          .set('Authorization', tokenOf(admin))
-      ).body.data;
-      expect(device.status).toBe('Đã cấp phát');
-      // Đơn 2 (commit trước) thắng — device KHÔNG bị đơn 1 ghi đè lại target của nó.
-      expect(device.currentUser.id).toBe(otherStaff.id);
+      expect(res.body.message).toBe(
+        'Thiết bị "LT-000001" không còn ở trạng thái chờ duyệt',
+      );
+      expect(prisma.deviceOrders[0].status).toBe('Chờ duyệt');
     });
 
     it('từ chối thiếu lý do: 400', async () => {
@@ -469,7 +491,7 @@ describe('Device orders: /device-orders', () => {
       expect(res.body.message).toContain('Vui lòng nhập lý do từ chối');
     });
 
-    it('từ chối ghi đúng lý do, không đổi Device', async () => {
+    it('từ chối đơn Cấp phát: ghi lý do, thiết bị về "Trong kho"', async () => {
       const deviceId = await createDevice();
       const created = await http()
         .post('/device-orders')
@@ -527,6 +549,7 @@ describe('Device orders: /device-orders', () => {
 
     it('đơn Chờ duyệt cũ do chính Trưởng phòng Kỹ thuật tạo: vẫn duyệt được', async () => {
       const deviceId = await createDevice();
+      prisma.devices.find((d) => d.id === deviceId)!.status = 'Đang chờ duyệt';
       prisma.deviceOrders.push({
         id: 1,
         type: 'Cấp phát',
@@ -591,7 +614,7 @@ describe('Device orders: /device-orders', () => {
           .get(`/devices/${deviceId}`)
           .set('Authorization', tokenOf(admin))
       ).body.data;
-      expect(device.status).toBe('Trong kho');
+      expect(device.status).toBe('Đang chờ duyệt');
       expect(device.currentUser).toBeNull();
     });
   });

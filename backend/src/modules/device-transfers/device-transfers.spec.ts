@@ -133,6 +133,46 @@ describe('Device transfers: /device-transfers', () => {
       expect(res.body.message).toBe('Đã tạo lệnh điều chuyển');
     });
 
+    it('tạo lệnh giữ chỗ thiết bị; lệnh thứ hai hoặc đơn Thu hồi cùng thiết bị: 400', async () => {
+      const deviceId = await createAllocatedDevice(staffA);
+      const body = {
+        fromUserId: staffA.id,
+        toUserId: staffB.id,
+        deviceIds: [deviceId],
+      };
+      await http()
+        .post('/device-transfers')
+        .set('Authorization', tokenOf(collab))
+        .send(body)
+        .expect(201);
+      expect(prisma.devices.find((d) => d.id === deviceId)!.status).toBe(
+        'Đang chờ duyệt',
+      );
+
+      const again = await http()
+        .post('/device-transfers')
+        .set('Authorization', tokenOf(collab))
+        .send(body)
+        .expect(400);
+      expect(again.body.message).toBe(
+        'Thiết bị "LT-000001" đang chờ duyệt ở đơn/lệnh khác',
+      );
+
+      const recover = await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(collab))
+        .send({
+          type: 'Thu hồi',
+          targetUserId: staffA.id,
+          deviceIds: [deviceId],
+        })
+        .expect(400);
+      expect(recover.body.message).toBe(
+        'Thiết bị "LT-000001" đang chờ duyệt ở đơn/lệnh khác',
+      );
+      expect(prisma.deviceTransfers).toHaveLength(1);
+    });
+
     it('thiếu deviceIds: 400', async () => {
       const res = await http()
         .post('/device-transfers')
@@ -306,7 +346,6 @@ describe('Device transfers: /device-transfers', () => {
       ).body.data;
       expect(device.status).toBe('Đã cấp phát');
       expect(device.currentUser.id).toBe(staffB.id);
-      expect(device.department.id).toBe(staffB.departmentId);
       expect(device.allocatedOn).not.toBeNull();
     });
 
@@ -332,83 +371,6 @@ describe('Device transfers: /device-transfers', () => {
         .set('Authorization', tokenOf(techHead))
         .expect(400);
       expect(res.body.message).toBe('Đơn đã được xử lý');
-    });
-
-    it('duyệt khi thiết bị đã đổi chủ sau khi tạo lệnh: 400', async () => {
-      const deviceId = await createAllocatedDevice(staffA);
-      const created = await http()
-        .post('/device-transfers')
-        .set('Authorization', tokenOf(collab))
-        .send({
-          fromUserId: staffA.id,
-          toUserId: staffB.id,
-          deviceIds: [deviceId],
-        })
-        .expect(201);
-      const transferId = created.body.data.id;
-
-      // Thiết bị đổi chủ qua đường khác trước khi lệnh này kịp duyệt.
-      await http()
-        .patch(`/devices/${deviceId}`)
-        .set('Authorization', tokenOf(techHead))
-        .send({ currentUserId: staffB.id, status: 'Đã cấp phát' })
-        .expect(200);
-
-      const res = await http()
-        .patch(`/device-transfers/${transferId}/approve`)
-        .set('Authorization', tokenOf(techHead))
-        .expect(400);
-      expect(res.body.message).toContain('không do người này đang giữ');
-    });
-
-    it('duyệt đồng thời 2 lệnh cùng nhắm 1 thiết bị: lệnh thua báo lỗi, không ghi đè', async () => {
-      const deviceId = await createAllocatedDevice(staffA);
-      const order1 = await http()
-        .post('/device-transfers')
-        .set('Authorization', tokenOf(collab))
-        .send({
-          fromUserId: staffA.id,
-          toUserId: staffB.id,
-          deviceIds: [deviceId],
-        })
-        .expect(201);
-      const order2 = await http()
-        .post('/device-transfers')
-        .set('Authorization', tokenOf(collab))
-        .send({
-          fromUserId: staffA.id,
-          toUserId: financeHead.id,
-          deviceIds: [deviceId],
-        })
-        .expect(201);
-
-      const realTransaction = prisma.$transaction;
-      let intercepted = false;
-      prisma.$transaction.mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
-          if (!intercepted) {
-            intercepted = true;
-            await http()
-              .patch(`/device-transfers/${order2.body.data.id}/approve`)
-              .set('Authorization', tokenOf(techHead))
-              .expect(200);
-          }
-          return realTransaction(fn);
-        },
-      );
-
-      const res = await http()
-        .patch(`/device-transfers/${order1.body.data.id}/approve`)
-        .set('Authorization', tokenOf(techHead))
-        .expect(400);
-      expect(res.body.message).toContain('không do người này đang giữ');
-
-      const device = (
-        await http()
-          .get(`/devices/${deviceId}`)
-          .set('Authorization', tokenOf(admin))
-      ).body.data;
-      expect(device.currentUser.id).toBe(financeHead.id);
     });
 
     it('duyệt khi toUserId đã bị xoá mềm sau khi tạo lệnh: 400', async () => {
@@ -446,6 +408,32 @@ describe('Device transfers: /device-transfers', () => {
           .set('Authorization', tokenOf(admin))
       ).body.data;
       expect(device.currentUser.id).toBe(staffA.id);
+      expect(device.status).toBe('Đang chờ duyệt');
+    });
+
+    it('lệnh cũ (trước khi có giữ chỗ) mà thiết bị chưa "Đang chờ duyệt": duyệt 400, lệnh vẫn Chờ duyệt', async () => {
+      const deviceId = await createAllocatedDevice(staffA);
+      prisma.deviceTransfers.push({
+        id: 1,
+        status: 'Chờ duyệt',
+        fromUserId: staffA.id,
+        toUserId: staffB.id,
+        note: null,
+        createdById: admin.id,
+        decidedById: null,
+        decidedAt: null,
+        rejectReason: null,
+        createdAt: new Date(),
+      });
+      prisma.deviceTransferItems.push({ id: 1, transferId: 1, deviceId });
+      const res = await http()
+        .patch('/device-transfers/1/approve')
+        .set('Authorization', tokenOf(techHead))
+        .expect(400);
+      expect(res.body.message).toBe(
+        'Thiết bị "LT-000001" không còn ở trạng thái chờ duyệt',
+      );
+      expect(prisma.deviceTransfers[0].status).toBe('Chờ duyệt');
     });
 
     it('từ chối thiếu lý do: 400', async () => {
@@ -467,7 +455,7 @@ describe('Device transfers: /device-transfers', () => {
       expect(res.body.message).toContain('Vui lòng nhập lý do từ chối');
     });
 
-    it('từ chối ghi đúng lý do, không đổi Device', async () => {
+    it('từ chối: ghi lý do, thiết bị về "Đã cấp phát" của người giao', async () => {
       const deviceId = await createAllocatedDevice(staffA);
       const created = await http()
         .post('/device-transfers')
@@ -494,6 +482,7 @@ describe('Device transfers: /device-transfers', () => {
           .set('Authorization', tokenOf(admin))
       ).body.data;
       expect(device.currentUser.id).toBe(staffA.id);
+      expect(device.status).toBe('Đã cấp phát');
     });
 
     it('Admin không được duyệt/từ chối: 403', async () => {

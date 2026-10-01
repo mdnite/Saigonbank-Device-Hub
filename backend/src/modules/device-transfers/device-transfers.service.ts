@@ -1,12 +1,26 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
-import { DEVICE_STATUS } from '../devices/device-status';
-import { DEVICE_WITH_RELATIONS, toDeviceItem } from '../devices/devices.service';
+import {
+  DEVICE_STATUS,
+  noLongerPending,
+  pendingElsewhere,
+} from '../devices/device-status';
+import {
+  DEVICE_WITH_RELATIONS,
+  toDeviceItem,
+} from '../devices/devices.service';
 import { USER_STATUS } from '../identity/user-status';
 import { MAX_INT32 } from '../users/users.dto';
 import { TRANSFER_STATUS } from './device-transfer-status';
-import type { CreateDeviceTransferDto, ListDeviceTransfersQuery } from './device-transfers.dto';
+import type {
+  CreateDeviceTransferDto,
+  ListDeviceTransfersQuery,
+} from './device-transfers.dto';
 
 export const TRANSFER_NOT_FOUND = 'Đơn không tồn tại';
 const TRANSFER_ALREADY_DECIDED = 'Đơn đã được xử lý';
@@ -31,10 +45,21 @@ function toListItem(t: TransferWithRelations) {
     rejectReason: t.rejectReason,
     decidedAt: t.decidedAt,
     createdAt: t.createdAt,
-    fromUser: { id: t.fromUser.id, fullName: t.fromUser.fullName, username: t.fromUser.username },
-    toUser: { id: t.toUser.id, fullName: t.toUser.fullName, username: t.toUser.username },
+    fromUser: {
+      id: t.fromUser.id,
+      fullName: t.fromUser.fullName,
+      username: t.fromUser.username,
+    },
+    toUser: {
+      id: t.toUser.id,
+      fullName: t.toUser.fullName,
+      username: t.toUser.username,
+    },
     createdBy: { id: t.createdBy.id, fullName: t.createdBy.fullName },
-    decidedBy: t.decidedBy && { id: t.decidedBy.id, fullName: t.decidedBy.fullName },
+    decidedBy: t.decidedBy && {
+      id: t.decidedBy.id,
+      fullName: t.decidedBy.fullName,
+    },
     deviceCount: t.items.length,
   };
 }
@@ -70,50 +95,57 @@ export class DeviceTransfersService {
     }
     await this.requireUser(dto.fromUserId);
     await this.requireUser(dto.toUserId);
-    await this.requireEligibleDevices(dto.deviceIds, dto.fromUserId);
+    const devicesById = await this.requireEligibleDevices(
+      dto.deviceIds,
+      dto.fromUserId,
+    );
 
-    const transfer = await this.prisma.deviceTransfer.create({
-      data: {
-        note: dto.note ?? null,
-        fromUserId: dto.fromUserId,
-        toUserId: dto.toUserId,
-        createdById,
-        items: { create: dto.deviceIds.map((deviceId) => ({ deviceId })) },
-      },
-      include: WITH_RELATIONS,
+    const transfer = await this.prisma.$transaction(async (tx) => {
+      // Giữ chỗ ngay khi tạo: thiết bị sang "Đang chờ duyệt", đơn/lệnh khác không lấy được nữa.
+      await this.writeDevices(
+        tx,
+        dto.deviceIds,
+        this.eligibleWhere(dto.fromUserId),
+        { status: DEVICE_STATUS.PENDING_APPROVAL },
+        (deviceId) =>
+          this.ineligibleMessage(devicesById.get(deviceId)!.deviceCode),
+      );
+      return tx.deviceTransfer.create({
+        data: {
+          note: dto.note ?? null,
+          fromUserId: dto.fromUserId,
+          toUserId: dto.toUserId,
+          createdById,
+          items: { create: dto.deviceIds.map((deviceId) => ({ deviceId })) },
+        },
+        include: WITH_RELATIONS,
+      });
     });
     return toDetail(transfer);
   }
 
   async approve(id: number, decidedById: number) {
     const transfer = await this.findPendingTransfer(id);
-    // Người nhận có thể đã bị xoá mềm SAU khi lệnh được tạo (create() chỉ kiểm tra lúc tạo) —
-    // kiểm tra lại ở đây để không duyệt lệnh cho người dùng không còn tồn tại.
+    // Người nhận có thể đã bị xoá mềm SAU khi lệnh được tạo — kiểm tra lại trước khi duyệt.
     await this.requireUser(transfer.toUserId);
-    const deviceIds = transfer.items.map((i) => i.deviceId);
-    const devicesById = await this.requireEligibleDevices(deviceIds, transfer.fromUserId);
+    const codeOf = (deviceId: number) =>
+      transfer.items.find((i) => i.deviceId === deviceId)!.device.deviceCode;
 
     await this.prisma.$transaction(async (tx) => {
-      const data = {
-        currentUserId: transfer.toUserId,
-        departmentId: transfer.toUser.departmentId,
-        allocatedOn: new Date(),
-      };
-      // Ghi có điều kiện — where lặp lại đúng điều kiện requireEligibleDevices đã kiểm tra ở
-      // trên, ngay trong câu update — chặn trường hợp 2 lệnh cùng nhắm 1 thiết bị được duyệt
-      // gần như đồng thời: chỉ lệnh nào ghi Device trước mới còn khớp where khi tới lượt nó;
-      // lệnh còn lại count=0 → báo lỗi thay vì âm thầm ghi đè.
-      const eligibleWhere = this.eligibleWhere(transfer.fromUserId);
-      for (const deviceId of deviceIds) {
-        const { count } = await tx.device.updateMany({
-          where: { id: deviceId, ...eligibleWhere },
-          data,
-        });
-        if (count === 0) {
-          const device = devicesById.get(deviceId)!;
-          throw new BadRequestException(this.ineligibleMessage(device.deviceCode));
-        }
-      }
+      await this.writeDevices(
+        tx,
+        transfer.items.map((i) => i.deviceId),
+        {
+          status: DEVICE_STATUS.PENDING_APPROVAL,
+          currentUserId: transfer.fromUserId,
+        },
+        {
+          status: DEVICE_STATUS.ALLOCATED,
+          currentUserId: transfer.toUserId,
+          allocatedOn: new Date(),
+        },
+        (deviceId) => noLongerPending(codeOf(deviceId)),
+      );
       await this.decide(tx, id, decidedById, TRANSFER_STATUS.APPROVED);
     });
 
@@ -121,8 +153,18 @@ export class DeviceTransfersService {
   }
 
   async reject(id: number, decidedById: number, reason: string) {
-    await this.findPendingTransfer(id);
-    await this.decide(this.prisma, id, decidedById, TRANSFER_STATUS.REJECTED, reason);
+    const transfer = await this.findPendingTransfer(id);
+    await this.prisma.$transaction(async (tx) => {
+      await this.decide(tx, id, decidedById, TRANSFER_STATUS.REJECTED, reason);
+      // Chỉ trả lại thiết bị còn "Đang chờ duyệt" — xem ghi chú cùng chỗ ở device-orders.service.ts.
+      await tx.device.updateMany({
+        where: {
+          id: { in: transfer.items.map((i) => i.deviceId) },
+          status: DEVICE_STATUS.PENDING_APPROVAL,
+        },
+        data: { status: DEVICE_STATUS.ALLOCATED },
+      });
+    });
     return this.getById(id);
   }
 
@@ -152,14 +194,27 @@ export class DeviceTransfersService {
 
   /** Trả về map deviceId -> Device đã kiểm tra hợp lệ, để approve() tái dùng deviceCode khi cần
    *  báo lỗi ở bước ghi có điều kiện trong transaction (khỏi truy vấn lại). */
-  private async requireEligibleDevices(deviceIds: number[], fromUserId: number) {
-    const devices = await this.prisma.device.findMany({ where: { id: { in: deviceIds } } });
+  private async requireEligibleDevices(
+    deviceIds: number[],
+    fromUserId: number,
+  ) {
+    const devices = await this.prisma.device.findMany({
+      where: { id: { in: deviceIds } },
+    });
     const byId = new Map(devices.map((d) => [d.id, d]));
     for (const id of deviceIds) {
       const device = byId.get(id);
       if (!device) throw new BadRequestException('Thiết bị không tồn tại');
-      if (!(device.status === DEVICE_STATUS.ALLOCATED && device.currentUserId === fromUserId)) {
-        throw new BadRequestException(this.ineligibleMessage(device.deviceCode));
+      if (device.status === DEVICE_STATUS.PENDING_APPROVAL) {
+        throw new BadRequestException(pendingElsewhere(device.deviceCode));
+      }
+      if (!(
+        device.status === DEVICE_STATUS.ALLOCATED &&
+        device.currentUserId === fromUserId
+      )) {
+        throw new BadRequestException(
+          this.ineligibleMessage(device.deviceCode),
+        );
       }
     }
     return byId;
@@ -168,6 +223,24 @@ export class DeviceTransfersService {
   /** Where bổ sung để lặp lại đúng điều kiện eligible ngay trong câu ghi Device lúc duyệt. */
   private eligibleWhere(fromUserId: number) {
     return { status: DEVICE_STATUS.ALLOCATED, currentUserId: fromUserId };
+  }
+
+  /** Ghi Device có điều kiện: `where` lặp lại đúng điều kiện đã kiểm, ngay trong câu update —
+   *  count=0 nghĩa là thiết bị đã đổi giữa lúc đọc và lúc ghi (đơn/lệnh khác chen vào). */
+  private async writeDevices(
+    tx: Pick<PrismaService, 'device'>,
+    deviceIds: number[],
+    where: Prisma.DeviceWhereInput,
+    data: Prisma.DeviceUncheckedUpdateManyInput,
+    failMessage: (deviceId: number) => string,
+  ) {
+    for (const deviceId of deviceIds) {
+      const { count } = await tx.device.updateMany({
+        where: { id: deviceId, ...where },
+        data,
+      });
+      if (count === 0) throw new BadRequestException(failMessage(deviceId));
+    }
   }
 
   private ineligibleMessage(deviceCode: string): string {
@@ -183,7 +256,8 @@ export class DeviceTransfersService {
   }
 
   private async findTransfer(id: number) {
-    if (Math.abs(id) > MAX_INT32) throw new NotFoundException(TRANSFER_NOT_FOUND);
+    if (Math.abs(id) > MAX_INT32)
+      throw new NotFoundException(TRANSFER_NOT_FOUND);
     const transfer = await this.prisma.deviceTransfer.findUnique({
       where: { id },
       include: WITH_RELATIONS,

@@ -4,7 +4,7 @@ export const ORDER_TYPE = {
   RECOVER: 'Thu hồi',
 } as const;
 
-/** Trạng thái đơn. "Chờ duyệt" là mặc định khi tạo — chỉ Admin đổi sang 2 trạng thái còn lại. */
+/** Trạng thái đơn. "Chờ duyệt" là mặc định khi tạo — chỉ Trưởng phòng Kỹ thuật đổi sang 2 trạng thái còn lại. */
 export const ORDER_STATUS = {
   PENDING: 'Chờ duyệt',
   APPROVED: 'Đã duyệt',

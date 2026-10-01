@@ -2,9 +2,19 @@
 export const DEVICE_STATUS = {
   IN_STOCK: 'Trong kho',
   ALLOCATED: 'Đã cấp phát',
+  /** Đang nằm trong một đơn Cấp phát / Thu hồi hoặc lệnh Điều chuyển chờ duyệt — bị khoá. */
+  PENDING_APPROVAL: 'Đang chờ duyệt',
   PENDING_DISPOSAL: 'Chờ thanh lý',
   DELETED: 'Đã xóa',
 } as const;
+
+/** Dùng chung cho Cấp phát - Thu hồi và Điều chuyển: thiết bị đã bị đơn/lệnh khác giữ chỗ. */
+export const pendingElsewhere = (deviceCode: string) =>
+  `Thiết bị "${deviceCode}" đang chờ duyệt ở đơn/lệnh khác`;
+
+/** Lúc duyệt: thiết bị không còn ở trạng thái giữ chỗ (dữ liệu cũ, hoặc đã bị xử lý). */
+export const noLongerPending = (deviceCode: string) =>
+  `Thiết bị "${deviceCode}" không còn ở trạng thái chờ duyệt`;
 
 /** 3 trạng thái người dùng được phép đặt qua PATCH. "Đã xóa" chỉ do DELETE đặt. */
 export const ASSIGNABLE_DEVICE_STATUSES: string[] = [

@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import { Prisma, type Device } from '@prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
-import { DEVICE_STATUS } from '../devices/device-status';
+import {
+  DEVICE_STATUS,
+  noLongerPending,
+  pendingElsewhere,
+} from '../devices/device-status';
 import {
   DEVICE_WITH_RELATIONS,
   toDeviceItem,
@@ -85,71 +89,64 @@ export class DeviceOrdersService {
 
   async create(dto: CreateDeviceOrderDto, createdById: number) {
     const targetUser = await this.requireUser(dto.targetUserId);
-    await this.requireEligibleDevices(dto.type, dto.deviceIds, targetUser.id);
+    const devicesById = await this.requireEligibleDevices(
+      dto.type,
+      dto.deviceIds,
+      targetUser.id,
+    );
 
-    const order = await this.prisma.deviceOrder.create({
-      data: {
-        type: dto.type,
-        note: dto.note ?? null,
-        targetUserId: dto.targetUserId,
-        createdById,
-        items: { create: dto.deviceIds.map((deviceId) => ({ deviceId })) },
-      },
-      include: WITH_RELATIONS,
+    const order = await this.prisma.$transaction(async (tx) => {
+      // Giữ chỗ ngay khi tạo: thiết bị sang "Đang chờ duyệt", đơn/lệnh khác không lấy được nữa.
+      await this.writeDevices(
+        tx,
+        dto.deviceIds,
+        this.eligibleWhere(dto.type, targetUser.id),
+        { status: DEVICE_STATUS.PENDING_APPROVAL },
+        (deviceId) =>
+          this.ineligibleMessage(
+            dto.type,
+            devicesById.get(deviceId)!.deviceCode,
+          ),
+      );
+      return tx.deviceOrder.create({
+        data: {
+          type: dto.type,
+          note: dto.note ?? null,
+          targetUserId: dto.targetUserId,
+          createdById,
+          items: { create: dto.deviceIds.map((deviceId) => ({ deviceId })) },
+        },
+        include: WITH_RELATIONS,
+      });
     });
     return toDetail(order);
   }
 
   async approve(id: number, decidedById: number) {
     const order = await this.findPendingOrder(id);
-    // Người nhận có thể đã bị xoá mềm SAU khi đơn được tạo (create() chỉ kiểm tra lúc tạo) —
-    // kiểm tra lại ở đây để không duyệt đơn cho người dùng không còn tồn tại.
+    // Người nhận có thể đã bị xoá mềm SAU khi đơn được tạo — kiểm tra lại trước khi duyệt.
     await this.requireUser(order.targetUserId);
-    const deviceIds = order.items.map((i) => i.deviceId);
-    const devicesById = await this.requireEligibleDevices(
-      order.type,
-      deviceIds,
-      order.targetUserId,
-    );
+    const codeOf = (deviceId: number) =>
+      order.items.find((i) => i.deviceId === deviceId)!.device.deviceCode;
 
     await this.prisma.$transaction(async (tx) => {
-      const data =
+      await this.writeDevices(
+        tx,
+        order.items.map((i) => i.deviceId),
+        this.pendingWhere(order.type, order.targetUserId),
         order.type === ORDER_TYPE.ALLOCATE
           ? {
               status: DEVICE_STATUS.ALLOCATED,
               currentUserId: order.targetUserId,
-              departmentId: order.targetUser.departmentId,
               allocatedOn: new Date(),
             }
           : {
               status: DEVICE_STATUS.IN_STOCK,
               currentUserId: null,
-              departmentId: null,
               allocatedOn: null,
-            };
-      // Ghi có điều kiện — where lặp lại đúng điều kiện requireEligibleDevices đã kiểm tra ở trên,
-      // ngay trong câu update — chặn trường hợp 2 đơn cùng nhắm 1 thiết bị được duyệt gần như
-      // đồng thời: cả hai đều qua được requireEligibleDevices (đọc trước transaction), nhưng chỉ
-      // đơn nào ghi Device trước mới còn khớp where khi tới lượt nó; đơn còn lại count=0 → báo lỗi
-      // thay vì âm thầm ghi đè (xem quyết định #6).
-      // Ghi có điều kiện — where lặp lại đúng điều kiện requireEligibleDevices đã kiểm tra ở trên,
-      // ngay trong câu update — chặn trường hợp 2 đơn cùng nhắm 1 thiết bị được duyệt gần như
-      // đồng thời: cả hai đều qua được requireEligibleDevices (đọc trước transaction), nhưng chỉ
-      // đơn nào ghi Device trước mới còn khớp where khi tới lượt nó; đơn còn lại count=0 → báo lỗi
-      // thay vì âm thầm ghi đè (xem quyết định #6).
-      const eligibleWhere = this.eligibleWhere(order.type, order.targetUserId);
-      for (const deviceId of deviceIds) {
-        const { count } = await tx.device.updateMany({
-          where: { id: deviceId, ...eligibleWhere },
-          data,
-        });
-        if (count === 0) {
-          const device = devicesById.get(deviceId)!;
-          throw new BadRequestException(
-            this.ineligibleMessage(order.type, device.deviceCode),
-          );
-        }
-      }
+            },
+        (deviceId) => noLongerPending(codeOf(deviceId)),
+      );
       await this.decide(tx, id, decidedById, ORDER_STATUS.APPROVED);
     });
 
@@ -157,14 +154,24 @@ export class DeviceOrdersService {
   }
 
   async reject(id: number, decidedById: number, reason: string) {
-    await this.findPendingOrder(id);
-    await this.decide(
-      this.prisma,
-      id,
-      decidedById,
-      ORDER_STATUS.REJECTED,
-      reason,
-    );
+    const order = await this.findPendingOrder(id);
+    await this.prisma.$transaction(async (tx) => {
+      await this.decide(tx, id, decidedById, ORDER_STATUS.REJECTED, reason);
+      // Chỉ trả lại thiết bị còn "Đang chờ duyệt": dữ liệu trước khi có giữ chỗ có thể có thiết bị
+      // nằm trong nhiều đơn/lệnh cùng lúc, cái khác có thể đã được duyệt.
+      await tx.device.updateMany({
+        where: {
+          id: { in: order.items.map((i) => i.deviceId) },
+          status: DEVICE_STATUS.PENDING_APPROVAL,
+        },
+        data: {
+          status:
+            order.type === ORDER_TYPE.ALLOCATE
+              ? DEVICE_STATUS.IN_STOCK
+              : DEVICE_STATUS.ALLOCATED,
+        },
+      });
+    });
     return this.getById(id);
   }
 
@@ -206,6 +213,9 @@ export class DeviceOrdersService {
     for (const id of deviceIds) {
       const device = byId.get(id);
       if (!device) throw new BadRequestException('Thiết bị không tồn tại');
+      if (device.status === DEVICE_STATUS.PENDING_APPROVAL) {
+        throw new BadRequestException(pendingElsewhere(device.deviceCode));
+      }
       if (!this.isEligible(type, device, targetUserId)) {
         throw new BadRequestException(
           this.ineligibleMessage(type, device.deviceCode),
@@ -232,6 +242,31 @@ export class DeviceOrdersService {
     return type === ORDER_TYPE.ALLOCATE
       ? { status: DEVICE_STATUS.IN_STOCK }
       : { status: DEVICE_STATUS.ALLOCATED, currentUserId: targetUserId };
+  }
+
+  /** Where lúc duyệt: thiết bị phải còn đang được chính đơn này giữ chỗ. */
+  private pendingWhere(type: string, targetUserId: number) {
+    return type === ORDER_TYPE.ALLOCATE
+      ? { status: DEVICE_STATUS.PENDING_APPROVAL }
+      : { status: DEVICE_STATUS.PENDING_APPROVAL, currentUserId: targetUserId };
+  }
+
+  /** Ghi Device có điều kiện: `where` lặp lại đúng điều kiện đã kiểm, ngay trong câu update —
+   *  count=0 nghĩa là thiết bị đã đổi giữa lúc đọc và lúc ghi (đơn/lệnh khác chen vào). */
+  private async writeDevices(
+    tx: Pick<PrismaService, 'device'>,
+    deviceIds: number[],
+    where: Prisma.DeviceWhereInput,
+    data: Prisma.DeviceUncheckedUpdateManyInput,
+    failMessage: (deviceId: number) => string,
+  ) {
+    for (const deviceId of deviceIds) {
+      const { count } = await tx.device.updateMany({
+        where: { id: deviceId, ...where },
+        data,
+      });
+      if (count === 0) throw new BadRequestException(failMessage(deviceId));
+    }
   }
 
   private ineligibleMessage(type: string, deviceCode: string): string {

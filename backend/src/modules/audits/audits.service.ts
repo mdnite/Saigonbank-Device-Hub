@@ -255,10 +255,16 @@ export class AuditsService {
     if (!audit.items.some((i) => i.id === itemId)) {
       throw new NotFoundException(LINE_NOT_FOUND);
     }
-    await this.prisma.auditItem.update({
-      where: { id: itemId },
+    // Ghi có điều kiện trạng thái: đợt vừa chuyển khỏi "Đang kiểm kê" giữa chừng thì không ghi đè.
+    const { count } = await this.prisma.auditItem.updateMany({
+      where: {
+        id: itemId,
+        auditId: id,
+        audit: { status: AUDIT_STATUS.IN_PROGRESS },
+      },
       data: { result: dto.result, note: dto.note },
     });
+    if (count === 0) throw new BadRequestException(AUDIT_WRONG_STATE);
     return this.getById(id);
   }
 
@@ -274,10 +280,17 @@ export class AuditsService {
     ) {
       throw new NotFoundException(LINE_NOT_FOUND);
     }
-    await this.prisma.auditItemAccessory.update({
-      where: { id: accessoryId },
+    const { count } = await this.prisma.auditItemAccessory.updateMany({
+      where: {
+        id: accessoryId,
+        auditItem: {
+          auditId: id,
+          audit: { status: AUDIT_STATUS.IN_PROGRESS },
+        },
+      },
       data: { result: dto.result, note: dto.note },
     });
+    if (count === 0) throw new BadRequestException(AUDIT_WRONG_STATE);
     return this.getById(id);
   }
 
@@ -314,6 +327,8 @@ export class AuditsService {
       status: AUDIT_STATUS.PENDING,
       submittedAt: new Date(),
       rejectReason: null,
+      decidedById: null,
+      decidedAt: null,
     });
     return this.getById(id);
   }

@@ -148,6 +148,22 @@ export function matches(row: object, where: Where = {}): boolean {
   );
 }
 
+/** Tách bộ lọc quan hệ (`audit` / `auditItem`) khỏi where phẳng, rồi kiểm tra trên dòng cha. */
+function relationOk(
+  where: Where,
+  key: string,
+  parents: object[],
+  fk: string,
+  row: object,
+): boolean {
+  const rel = where[key];
+  if (!rel) return true;
+  const parent = parents.find(
+    (p) => (p as { id: number }).id === (row as Record<string, number>)[fk],
+  );
+  return !!parent && matches(parent, rel as Where);
+}
+
 /** Giả lập `select` phẳng của Prisma: chỉ giữ lại đúng các cột được chọn. */
 function project(row: object, select?: Select) {
   if (!select) return row;
@@ -875,15 +891,14 @@ export function createFakePrisma() {
           updateRows(auditItems, where, data)[0],
       ),
       updateMany: jest.fn(
-        async ({
-          where,
-          data,
-        }: {
-          where: Where;
-          data: Partial<AuditItem>;
-        }) => ({
-          count: updateRows(auditItems, where, data).length,
-        }),
+        async ({ where, data }: { where: Where; data: Partial<AuditItem> }) => {
+          const { audit: _a, ...flat } = where;
+          void _a;
+          const ok = auditItems.filter((i) =>
+            relationOk(where, 'audit', audits, 'auditId', i),
+          );
+          return { count: updateRows(ok, flat, data).length };
+        },
       ),
     },
     auditItemAccessory: {
@@ -903,9 +918,22 @@ export function createFakePrisma() {
         }: {
           where: Where;
           data: Partial<AuditItemAccessory>;
-        }) => ({
-          count: updateRows(auditItemAccessories, where, data).length,
-        }),
+        }) => {
+          const { auditItem: _ai, ...flat } = where;
+          void _ai;
+          const rel = (where.auditItem ?? {}) as Where;
+          const { audit: _au, ...relFlat } = rel;
+          void _au;
+          const ok = auditItemAccessories.filter((a) => {
+            const parent = auditItems.find((i) => i.id === a.auditItemId);
+            return (
+              !!parent &&
+              matches(parent, relFlat) &&
+              relationOk(rel, 'audit', audits, 'auditId', parent)
+            );
+          });
+          return { count: updateRows(ok, flat, data).length };
+        },
       ),
     },
     auditMember: {

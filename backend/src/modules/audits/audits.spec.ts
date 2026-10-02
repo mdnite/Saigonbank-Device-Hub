@@ -567,6 +567,27 @@ describe('Kiểm kê: /audits', () => {
         201,
       );
       expect(resent.body.data.rejectReason).toBeNull();
+      expect(resent.body.data.decidedBy).toBeNull();
+    });
+
+    it('Ghi dòng có điều kiện trạng thái: đợt đổi trạng thái giữa chừng -> 400', async () => {
+      const a = await newAudit();
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      const itemId = a.items[0].id;
+      // Giả lập đợt vừa rời "Đang kiểm kê" sau khi đã qua kiểm tra trạng thái: ghi có điều kiện trả count 0.
+      prisma.auditItem.updateMany.mockResolvedValueOnce({ count: 0 });
+      await http()
+        .patch(`/audits/${a.id}/items/${itemId}`)
+        .set(as(acctCollab))
+        .send({ result: 'Đủ' })
+        .expect(400);
+      expect(prisma.auditItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            audit: { status: 'Đang kiểm kê' },
+          }) as unknown,
+        }),
+      );
     });
 
     it('Thành viên: thay toàn bộ; user ngừng hoạt động: 400; sau khi gửi duyệt: 400', async () => {

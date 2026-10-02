@@ -14,6 +14,7 @@ import { NotFoundPage } from './NotFoundPage';
 import { AppShell } from '@/shared/layout/AppShell';
 import { AuthLayout } from '@/shared/layout/AuthLayout';
 import { AuditHomePage } from '@/modules/audit/presentation/AuditHomePage';
+import { AuditDetailPage } from '@/modules/audit/presentation/AuditDetailPage';
 import { LoginPage } from '@/modules/auth/presentation/LoginPage';
 import { ForgotPasswordPage } from '@/modules/auth/presentation/ForgotPasswordPage';
 import { OtpPage } from '@/modules/auth/presentation/OtpPage';
@@ -94,7 +95,10 @@ export const router = createBrowserRouter([
           },
           {
             element: <RequireCan can={canAccessAudits} />,
-            children: [{ path: '/audit', element: <AuditHomePage /> }],
+            children: [
+              { path: '/audit', element: <AuditHomePage /> },
+              { path: '/audit/:id', element: <AuditDetailPage /> },
+            ],
           },
         ],
       },

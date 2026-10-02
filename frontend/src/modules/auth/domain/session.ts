@@ -14,9 +14,10 @@ export const ADMIN_ROLE = 'Quản trị viên';
 export const HEAD_ROLE = 'Trưởng phòng';
 export const COLLAB_ROLE = 'Cộng tác viên';
 export const TECH_DEPARTMENT_CODE = 'KYTHUAT';
+export const ACCT_DEPARTMENT_CODE = 'KETOAN';
 
 // Backend mới là chốt chặn thật (backend/src/shared/auth/actors.ts) — các hàm dưới chỉ để ẩn/hiện UI.
-type Can = (session: AuthSession | null) => boolean;
+export type Can = (session: AuthSession | null) => boolean;
 
 export const isAdmin: Can = (session) => session?.roleName === ADMIN_ROLE;
 
@@ -52,6 +53,24 @@ export const canCreateTransfer = isTechCollab;
 
 /** Duyệt/từ chối lệnh điều chuyển: CHỈ Trưởng phòng Kỹ thuật. */
 export const canDecideTransfer = isTechHead;
+
+export const isAcctHead: Can = (session) =>
+  session?.roleName === HEAD_ROLE && session?.departmentCode === ACCT_DEPARTMENT_CODE;
+
+export const isAcctCollab: Can = (session) =>
+  session?.roleName === COLLAB_ROLE && session?.departmentCode === ACCT_DEPARTMENT_CODE;
+
+/** Kiểm kê: CHỈ Trưởng phòng và Cộng tác viên Kế toán — Admin và Kỹ thuật không thấy. */
+export const canAccessAudits: Can = (session) => isAcctHead(session) || isAcctCollab(session);
+
+/** Lập lịch, nhập kết quả, gửi duyệt, lập bảng tổng hợp: CHỈ Cộng tác viên Kế toán. */
+export const canCreateAudit = isAcctCollab;
+
+/** Duyệt / từ chối kết quả kiểm kê: CHỈ Trưởng phòng Kế toán. */
+export const canDecideAudit = isAcctHead;
+
+/** "Tìm thấy" thiết bị Thất lạc: CHỈ Trưởng phòng Kỹ thuật. */
+export const canMarkDeviceFound = isTechHead;
 
 /** Đọc `exp` (giây) trong payload JWT. Token hỏng / thiếu exp coi như hết hạn. */
 export function isTokenExpired(token: string, now: number = Date.now()): boolean {

@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { RequireCan } from './session/RequireCan';
 import {
+  canAccessAudits,
   canAccessOrders,
   canAccessTransfers,
   canCreateOrder,
@@ -91,7 +92,10 @@ export const router = createBrowserRouter([
               },
             ],
           },
-          { path: '/audit', element: <ComingSoonPage title="Kiểm kê" /> },
+          {
+            element: <RequireCan can={canAccessAudits} />,
+            children: [{ path: '/audit', element: <ComingSoonPage title="Kiểm kê" /> }],
+          },
         ],
       },
     ],

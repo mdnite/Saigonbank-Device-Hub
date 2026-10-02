@@ -36,7 +36,7 @@ it('Đăng xuất xoá session (token) khỏi localStorage và về /login', () 
   expect(screen.getByText('LOGIN')).toBeInTheDocument();
 });
 
-const renderSidebarAs = (roleName: string) => {
+const renderSidebarAs = (roleName: string, departmentCode: string | null = null) => {
   localStorage.setItem(
     'idsm.session',
     JSON.stringify({
@@ -45,7 +45,7 @@ const renderSidebarAs = (roleName: string) => {
       email: 'a@b.vn',
       token: fakeJwt(inOneHour()),
       roleName,
-      departmentCode: null,
+      departmentCode,
     }),
   );
   render(
@@ -66,4 +66,17 @@ it('Nhân viên không thấy mục "Người dùng" nhưng vẫn thấy "Cài �
   renderSidebarAs('Nhân viên');
   expect(screen.queryByRole('link', { name: 'Người dùng' })).toBeNull();
   expect(screen.getByRole('link', { name: 'Cài đặt' })).toBeInTheDocument();
+});
+
+it('Trưởng phòng Kế toán thấy "Kiểm kê"; Quản trị viên và TP Kỹ thuật không thấy', () => {
+  renderSidebarAs('Trưởng phòng', 'KETOAN');
+  expect(screen.getByRole('link', { name: 'Kiểm kê' })).toBeInTheDocument();
+});
+
+it.each([
+  ['Quản trị viên', null],
+  ['Trưởng phòng', 'KYTHUAT'],
+])('%s (%s) không thấy "Kiểm kê"', (roleName, departmentCode) => {
+  renderSidebarAs(roleName, departmentCode);
+  expect(screen.queryByRole('link', { name: 'Kiểm kê' })).toBeNull();
 });

@@ -1,7 +1,7 @@
 import { LogOut } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useSession } from '@/app/session/SessionContext';
-import { canAccessOrders, canAccessTransfers, isAdmin } from '@/modules/auth/domain/session';
+import { canAccessAudits, canAccessOrders, canAccessTransfers, isAdmin } from '@/modules/auth/domain/session';
 import { cn } from '@/shared/lib/cn';
 import { PRIMARY_NAV, SETTINGS_NAV, type NavItem } from './navItems';
 
@@ -48,7 +48,8 @@ export function Sidebar() {
           (item) =>
             (!item.adminOnly || isAdmin(session)) &&
             (!item.orderAccessOnly || canAccessOrders(session)) &&
-            (!item.transferAccessOnly || canAccessTransfers(session)),
+            (!item.transferAccessOnly || canAccessTransfers(session)) &&
+            (!item.auditAccessOnly || canAccessAudits(session)),
         ).map((item) => (
           <Item key={item.to} item={item} />
         ))}

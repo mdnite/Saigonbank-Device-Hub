@@ -1,4 +1,4 @@
-import { formatDate, matrixTotal, type AuditSummaryDetail } from '../../domain/audit';
+import { formatDate, formatDateTimeLocal, matrixTotal, type AuditSummaryDetail } from '../../domain/audit';
 import { downloadPdf } from './pdf';
 
 export function buildSummaryReportContent(s: AuditSummaryDetail): string[] {
@@ -8,7 +8,7 @@ export function buildSummaryReportContent(s: AuditSummaryDetail): string[] {
     `Tiêu đề: ${s.title}`,
     ...(s.purpose ? [`Mục đích: ${s.purpose}`] : []),
     `Người lập: ${s.createdBy.fullName}`,
-    `Ngày lập: ${formatDate(s.createdAt)}`,
+    `Ngày lập: ${formatDateTimeLocal(s.createdAt)}`,
     '',
     'Các đợt kiểm kê:',
     ...s.audits.map(

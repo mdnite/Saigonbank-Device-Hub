@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatDate,
+  formatDateTimeLocal,
   groupByType,
   isOverdue,
   matrixTotal,
@@ -31,6 +32,13 @@ describe('formatDate', () => {
   it('cắt phần ngày của ISO, không đổi múi giờ', () => {
     expect(formatDate('2026-10-31T00:00:00.000Z')).toBe('31/10/2026');
     expect(formatDate('2026-01-05')).toBe('05/01/2026');
+  });
+});
+
+describe('formatDateTimeLocal', () => {
+  it('timestamp → ngày theo giờ máy, không cắt chuỗi UTC', () => {
+    const t = new Date(2026, 9, 2, 23, 30); // giờ máy 02/10/2026 23:30
+    expect(formatDateTimeLocal(t.toISOString())).toBe('02/10/2026');
   });
 });
 

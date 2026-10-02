@@ -3,7 +3,9 @@ import { matrixTotal, type AuditDetail, type AuditSummaryDetail } from './audit'
 type Cell = string | number | null | undefined;
 
 const cell = (v: Cell) => {
-  const s = v == null ? '' : String(v);
+  let s = v == null ? '' : String(v);
+  // Chống CSV injection: ô văn bản bắt đầu bằng = + - @ tab CR bị Excel hiểu là công thức. Số giữ nguyên.
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

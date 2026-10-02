@@ -34,6 +34,7 @@ export function CreateSummaryModal({
   const close = () => {
     setDraft(emptySummaryDraft());
     setErrors({});
+    submit.reset();
     onClose();
   };
   const submit = useAsyncAction(async () => {
@@ -97,7 +98,7 @@ export function CreateSummaryModal({
               <div key={a.id}>
                 <Checkbox
                   id={`summary-audit-${a.id}`}
-                  label={`${a.unitName} · ${a.purpose} · đến ${formatDate(a.dueDate)}`}
+                  label={`#${a.id} · ${a.unitName} · ${a.purpose} · đến ${formatDate(a.dueDate)}`}
                   checked={draft.auditIds.includes(a.id)}
                   onChange={() => toggle(a.id)}
                 />

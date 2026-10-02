@@ -121,6 +121,13 @@ export function formatDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
+/** Timestamp ("2026-10-01T17:30:00.000Z") → ngày theo giờ máy người dùng "02/10/2026". Chỉ dùng cho mốc thời gian, không dùng cho dueDate. */
+export function formatDateTimeLocal(iso: string): string {
+  const t = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(t.getDate())}/${pad(t.getMonth() + 1)}/${t.getFullYear()}`;
+}
+
 /** Hôm nay theo giờ máy người dùng, dạng YYYY-MM-DD (so được với dueDate.slice(0, 10)). */
 export function todayIso(now: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');

@@ -44,6 +44,7 @@ export function ScheduleAuditModal({
   const close = () => {
     setDraft(emptyAuditDraft());
     setErrors({});
+    submit.reset();
     onClose();
   };
 

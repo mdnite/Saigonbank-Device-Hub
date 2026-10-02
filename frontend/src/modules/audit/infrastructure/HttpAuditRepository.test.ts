@@ -94,4 +94,9 @@ describe('HttpAuditRepository', () => {
       body: { title: 'Quý 3', auditIds: [1, 2] },
     });
   });
+
+  it('users: chỉ lấy thành viên đang hoạt động', async () => {
+    await repo.users();
+    expect(call(fetchMock).url).toBe('http://localhost:3000/users/lookup?active=true');
+  });
 });

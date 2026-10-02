@@ -71,7 +71,7 @@ export class HttpAuditRepository implements AuditRepository {
     return apiGet<DeviceTypeRef[]>('/device-types');
   }
   users(): Promise<UserRef[]> {
-    return apiGet<UserRef[]>('/users/lookup');
+    return apiGet<UserRef[]>('/users/lookup', { active: 'true' });
   }
   summaries(): Promise<AuditSummary[]> {
     return apiGet<AuditSummary[]>('/audit-summaries');

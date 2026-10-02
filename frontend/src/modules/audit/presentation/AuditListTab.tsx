@@ -6,7 +6,7 @@ import { DataTable, type Column } from '@/shared/ui/DataTable';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { Select } from '@/shared/ui/inputs';
 import { useAsyncData } from '@/shared/lib/useAsyncData';
-import { AUDIT_STATUS, formatDate, isOverdue, todayIso, type Audit, type AuditStatus } from '../domain/audit';
+import { AUDIT_STATUS, formatDate, formatDateTimeLocal, isOverdue, todayIso, type Audit, type AuditStatus } from '../domain/audit';
 import { auditService } from '../infrastructure/container';
 import { AUDIT_STATUS_TONE } from './auditStatusTone';
 import { AuditEmptyState } from './AuditEmptyState';
@@ -22,7 +22,7 @@ export function AuditListTab() {
   const today = todayIso();
 
   const columns: Array<Column<Audit>> = [
-    { key: 'createdAt', header: 'Ngày tạo lịch', cell: (a) => formatDate(a.createdAt) },
+    { key: 'createdAt', header: 'Ngày tạo lịch', cell: (a) => formatDateTimeLocal(a.createdAt) },
     { key: 'unit', header: 'Đơn vị kiểm kê', cell: (a) => a.unitName },
     { key: 'purpose', header: 'Mục đích', cell: (a) => a.purpose },
     { key: 'dueDate', header: 'Đến ngày', cell: (a) => formatDate(a.dueDate) },

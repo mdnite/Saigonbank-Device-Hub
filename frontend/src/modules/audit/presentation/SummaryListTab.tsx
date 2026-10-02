@@ -6,7 +6,7 @@ import { canCreateAudit } from '@/modules/auth/domain/session';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, type Column } from '@/shared/ui/DataTable';
 import { useAsyncData } from '@/shared/lib/useAsyncData';
-import { formatDate, type AuditSummary } from '../domain/audit';
+import { formatDateTimeLocal, type AuditSummary } from '../domain/audit';
 import { auditService } from '../infrastructure/container';
 import { AuditEmptyState } from './AuditEmptyState';
 import { CreateSummaryModal } from './CreateSummaryModal';
@@ -18,7 +18,7 @@ export function SummaryListTab() {
   const { data, loading, error } = useAsyncData(() => auditService.summaries(), []);
 
   const columns: Array<Column<AuditSummary>> = [
-    { key: 'createdAt', header: 'Ngày lập', cell: (s) => formatDate(s.createdAt) },
+    { key: 'createdAt', header: 'Ngày lập', cell: (s) => formatDateTimeLocal(s.createdAt) },
     { key: 'title', header: 'Tiêu đề', cell: (s) => <span className="font-medium">{s.title}</span> },
     { key: 'purpose', header: 'Mục đích', cell: (s) => s.purpose ?? '—' },
     { key: 'count', header: 'Số đợt', align: 'right', cell: (s) => String(s.auditCount) },

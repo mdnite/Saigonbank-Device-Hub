@@ -6,7 +6,7 @@ import { DataTable, type Column } from '@/shared/ui/DataTable';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { useAsyncData } from '@/shared/lib/useAsyncData';
 import { downloadCsv } from '@/shared/lib/downloadCsv';
-import { formatDate, matrixTotal, type AuditSummaryDetail, type MatrixRow } from '../domain/audit';
+import { formatDate, formatDateTimeLocal, matrixTotal, type AuditSummaryDetail, type MatrixRow } from '../domain/audit';
 import { summaryCsv } from '../domain/auditCsv';
 import { auditService } from '../infrastructure/container';
 
@@ -58,7 +58,7 @@ export function AuditSummaryPage() {
       />
       <Card className="mb-5 p-5">
         <p className="mb-3 text-sm text-ink-muted">
-          {s.purpose && `Mục đích: ${s.purpose} · `}Người lập: {s.createdBy.fullName} · Ngày lập: {formatDate(s.createdAt)}
+          {s.purpose && `Mục đích: ${s.purpose} · `}Người lập: {s.createdBy.fullName} · Ngày lập: {formatDateTimeLocal(s.createdAt)}
         </p>
         <ul className="space-y-1 text-sm">
           {s.audits.map((a) => (

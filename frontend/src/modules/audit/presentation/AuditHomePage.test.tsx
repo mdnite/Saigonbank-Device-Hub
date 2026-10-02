@@ -5,7 +5,9 @@ import { SessionProvider } from '@/app/session/SessionContext';
 import { fakeJwt, inOneHour } from '@/test/fakeJwt';
 import { AuditHomePage } from './AuditHomePage';
 
+let failPost = false;
 afterEach(() => {
+  failPost = false;
   localStorage.clear();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -49,6 +51,8 @@ function renderPage(roleName: string, url = '/audit') {
     }),
   );
   const fetchMock = vi.fn().mockImplementation((u: string, init?: RequestInit) => {
+    if (failPost && init?.method === 'POST')
+      return Promise.resolve(new Response(JSON.stringify({ success: false, data: null, error: 'X', message: 'Lỗi máy chủ' }), { status: 400 }));
     if (u.endsWith('/audits') && init?.method === 'POST') return envelope({ ...audit(9), items: [], members: [] });
     if (u.includes('/audits/locations')) return envelope(['Tầng 3']);
     if (u.includes('/audit-summaries')) return envelope([{ id: 4, title: 'Quý 3', purpose: null, createdAt: '2026-10-01T00:00:00.000Z', createdBy: { id: 5, fullName: 'CTV' }, auditCount: 2 }]);
@@ -113,4 +117,34 @@ it('Lập lịch: bỏ trống → báo lỗi; điền đủ (Kho) → POST đú
     purpose: 'Định kỳ',
     memberIds: [7],
   });
+});
+
+it('Lập lịch: lỗi gửi hiện ra, đóng rồi mở lại thì mất', async () => {
+  failPost = true;
+  renderPage('Cộng tác viên');
+  fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch kiểm kê' }));
+  await screen.findByRole('option', { name: 'Phòng Kỹ thuật' });
+  fireEvent.change(screen.getByLabelText(/Đơn vị kiểm kê/), { target: { value: 'KHO' } });
+  fireEvent.change(screen.getByLabelText(/Đến ngày/), { target: { value: '2026-10-31' } });
+  fireEvent.change(screen.getByLabelText(/Mục đích/), { target: { value: 'Định kỳ' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Lập lịch' }));
+  expect(await screen.findByText('Lỗi máy chủ')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Hủy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Lập lịch kiểm kê' }));
+  await screen.findByRole('option', { name: 'Phòng Kỹ thuật' });
+  expect(screen.queryByText('Lỗi máy chủ')).toBeNull();
+});
+
+it('Lập bảng tổng hợp: nhãn đợt có #id; lỗi gửi mất sau khi đóng và mở lại', async () => {
+  failPost = true;
+  renderPage('Cộng tác viên', '/audit?tab=summary');
+  fireEvent.click(await screen.findByRole('button', { name: 'Lập bảng tổng hợp' }));
+  fireEvent.change(screen.getByLabelText(/Tiêu đề/), { target: { value: 'Quý 4' } });
+  fireEvent.click(await screen.findByLabelText('#1 · Phòng Kỹ thuật · Định kỳ · đến 31/01/2020'));
+  fireEvent.click(screen.getByRole('button', { name: 'Lập bảng' }));
+  expect(await screen.findByText('Lỗi máy chủ')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Hủy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Lập bảng tổng hợp' }));
+  await screen.findByLabelText('#1 · Phòng Kỹ thuật · Định kỳ · đến 31/01/2020');
+  expect(screen.queryByText('Lỗi máy chủ')).toBeNull();
 });

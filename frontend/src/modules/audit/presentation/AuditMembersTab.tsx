@@ -13,7 +13,7 @@ export function AuditMembersTab({
 }: {
   members: UserRef[];
   editable: boolean;
-  onSave: (userIds: number[]) => Promise<void>;
+  onSave: (userIds: number[]) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
@@ -51,7 +51,7 @@ export function AuditMembersTab({
           <Button
             variant="dark"
             onClick={() =>
-              void onSave(selected).then(() => setEditing(false))
+              void onSave(selected).then((ok) => ok && setEditing(false))
             }
           >
             Lưu thành viên

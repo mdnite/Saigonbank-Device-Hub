@@ -157,3 +157,24 @@ it('hai lần lưu chồng nhau: phản hồi của lần gửi sau thắng dù 
   });
   expect(screen.getByLabelText('Kết quả LT-000001')).toHaveValue('Hỏng');
 });
+
+it('lưu thành viên lỗi: form vẫn mở, giữ lựa chọn và hiện lỗi', async () => {
+  renderPage('Cộng tác viên', detail());
+  await screen.findByText(/Kiểm kê thiết bị tại/);
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation((u: string, init?: RequestInit) => {
+      if (init?.method === 'PUT')
+        return Promise.resolve(new Response(JSON.stringify({ success: false, data: null, error: 'X', message: 'Thành viên không hợp lệ' }), { status: 400 }));
+      return envelope(u.includes('/users/lookup') ? [{ id: 7, fullName: 'Nguyễn Văn A', username: 'a' }] : detail());
+    }),
+  );
+  fireEvent.click(screen.getByText('Thành viên tham gia'));
+  fireEvent.click(screen.getByRole('button', { name: 'Sửa thành viên' }));
+  const box = await screen.findByLabelText('Nguyễn Văn A (a)');
+  expect(box).toBeChecked();
+  fireEvent.click(box);
+  fireEvent.click(screen.getByRole('button', { name: 'Lưu thành viên' }));
+  expect((await screen.findAllByText('Thành viên không hợp lệ')).length).toBeGreaterThan(0);
+  expect(screen.getByLabelText('Nguyễn Văn A (a)')).not.toBeChecked();
+});

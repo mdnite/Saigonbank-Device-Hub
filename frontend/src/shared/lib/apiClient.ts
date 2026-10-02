@@ -8,7 +8,7 @@ interface ApiEnvelope<T> {
   message: string;
 }
 
-type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 interface ApiSession {
   getToken: () => string | null;
@@ -67,5 +67,6 @@ export function apiGet<T>(path: string, query: Record<string, string | number | 
 }
 
 export const apiPost = <T>(path: string, body: unknown) => apiRequest<T>('POST', path, body);
+export const apiPut = <T>(path: string, body: unknown) => apiRequest<T>('PUT', path, body);
 export const apiPatch = <T>(path: string, body: unknown) => apiRequest<T>('PATCH', path, body);
 export const apiDelete = <T>(path: string) => apiRequest<T>('DELETE', path);

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import { SessionProvider } from '@/app/session/SessionContext';
@@ -120,4 +120,40 @@ it('TP Kế toán + Chờ duyệt: Duyệt / Từ chối, không ô nhập', asy
 it('bị từ chối: banner lý do', async () => {
   renderPage('Cộng tác viên', detail({ rejectReason: 'Đếm lại tầng 3' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Bị từ chối: Đếm lại tầng 3');
+});
+
+it('hai lần lưu chồng nhau: phản hồi của lần gửi sau thắng dù về trước', async () => {
+  const resolvers: Array<(r: Response) => void> = [];
+  const res = (d: unknown) => new Response(JSON.stringify({ success: true, data: d, error: null, message: 'OK' }), { status: 200 });
+  localStorage.setItem(
+    'idsm.session',
+    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName: 'Cộng tác viên', departmentCode: 'KETOAN' }),
+  );
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation((_u: string, init?: RequestInit) =>
+      init?.method === 'PATCH' ? new Promise<Response>((r) => resolvers.push(r)) : Promise.resolve(res(detail())),
+    ),
+  );
+  render(
+    <SessionProvider>
+      <MemoryRouter initialEntries={['/audit/3']}>
+        <Routes>
+          <Route path="/audit/:id" element={<AuditDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </SessionProvider>,
+  );
+  const select = await screen.findByLabelText('Kết quả LT-000001');
+  fireEvent.change(select, { target: { value: 'Thiếu' } });
+  fireEvent.change(screen.getByLabelText('Kết quả LT-000001'), { target: { value: 'Hỏng' } });
+  await waitFor(() => expect(resolvers).toHaveLength(2));
+  const withResult = (result: string) => detail({ items: [{ ...detail().items[0], result }] });
+  resolvers[1](res(withResult('Hỏng')));
+  await waitFor(() => expect(screen.getByLabelText('Kết quả LT-000001')).toHaveValue('Hỏng'));
+  await act(async () => {
+    resolvers[0](res(withResult('Thiếu')));
+    await new Promise((r) => setTimeout(r, 20));
+  });
+  expect(screen.getByLabelText('Kết quả LT-000001')).toHaveValue('Hỏng');
 });

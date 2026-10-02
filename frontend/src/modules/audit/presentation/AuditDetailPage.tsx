@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSession } from '@/app/session/SessionContext';
 import { canCreateAudit, canDecideAudit } from '@/modules/auth/domain/session';
@@ -33,7 +33,13 @@ export function AuditDetailPage() {
   }, [auditId]);
 
   // Mọi thao tác đều trả lại chi tiết mới nhất từ backend — thay thẳng state, không tự vá cục bộ.
-  const act = useAsyncAction(async (fn: () => Promise<AuditDetail>) => setDetail(await fn()));
+  // Nhiều lần lưu có thể chạy chồng nhau: chỉ phản hồi của lần gọi mới nhất được áp dụng, tránh ảnh chụp cũ ghi đè.
+  const seq = useRef(0);
+  const act = useAsyncAction(async (fn: () => Promise<AuditDetail>) => {
+    const mine = ++seq.current;
+    const next = await fn();
+    if (mine === seq.current) setDetail(next);
+  });
 
   if (!detail) {
     return <p className="text-sm text-ink-muted">{loadError ?? 'Đang tải…'}</p>;
@@ -124,6 +130,7 @@ export function AuditDetailPage() {
           />
         )}
 
+        {act.error && <p className="mt-4 text-right text-sm text-status-dangerFg">{act.error}</p>}
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <Button variant="outline" onClick={() => downloadCsv(`kiem-ke-${detail.id}.csv`, auditCsv(detail))}>
             Xuất CSV

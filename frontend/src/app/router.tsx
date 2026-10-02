@@ -13,7 +13,7 @@ import { RequireAuth } from './session/RequireAuth';
 import { NotFoundPage } from './NotFoundPage';
 import { AppShell } from '@/shared/layout/AppShell';
 import { AuthLayout } from '@/shared/layout/AuthLayout';
-import { ComingSoonPage } from '@/shared/layout/ComingSoonPage';
+import { AuditHomePage } from '@/modules/audit/presentation/AuditHomePage';
 import { LoginPage } from '@/modules/auth/presentation/LoginPage';
 import { ForgotPasswordPage } from '@/modules/auth/presentation/ForgotPasswordPage';
 import { OtpPage } from '@/modules/auth/presentation/OtpPage';
@@ -94,7 +94,7 @@ export const router = createBrowserRouter([
           },
           {
             element: <RequireCan can={canAccessAudits} />,
-            children: [{ path: '/audit', element: <ComingSoonPage title="Kiểm kê" /> }],
+            children: [{ path: '/audit', element: <AuditHomePage /> }],
           },
         ],
       },

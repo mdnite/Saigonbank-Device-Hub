@@ -1,7 +1,7 @@
 import { Construction } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 
-/** Placeholder for nav destinations not built in this pass (Người dùng, Điều chuyển, Kiểm kê, Cài đặt). */
+/** Placeholder cho màn chưa làm. */
 export function ComingSoonPage({ title }: { title: string }) {
   return (
     <>

@@ -21,7 +21,8 @@ CI runs from the repo root: `npm ci` then `npm run build -w frontend`.
 [`../backend/README.md`](../backend/README.md)), otherwise login shows "Không kết nối được máy chủ".
 The API base URL comes from `VITE_API_URL` (default `http://localhost:3000`); copy
 `.env.example` to `.env` to change it. Dev accounts come from the backend seed:
-`admin` / `Admin@123` (+ optional `dev` user for the forgot-password flow).
+`admin` / `Admin@123`, `truongphong.ketoan` / `Head@1234` and `ctv.ketoan` / `Collab@1234` for Kiểm kê (+ optional `dev` user for the forgot-password flow).
+Current test count: **149 tests in 33 files** (`npm test`).
 
 If the browser still holds a session from the old mock build, delete
 `localStorage["idsm.session"]` once — otherwise the app thinks you are logged in.
@@ -39,18 +40,21 @@ Node's own global `localStorage` shadows jsdom's.
 | `user` | Quản lý người dùng (`/users`, `/users/new` — chỉ Quản trị viên) + Cài đặt cá nhân (`/settings`, 3 tab) | Group 7, 8, 9 (chỉ màn cài đặt) |
 | `allocation` | Đơn Cấp phát - Thu hồi (`/allocation`, `/allocation/new`), in biên bản PDF | — (theo spec, không theo Figma) |
 | `transfer` | Lệnh Điều chuyển (`/transfers`, `/transfers/new`), in biên bản PDF | — (theo spec, không theo Figma) |
+| `audit` | Kiểm kê (`/audit` 3 tab `?tab=detail\|quantity\|summary`, `/audit/:id`, `/audit/summaries/:id`), xuất PDF / CSV — chỉ TP + CTV Kế toán | Frame `337:2672`, `337:2805`, `338:2878`, `338:3004` + spec |
 
-Not yet built (routed to a "đang phát triển" placeholder): Kiểm kê (`/audit`).
+Not yet built: Kiểm kê số lượng (tab placeholder trong `/audit`), QR thiết bị.
 Approvals Center (Group 13) is not a separate screen — approve/reject sits on the `/allocation` and
 `/transfers` list rows.
 
 `auth`, the admin side of `user`, and `device` are wired to the real API in
 [`../backend/`](../backend/) (login, forgot password → OTP email → reset, logout = client-side
 token removal; `/users` list/create/lock-unlock/soft-delete; `/devices` list/create/update/soft-delete;
-`/device-orders`, `/device-transfers`). Permissions (UI hide/show only — the backend enforces them,
+`/device-orders`, `/device-transfers`, `/audits`, `/audit-summaries`). Permissions (UI hide/show only — the backend enforces them,
 see `src/modules/auth/domain/session.ts`): Cộng tác viên Kỹ thuật adds/edits devices and creates
 orders/transfers, Trưởng phòng Kỹ thuật also deletes devices and approves/rejects, Quản trị viên
-manages users and is read-only elsewhere. `dashboard` and `/settings` still use in-memory mocks.
+manages users and is read-only elsewhere. Kế toán: Cộng tác viên Kế toán schedules / counts / submits audits and builds summaries,
+Trưởng phòng Kế toán approves / rejects (Kiểm kê is hidden from every other role); Trưởng phòng Kỹ thuật can mark a
+"Thất lạc" device as found. `dashboard` and `/settings` still use in-memory mocks.
 
 ## Architecture — pragmatic DDD
 
@@ -59,7 +63,7 @@ Each bounded context under `src/modules/<context>/` has four layers:
 ```
 domain/          Pure models + rules. No React, no fetch. Unit-tested.
 application/     Use-case services + repository *interfaces* (ports).
-infrastructure/  Repository implementations (HTTP for auth, user admin, device, allocation, transfer; in-memory for dashboard + settings) + container.ts (DI wiring).
+infrastructure/  Repository implementations (HTTP for auth, user admin, device, allocation, transfer, audit; in-memory for dashboard + settings) + container.ts (DI wiring).
 presentation/    React pages, hooks, and UI-only mappings.
 ```
 
@@ -75,7 +79,7 @@ Rules:
   Vietnamese `message` on error).
 
 `src/shared/` holds the design-system UI kit (`ui/`), layout chrome (`layout/`), and
-framework-agnostic helpers (`lib/`). `src/app/` is the composition root: router + session
+framework-agnostic helpers (`lib/`, incl. `downloadCsv`); `ui/Modal` wraps the native `<dialog>`. `src/app/` is the composition root: router + session
 context + auth guard.
 
 ## Design tokens

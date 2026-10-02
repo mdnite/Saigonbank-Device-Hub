@@ -1,7 +1,7 @@
 # Thay đổi cần cập nhật vào báo cáo BCTT-HKTT
 
-> Tổng hợp những điểm code thật (backend `identity` + `users` + `devices` + `device-orders` + `device-transfers`, schema Prisma) đã khác
-> hoặc bổ sung so với bản báo cáo hiện tại. Cập nhật lần cuối: 2026-10-01.
+> Tổng hợp những điểm code thật (backend `identity` + `users` + `devices` + `device-orders` + `device-transfers` + `audits`, schema Prisma) đã khác
+> hoặc bổ sung so với bản báo cáo hiện tại. Cập nhật lần cuối: 2026-10-02.
 
 ## 1. UC-01 — Đăng nhập
 - Đăng nhập bằng **tên đăng nhập hoặc email** + mật khẩu.
@@ -34,10 +34,10 @@
 | Vai trò | Quyền |
 |---|---|
 | Quản trị viên | Quản lý người dùng. **Chỉ xem** thiết bị, đơn Cấp phát - Thu hồi, lệnh Điều chuyển (không thêm/sửa/xoá thiết bị, không tạo, không duyệt). |
-| Trưởng phòng **Kỹ thuật** | Thêm/sửa/xoá thiết bị, dọn thùng rác thiết bị; **duyệt/từ chối** đơn Cấp phát - Thu hồi và lệnh Điều chuyển. Không tạo đơn/lệnh. |
+| Trưởng phòng **Kỹ thuật** | Thêm/sửa/xoá thiết bị, dọn thùng rác thiết bị; **duyệt/từ chối** đơn Cấp phát - Thu hồi và lệnh Điều chuyển; **"Tìm thấy"** thiết bị đang "Thất lạc". Không tạo đơn/lệnh. |
 | Cộng tác viên **Kỹ thuật** | Thêm/sửa thông tin thiết bị (không xoá, không dọn thùng rác); **tạo** đơn Cấp phát - Thu hồi và lệnh Điều chuyển; xem tất cả đơn/lệnh. Không duyệt. |
-| Cộng tác viên **Kế toán** | Khởi tạo kiểm kê, đối soát dữ liệu kiểm kê (dự kiến — luồng Kiểm kê chưa làm; hiện quyền ngang Nhân viên). |
-| Trưởng phòng **Kế toán** | Chưa có quyền riêng (xem lại khi làm Kiểm kê). |
+| Cộng tác viên **Kế toán** | **Lập lịch** kiểm kê, bắt đầu, **nhập** kết quả, sửa thành viên, **gửi duyệt**, **huỷ đợt chưa bắt đầu**, **lập bảng tổng hợp**; xem mọi đợt và bảng tổng hợp. Không duyệt. |
+| Trưởng phòng **Kế toán** | **Duyệt / từ chối** kiểm kê; xem mọi đợt và bảng tổng hợp. Không lập lịch, không nhập. |
 | Nhân viên | Người dùng thường: xem thiết bị. |
 
 Trưởng phòng và Cộng tác viên phân biệt Kỹ thuật / Kế toán bằng phòng ban của tài khoản.
@@ -131,7 +131,7 @@ Table Device {
   WarrantyMonths int
   WarrantyCondition varchar(255)
   WarrantyExpiresOn date
-  Status varchar(50) [not null, note: 'Trong kho | Đã cấp phát | Đang chờ duyệt | Chờ thanh lý | Đã xóa']
+  Status varchar(50) [not null, note: 'Trong kho | Đã cấp phát | Đang chờ duyệt | Thất lạc | Chờ thanh lý | Đã xóa']
   AllocatedOn date
   CreatedAt timestamp [not null, default: `now()`]
   UpdatedAt timestamp [not null]
@@ -197,6 +197,133 @@ Table DeviceTransferItem {
   DeviceId int [not null, ref: > Device.Id]
 }
 ```
+
+## 6c. Kiểm kê — 6 bảng mới cho ERD (2026-10-02)
+- ERD 3.2.1 cần thêm **6 bảng**: `Audit` (đợt kiểm kê), `AuditItem` (snapshot 1 thiết bị + kết quả),
+  `AuditItemAccessory` (snapshot 1 linh kiện + kết quả), `AuditMember` (thành viên tham gia),
+  `AuditSummary` (bảng tổng hợp) và `AuditSummaryAudit` (nối n-n bảng tổng hợp ↔ đợt).
+- Đợt và bảng tổng hợp **không bao giờ bị xoá**. Mọi FK tới `User` là `Restrict`.
+  `AuditItem.HolderUserId` **cố ý không phải khoá ngoại** — chỉ là bản chụp để so với `Device` lúc duyệt.
+- `Audit.DepartmentId` null = đơn vị giả "Kho" (thiết bị "Trong kho"); `UnitName` là snapshot tên đơn vị.
+- Trạng thái `Audit.Status`: "Chưa kiểm kê" | "Đang kiểm kê" | "Chờ duyệt" | "Đã duyệt" | "Đã hủy";
+  `Result` (máy và linh kiện): "Đủ" | "Thiếu" | "Hỏng", null = chưa đếm.
+- `Device.Status` có thêm giá trị **"Thất lạc"** (cột `varchar`, không đổi schema).
+
+```dbml
+Table Audit {
+  Id int [pk, increment]
+  Status varchar(20) [not null, default: 'Chưa kiểm kê', note: 'Chưa kiểm kê | Đang kiểm kê | Chờ duyệt | Đã duyệt | Đã hủy']
+  DepartmentId int [ref: > Department.Id, note: 'null = đơn vị "Kho"']
+  UnitName varchar(150) [not null, note: 'snapshot tên đơn vị']
+  DueDate date [not null]
+  Purpose varchar(20) [not null, note: 'Định kỳ | Đột xuất | Cuối năm']
+  DeviceTypeId int [ref: > DeviceType.Id, note: 'bộ lọc đã dùng']
+  Location varchar(150) [note: 'bộ lọc đã dùng']
+  CreatedById int [not null, ref: > User.Id]
+  StartedAt timestamp
+  SubmittedAt timestamp
+  DecidedById int [ref: > User.Id]
+  DecidedAt timestamp
+  RejectReason varchar(255) [note: 'lần từ chối gần nhất; xoá khi gửi lại']
+  CreatedAt timestamp [not null, default: `now()`]
+}
+
+Table AuditItem {
+  Id int [pk, increment]
+  AuditId int [not null, ref: > Audit.Id]
+  DeviceId int [not null, ref: > Device.Id]
+  DeviceCode varchar(20) [not null]
+  DeviceName varchar(150) [not null]
+  SerialNumber varchar(100)
+  DeviceTypeName varchar(100) [not null]
+  Unit varchar(20) [not null]
+  HolderUserId int [note: 'snapshot, KHÔNG phải FK']
+  HolderName varchar(150)
+  DepartmentName varchar(150)
+  DeviceStatus varchar(50) [not null, note: 'snapshot, so sánh lúc duyệt']
+  Result varchar(10) [note: 'Đủ | Thiếu | Hỏng; null = chưa đếm']
+  Note varchar(255)
+
+  indexes {
+    (AuditId, DeviceId) [unique]
+    DeviceId
+  }
+}
+
+Table AuditItemAccessory {
+  Id int [pk, increment]
+  AuditItemId int [not null, ref: > AuditItem.Id]
+  AccessoryCode varchar(50) [not null]
+  AccessoryName varchar(150) [not null]
+  AccessoryType varchar(100) [not null]
+  Unit varchar(20) [not null]
+  Result varchar(10) [note: 'Đủ | Thiếu | Hỏng; null = chưa đếm']
+  Note varchar(255)
+}
+
+Table AuditMember {
+  AuditId int [not null, ref: > Audit.Id]
+  UserId int [not null, ref: > User.Id]
+
+  indexes {
+    (AuditId, UserId) [pk]
+  }
+}
+
+Table AuditSummary {
+  Id int [pk, increment]
+  Title varchar(150) [not null]
+  Purpose varchar(20)
+  CreatedById int [not null, ref: > User.Id]
+  CreatedAt timestamp [not null, default: `now()`]
+}
+
+Table AuditSummaryAudit {
+  SummaryId int [not null, ref: > AuditSummary.Id]
+  AuditId int [not null, ref: > Audit.Id]
+
+  indexes {
+    (SummaryId, AuditId) [pk]
+  }
+}
+```
+
+## 6d. UC Kiểm kê (2026-10-02)
+Báo cáo không có AD/SD cho Kiểm kê — luồng dưới đây do người dùng chốt (spec
+`docs/superpowers/specs/2026-10-02-kiem-ke-design.md`, 24 quyết định). Vòng này làm **Kiểm kê chi
+tiết** + **Bảng tổng hợp**; Kiểm kê số lượng chưa làm.
+- **Quyền:** menu và API Kiểm kê **chỉ** cho Trưởng phòng + Cộng tác viên Kế toán (Quản trị viên,
+  Kỹ thuật, Nhân viên không thấy). CTV Kế toán lập lịch, bắt đầu, huỷ, nhập kết quả, sửa thành
+  viên, gửi duyệt, lập bảng tổng hợp; TP Kế toán duyệt / từ chối.
+- **Đơn vị kiểm kê** = một phòng ban (thiết bị đang cấp cho người thuộc phòng đó) hoặc đơn vị "Kho"
+  (thiết bị "Trong kho"). Bộ lọc tuỳ chọn: loại thiết bị, vị trí. Chỉ lấy thiết bị "Trong kho" +
+  "Đã cấp phát". Mục đích: Định kỳ | Đột xuất | Cuối năm. Thành viên tham gia chỉ để ghi nhận /
+  in biên bản, không cấp quyền.
+- **Snapshot lúc lập lịch:** thông tin thiết bị (mã, tên, serial, loại, đơn vị tính, người sở hữu,
+  phòng ban, trạng thái) **kèm toàn bộ linh kiện**; thiết bị đổi sau đó không làm đổi đợt. Thiết bị
+  **không bị khoá** trong lúc kiểm kê.
+- **Chặn trùng đợt:** một thiết bị không nằm trong 2 đợt đang mở (mọi trạng thái trừ "Đã duyệt" /
+  "Đã hủy"); bộ lọc trúng máy như vậy → 400 cả đợt, liệt kê mã máy. Bộ lọc không có thiết bị → 400.
+- **Vòng đời 5 trạng thái:** Chưa kiểm kê → (Bắt đầu) → Đang kiểm kê → (Gửi duyệt) → Chờ duyệt →
+  (Duyệt) → Đã duyệt. Từ chối (bắt buộc lý do) đưa về Đang kiểm kê, lý do hiện thành banner. Huỷ chỉ
+  khi "Chưa kiểm kê" → "Đã hủy" (cuối, nhả máy cho đợt khác). Hạn "Đến ngày" qua mà đợt còn mở →
+  nhãn "Quá hạn" tính lúc hiển thị, không chặn gì.
+- **Đếm:** mỗi thiết bị **và mỗi linh kiện** có kết quả Đủ / Thiếu / Hỏng + ghi chú, lưu từng dòng. Gửi
+  duyệt chỉ khi 100% dòng đã đếm; có nút "Ghi Đủ cho dòng chưa đếm".
+- **Duyệt:** máy "Thiếu" → **"Thất lạc"**, máy "Hỏng" → **"Chờ thanh lý"**, giữ người sở hữu; máy
+  "Đủ" không đổi; linh kiện chỉ ghi nhận, không ghi ngược vào `DeviceAccessory`.
+- **Chặn duyệt khi máy đã đổi:** dòng "Thiếu"/"Hỏng" mà thiết bị đã khác snapshot (trạng thái hoặc
+  người sở hữu) → 400 liệt kê mã, rollback cả đợt; dòng "Đủ" không bao giờ chặn. Gỡ kẹt: TP từ chối →
+  CTV đổi kết quả dòng đó → gửi lại.
+- **Tìm thấy:** Trưởng phòng Kỹ thuật bấm "Tìm thấy" trên máy "Thất lạc" → "Đã cấp phát" nếu còn người
+  sở hữu, ngược lại "Trong kho". Máy "Thất lạc" / "Chờ thanh lý" không vào được đơn/lệnh mới.
+- **Bảng tổng hợp:** CTV Kế toán chọn nhiều đợt "Đã duyệt" + tiêu đề; không trạng thái, không duyệt;
+  một đợt vào được nhiều bảng. Nội dung = ma trận đơn vị × loại thiết bị (Tổng / Đủ / Thiếu / Hỏng,
+  chỉ đếm thiết bị), tính lúc đọc từ snapshot.
+- **Xuất:** PDF và CSV (UTF-8 có BOM) cho cả đợt và bảng tổng hợp.
+- **Dọn thùng rác** người dùng / thiết bị bỏ qua row còn được đợt kiểm kê tham chiếu.
+- **Ngoài phạm vi:** Kiểm kê số lượng, máy thừa, QR, nhắc lịch, phân trang, sửa bộ lọc sau khi lập,
+  huỷ đợt đã bắt đầu, luồng thanh lý.
 
 ## 7. Còn treo
 - `Department.DepartmentCode`: **chốt giữ unique** (2026-09-21). Schema `backend/prisma/schema.prisma`

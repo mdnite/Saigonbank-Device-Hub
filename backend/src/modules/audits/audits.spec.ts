@@ -595,4 +595,142 @@ describe('Kiểm kê: /audits', () => {
         .expect(400);
     });
   });
+
+  /** Đợt phòng Kỹ thuật với các máy đã cho, đã nhập `results` (theo thứ tự máy), đã gửi duyệt. */
+  async function submittedAudit(
+    devices: Device[],
+    results: string[],
+    departmentId: number | null = 1,
+  ) {
+    const created = (await schedule({ departmentId }).expect(201)).body.data;
+    await post(`/audits/${created.id}/start`, acctCollab).expect(201);
+    for (const [i, item] of (created.items as { id: number }[]).entries()) {
+      await http()
+        .patch(`/audits/${created.id}/items/${item.id}`)
+        .set(as(acctCollab))
+        .send({ result: results[i] })
+        .expect(200);
+    }
+    await post(`/audits/${created.id}/mark-uncounted-ok`, acctCollab).expect(
+      201,
+    );
+    await post(`/audits/${created.id}/submit`, acctCollab).expect(201);
+    expect(devices).toHaveLength(created.items.length);
+    return created.id as number;
+  }
+  const deviceById = (id: number) => prisma.devices.find((d) => d.id === id)!;
+
+  describe('POST /audits/:id/approve', () => {
+    it('Thiếu → Thất lạc, Hỏng → Chờ thanh lý, giữ người sở hữu; Đủ không đổi', async () => {
+      const ok = allocatedTo(techStaff);
+      const missing = allocatedTo(techStaff);
+      const broken = allocatedTo(techStaff);
+      const id = await submittedAudit(
+        [ok, missing, broken],
+        ['Đủ', 'Thiếu', 'Hỏng'],
+      );
+
+      const res = await post(`/audits/${id}/approve`, acctHead).expect(201);
+      expect(res.body.message).toBe('Đã duyệt kết quả kiểm kê');
+      expect(res.body.data.status).toBe('Đã duyệt');
+      expect(res.body.data.decidedBy.id).toBe(acctHead.id);
+      expect(deviceById(ok.id).status).toBe('Đã cấp phát');
+      expect(deviceById(missing.id)).toMatchObject({
+        status: 'Thất lạc',
+        currentUserId: techStaff.id,
+      });
+      expect(deviceById(broken.id)).toMatchObject({
+        status: 'Chờ thanh lý',
+        currentUserId: techStaff.id,
+      });
+    });
+
+    it('đợt Kho (người sở hữu null): Thiếu vẫn sang Thất lạc', async () => {
+      const stock = addDevice();
+      const id = await submittedAudit([stock], ['Thiếu'], null);
+      await post(`/audits/${id}/approve`, acctHead).expect(201);
+      expect(deviceById(stock.id)).toMatchObject({
+        status: 'Thất lạc',
+        currentUserId: null,
+      });
+    });
+
+    it('máy Thiếu/Hỏng đã đổi người giữ hoặc bị xoá: 400 liệt kê mã, không ghi gì, đợt vẫn Chờ duyệt', async () => {
+      const a = allocatedTo(techStaff);
+      const b = allocatedTo(techStaff);
+      const id = await submittedAudit([a, b], ['Thiếu', 'Hỏng']);
+      Object.assign(deviceById(a.id), { currentUserId: acctStaff.id });
+      Object.assign(deviceById(b.id), { status: 'Đã xóa' });
+
+      const res = await post(`/audits/${id}/approve`, acctHead).expect(400);
+      expect(res.body.message).toBe(
+        `Thiết bị ${a.deviceCode}, ${b.deviceCode} đã thay đổi kể từ lúc lập lịch — từ chối đợt và sửa kết quả các dòng này`,
+      );
+      expect(deviceById(a.id).status).toBe('Đã cấp phát');
+      const after = await http()
+        .get(`/audits/${id}`)
+        .set(as(acctHead))
+        .expect(200);
+      expect(after.body.data.status).toBe('Chờ duyệt');
+    });
+
+    it('máy Đủ đã đổi không chặn duyệt', async () => {
+      const a = allocatedTo(techStaff);
+      const id = await submittedAudit([a], ['Đủ']);
+      Object.assign(deviceById(a.id), { status: 'Đang chờ duyệt' });
+      await post(`/audits/${id}/approve`, acctHead).expect(201);
+      expect(deviceById(a.id).status).toBe('Đang chờ duyệt');
+    });
+
+    it('duyệt 2 lần: 400; chưa gửi duyệt: 400; CTV Kế toán / TP Kỹ thuật: 403', async () => {
+      const a = allocatedTo(techStaff);
+      const id = await submittedAudit([a], ['Đủ']);
+      await post(`/audits/${id}/approve`, acctCollab).expect(403);
+      await post(`/audits/${id}/approve`, techHead).expect(403);
+      await post(`/audits/${id}/approve`, acctHead).expect(201);
+      const again = await post(`/audits/${id}/approve`, acctHead).expect(400);
+      expect(again.body.message).toBe(
+        'Đợt kiểm kê đã được xử lý hoặc không ở trạng thái phù hợp',
+      );
+
+      allocatedTo(techStaff);
+      const fresh = (await schedule().expect(201)).body.data;
+      await post(`/audits/${fresh.id}/approve`, acctHead).expect(400);
+    });
+
+    it('đợt đã duyệt nhả máy: máy Đủ vào được đợt mới, máy Thất lạc thì không', async () => {
+      const ok = allocatedTo(techStaff);
+      const lost = allocatedTo(techStaff);
+      const id = await submittedAudit([ok, lost], ['Đủ', 'Thiếu']);
+      await post(`/audits/${id}/approve`, acctHead).expect(201);
+      const next = await schedule().expect(201);
+      expect(
+        next.body.data.items.map((i: { deviceId: number }) => i.deviceId),
+      ).toEqual([ok.id]);
+    });
+  });
+
+  describe('POST /devices/:id/found', () => {
+    it('TP Kỹ thuật: Thất lạc có người giữ → Đã cấp phát; không người giữ → Trong kho', async () => {
+      const held = addDevice({
+        status: 'Thất lạc',
+        currentUserId: techStaff.id,
+      });
+      const stock = addDevice({ status: 'Thất lạc' });
+      const res = await post(`/devices/${held.id}/found`, techHead).expect(201);
+      expect(res.body.message).toBe('Đã ghi nhận tìm thấy thiết bị');
+      expect(res.body.data.status).toBe('Đã cấp phát');
+      await post(`/devices/${stock.id}/found`, techHead).expect(201);
+      expect(deviceById(stock.id).status).toBe('Trong kho');
+    });
+
+    it('máy không Thất lạc: 400; CTV Kỹ thuật / Kế toán: 403; không tồn tại: 404', async () => {
+      const d = allocatedTo(techStaff);
+      const res = await post(`/devices/${d.id}/found`, techHead).expect(400);
+      expect(res.body.message).toBe('Thiết bị không ở trạng thái Thất lạc');
+      await post(`/devices/${d.id}/found`, techCollab).expect(403);
+      await post(`/devices/${d.id}/found`, acctHead).expect(403);
+      await post('/devices/999/found', techHead).expect(404);
+    });
+  });
 });

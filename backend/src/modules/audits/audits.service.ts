@@ -14,6 +14,7 @@ import {
   AUDIT_RESULT,
   AUDIT_STATUS,
   AUDIT_WRONG_STATE,
+  devicesChanged,
   LINE_NOT_FOUND,
   OPEN_AUDIT_STATUSES,
   WAREHOUSE_UNIT_NAME,
@@ -403,6 +404,62 @@ export class AuditsService {
         'Thành viên tham gia không hợp lệ hoặc đã ngừng hoạt động',
       );
     }
+  }
+
+  async approve(id: number, decidedById: number) {
+    const audit = await this.findAudit(id);
+    this.requireStatus(audit, [AUDIT_STATUS.PENDING]);
+    // Sắp theo deviceId: mọi luồng ghi Device theo cùng thứ tự khoá, tránh deadlock.
+    const flagged = audit.items
+      .filter(
+        (i) =>
+          i.result === AUDIT_RESULT.MISSING || i.result === AUDIT_RESULT.BROKEN,
+      )
+      .sort((a, b) => a.deviceId - b.deviceId);
+
+    // Đọc trước, ngoài transaction: báo đủ danh sách máy lệch snapshot trong một lần, chưa ghi gì (#17).
+    const current = await this.prisma.device.findMany({
+      where: { id: { in: flagged.map((i) => i.deviceId) } },
+    });
+    const changed = flagged.filter((i) => {
+      const d = current.find((x) => x.id === i.deviceId);
+      return (
+        !d || d.status !== i.deviceStatus || d.currentUserId !== i.holderUserId
+      );
+    });
+    if (changed.length > 0) {
+      throw new BadRequestException(
+        devicesChanged(changed.map((i) => i.deviceCode)),
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.transition(tx, id, AUDIT_STATUS.PENDING, {
+        status: AUDIT_STATUS.APPROVED,
+        decidedById,
+        decidedAt: new Date(),
+      });
+      // Ghi có điều kiện = snapshot: máy đổi giữa lúc đọc và lúc ghi → count 0 → rollback cả đợt.
+      for (const item of flagged) {
+        const { count } = await tx.device.updateMany({
+          where: {
+            id: item.deviceId,
+            status: item.deviceStatus,
+            currentUserId: item.holderUserId,
+          },
+          data: {
+            status:
+              item.result === AUDIT_RESULT.MISSING
+                ? DEVICE_STATUS.LOST
+                : DEVICE_STATUS.PENDING_DISPOSAL,
+          },
+        });
+        if (count === 0) {
+          throw new BadRequestException(devicesChanged([item.deviceCode]));
+        }
+      }
+    });
+    return this.getById(id);
   }
 
   /** Ghi có điều kiện status = `from` ngay trong câu update: 2 request gần như đồng thời không

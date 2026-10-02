@@ -67,6 +67,14 @@ export class DevicesController {
     return this.devices.softDelete(id);
   }
 
+  /** Máy Thất lạc (do kiểm kê) được tìm thấy — chỉ Trưởng phòng Kỹ thuật. */
+  @Post(':id/found')
+  @Allow(ACTOR.TECH_HEAD)
+  @ResponseMessage('Đã ghi nhận tìm thấy thiết bị')
+  found(@DeviceId() id: number) {
+    return this.devices.markFound(id);
+  }
+
   /** Dọn thùng rác (xoá cứng) — chỉ Trưởng phòng Kỹ thuật. */
   @Post('purge')
   @Allow(ACTOR.TECH_HEAD)

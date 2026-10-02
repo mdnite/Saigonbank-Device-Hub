@@ -136,4 +136,11 @@ export class AuditsController {
   ) {
     return this.audits.reject(id, req.user.id, dto.reason);
   }
+
+  @Post(':id/approve')
+  @Allow(ACTOR.ACCT_HEAD)
+  @ResponseMessage('Đã duyệt kết quả kiểm kê')
+  approve(@AuditId() id: number, @Req() req: AuthedRequest) {
+    return this.audits.approve(id, req.user.id);
+  }
 }

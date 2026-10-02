@@ -12,6 +12,7 @@ import type { CreateDeviceDto, UpdateDeviceDto } from './devices.dto';
 
 export const DEVICE_NOT_FOUND = 'Thiết bị không tồn tại';
 export const DEVICE_PENDING = 'Thiết bị đang chờ duyệt, không thể sửa hoặc xoá';
+export const DEVICE_NOT_LOST = 'Thiết bị không ở trạng thái Thất lạc';
 
 export const DEVICE_WITH_RELATIONS = {
   deviceType: true,
@@ -182,6 +183,22 @@ export class DevicesService {
       where: { id },
       data: { status: DEVICE_STATUS.DELETED },
     });
+  }
+
+  /** "Tìm thấy" máy Thất lạc (#20): về Đã cấp phát nếu còn người giữ, ngược lại Trong kho. */
+  async markFound(id: number) {
+    const current = await this.findLiveDevice(id);
+    const { count } = await this.prisma.device.updateMany({
+      where: { id, status: DEVICE_STATUS.LOST },
+      data: {
+        status:
+          current.currentUserId === null
+            ? DEVICE_STATUS.IN_STOCK
+            : DEVICE_STATUS.ALLOCATED,
+      },
+    });
+    if (count === 0) throw new BadRequestException(DEVICE_NOT_LOST);
+    return this.getById(id);
   }
 
   /** Dọn thùng rác: xoá cứng — chỉ những id đã ở Status "Đã xóa", id khác bị bỏ qua. */

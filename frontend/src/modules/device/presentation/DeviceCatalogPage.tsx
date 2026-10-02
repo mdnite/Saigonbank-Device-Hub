@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, MoreVertical, Plus, Upload } from 'lucide-react';
 import { useSession } from '@/app/session/SessionContext';
-import { canDeleteDevices, canWriteDevices } from '@/modules/auth/domain/session';
+import { canDeleteDevices, canMarkDeviceFound, canWriteDevices } from '@/modules/auth/domain/session';
 import { PageHeader } from '@/shared/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
@@ -24,6 +24,7 @@ export function DeviceCatalogPage() {
   const { session } = useSession();
   const canWrite = canWriteDevices(session);
   const canDelete = canDeleteDevices(session);
+  const canMarkFound = canMarkDeviceFound(session);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<DeviceStatus | ''>('');
   const [reloadKey, setReloadKey] = useState(0);
@@ -34,6 +35,12 @@ export function DeviceCatalogPage() {
     // ponytail: confirm native của trình duyệt — đổi sang Modal khi shared/ui có.
     if (!window.confirm(`Xoá thiết bị ${d.deviceCode}?`)) return;
     await deviceService.remove(d.id);
+    setReloadKey((k) => k + 1);
+  });
+
+  const markFound = useAsyncAction(async (d: Device) => {
+    if (!window.confirm(`Xác nhận đã tìm thấy thiết bị ${d.deviceCode}?`)) return;
+    await deviceService.markFound(d.id);
     setReloadKey((k) => k + 1);
   });
 
@@ -71,6 +78,11 @@ export function DeviceCatalogPage() {
       cell: (d) =>
         !canWrite ? null : (
           <div className="flex justify-end gap-1 text-ink-muted">
+            {canMarkFound && d.status === DEVICE_STATUS.LOST && (
+              <Button size="sm" variant="outline" disabled={markFound.pending} onClick={() => void markFound.run(d)}>
+                Tìm thấy
+              </Button>
+            )}
             {canDelete && (
               <button
                 type="button"
@@ -151,8 +163,8 @@ export function DeviceCatalogPage() {
           )}
         </div>
 
-        {(del.error ?? purge.error ?? error) && (
-          <p className="mb-3 text-sm text-status-dangerFg">{del.error ?? purge.error ?? error}</p>
+        {(del.error ?? purge.error ?? markFound.error ?? error) && (
+          <p className="mb-3 text-sm text-status-dangerFg">{del.error ?? purge.error ?? markFound.error ?? error}</p>
         )}
 
         <DataTable

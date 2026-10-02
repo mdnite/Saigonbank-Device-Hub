@@ -16,6 +16,8 @@ export interface DeviceRepository {
   remove(id: number): Promise<void>;
   /** Xoá cứng hàng loạt (dọn thùng rác) — chỉ xoá được thiết bị đã ở Status "Đã xóa". */
   purge(ids: number[]): Promise<number>;
+  /** Máy "Thất lạc" được tìm thấy — về Đã cấp phát (còn người giữ) hoặc Trong kho. */
+  markFound(id: number): Promise<Device>;
   deviceTypes(): Promise<DeviceTypeRef[]>;
 }
 
@@ -45,6 +47,7 @@ export function makeDeviceService(repo: DeviceRepository) {
     },
     remove: (id: number) => repo.remove(id),
     purge: (ids: number[]) => repo.purge(ids),
+    markFound: (id: number) => repo.markFound(id),
     deviceTypes: () => repo.deviceTypes(),
   };
 }

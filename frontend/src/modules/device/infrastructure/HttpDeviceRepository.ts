@@ -44,6 +44,9 @@ export class HttpDeviceRepository implements DeviceRepository {
     const res = await apiPost<{ count: number }>('/devices/purge', { ids });
     return res.count;
   }
+  markFound(id: number): Promise<Device> {
+    return apiPost<Device>(`/devices/${id}/found`, undefined);
+  }
   deviceTypes(): Promise<DeviceTypeRef[]> {
     return apiGet<DeviceTypeRef[]>('/device-types');
   }

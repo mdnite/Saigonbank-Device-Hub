@@ -7,5 +7,6 @@ export const STATUS_TONE: Record<DeviceStatus, BadgeTone> = {
   [DEVICE_STATUS.ALLOCATED]: 'info',
   [DEVICE_STATUS.PENDING_APPROVAL]: 'neutral',
   [DEVICE_STATUS.PENDING_DISPOSAL]: 'warn',
+  [DEVICE_STATUS.LOST]: 'danger',
   [DEVICE_STATUS.DELETED]: 'danger',
 };

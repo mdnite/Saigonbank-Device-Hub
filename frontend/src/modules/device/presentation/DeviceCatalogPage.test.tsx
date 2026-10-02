@@ -105,3 +105,47 @@ it('Quản trị viên chỉ xem: không Thêm, không Xoá, không Xem chi ti�
   await waitFor(() => expect(screen.getByText('PC-000009')).toBeInTheDocument());
   expect(screen.queryByRole('button', { name: 'Dọn thùng rác' })).toBeNull();
 });
+
+it('Trưởng phòng Kỹ thuật: máy "Thất lạc" có nút "Tìm thấy" → POST /devices/:id/found rồi tải lại', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  localStorage.setItem(
+    'idsm.session',
+    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName: 'Trưởng phòng', departmentCode: 'KYTHUAT' }),
+  );
+  let found = false;
+  const fetchMock = vi.fn().mockImplementation((url: string) => {
+    if (url.endsWith('/devices/3/found')) {
+      found = true;
+      return envelope({ ...device(3, 'LT-000003'), status: 'Đã cấp phát' });
+    }
+    return envelope([{ ...device(3, 'LT-000003'), status: found ? 'Đã cấp phát' : 'Thất lạc' }]);
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  render(
+    <SessionProvider>
+      <MemoryRouter>
+        <DeviceCatalogPage />
+      </MemoryRouter>
+    </SessionProvider>,
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Tìm thấy' }));
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Tìm thấy' })).toBeNull());
+  expect(fetchMock.mock.calls.some((c) => (c[0] as string).endsWith('/devices/3/found'))).toBe(true);
+});
+
+it('Cộng tác viên Kỹ thuật: không thấy "Tìm thấy" trên máy Thất lạc', async () => {
+  localStorage.setItem(
+    'idsm.session',
+    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName: 'Cộng tác viên', departmentCode: 'KYTHUAT' }),
+  );
+  vi.stubGlobal('fetch', vi.fn().mockImplementation(() => envelope([{ ...device(3, 'LT-000003'), status: 'Thất lạc' }])));
+  render(
+    <SessionProvider>
+      <MemoryRouter>
+        <DeviceCatalogPage />
+      </MemoryRouter>
+    </SessionProvider>,
+  );
+  await screen.findByText('LT-000003');
+  expect(screen.queryByRole('button', { name: 'Tìm thấy' })).toBeNull();
+});

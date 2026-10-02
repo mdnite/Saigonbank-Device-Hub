@@ -163,6 +163,16 @@ describe('Users: /users, /roles, /departments', () => {
         ),
       ).toBe(false);
     });
+
+    it('active=true: chỉ user đang hoạt động', async () => {
+      const res = await http()
+        .get('/users/lookup?active=true')
+        .set('Authorization', tokenOf(staff))
+        .expect(200);
+      expect(
+        res.body.data.map((u: { username: string }) => u.username),
+      ).toEqual(['admin', 'staff']);
+    });
   });
 
   describe('GET /users', () => {

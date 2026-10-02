@@ -400,8 +400,17 @@ export class AuditsService {
       select: { id: true },
     });
     if (found.length !== ids.length) {
+      const ok = new Set(found.map((u) => u.id));
+      const bad = ids.filter((id) => !ok.has(id));
+      const users = await this.prisma.user.findMany({
+        where: { id: { in: bad } },
+        select: { id: true, fullName: true },
+      });
+      const names = bad.map(
+        (id) => users.find((u) => u.id === id)?.fullName ?? `#${id}`,
+      );
       throw new BadRequestException(
-        'Thành viên tham gia không hợp lệ hoặc đã ngừng hoạt động',
+        `Thành viên tham gia không hợp lệ hoặc đã ngừng hoạt động: ${names.join(', ')}`,
       );
     }
   }

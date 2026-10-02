@@ -294,7 +294,15 @@ describe('Kiểm kê: /audits', () => {
       const locked = addUser('locked', 3, 2, USER_STATUS.INACTIVE);
       const res = await schedule({ memberIds: [locked.id] }).expect(400);
       expect(res.body.message).toBe(
-        'Thành viên tham gia không hợp lệ hoặc đã ngừng hoạt động',
+        `Thành viên tham gia không hợp lệ hoặc đã ngừng hoạt động: ${locked.fullName}`,
+      );
+    });
+
+    it('thành viên không tồn tại: thông báo nêu #id', async () => {
+      allocatedTo(techStaff);
+      const res = await schedule({ memberIds: [9999] }).expect(400);
+      expect(res.body.message).toBe(
+        'Thành viên tham gia không hợp lệ hoặc đã ngừng hoạt động: #9999',
       );
     });
 

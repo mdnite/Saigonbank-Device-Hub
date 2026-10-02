@@ -231,11 +231,14 @@ export class UsersService {
 
   /**
    * Danh sách rút gọn cho dropdown "Người sở hữu" của form thiết bị.
+   * `activeOnly` (query `active=true`): chỉ user đang hoạt động, cho picker thành viên kiểm kê.
    * `select` chỉ 3 cột: đây KHÔNG phải cửa sau để đọc lại toàn bộ danh sách user.
    */
-  userLookup() {
+  userLookup(activeOnly = false) {
     return this.prisma.user.findMany({
-      where: { status: { not: USER_STATUS.DELETED } },
+      where: {
+        status: activeOnly ? USER_STATUS.ACTIVE : { not: USER_STATUS.DELETED },
+      },
       select: { id: true, fullName: true, username: true },
       orderBy: { id: 'asc' },
     });

@@ -11,10 +11,18 @@ import { USER_STATUS } from '../identity/user-status';
 import { MAX_INT32 } from '../users/users.dto';
 import {
   AUDIT_NOT_FOUND,
+  AUDIT_RESULT,
+  AUDIT_STATUS,
+  AUDIT_WRONG_STATE,
+  LINE_NOT_FOUND,
   OPEN_AUDIT_STATUSES,
   WAREHOUSE_UNIT_NAME,
 } from './audit-status';
-import type { CreateAuditDto, ListAuditsQuery } from './audits.dto';
+import type {
+  CreateAuditDto,
+  ListAuditsQuery,
+  UpdateAuditLineDto,
+} from './audits.dto';
 
 export const DETAIL_INCLUDE = {
   createdBy: true,
@@ -204,6 +212,123 @@ export class AuditsService {
     return toDetail(audit);
   }
 
+  async start(id: number) {
+    await this.findAudit(id);
+    await this.transition(this.prisma, id, AUDIT_STATUS.NOT_STARTED, {
+      status: AUDIT_STATUS.IN_PROGRESS,
+      startedAt: new Date(),
+    });
+    return this.getById(id);
+  }
+
+  /** Huỷ chỉ khi chưa bắt đầu — đợt lập nhầm nhả máy cho đợt khác. */
+  async cancel(id: number) {
+    await this.findAudit(id);
+    await this.transition(this.prisma, id, AUDIT_STATUS.NOT_STARTED, {
+      status: AUDIT_STATUS.CANCELLED,
+    });
+    return this.getById(id);
+  }
+
+  async setMembers(id: number, userIds: number[]) {
+    const audit = await this.findAudit(id);
+    this.requireStatus(audit, [
+      AUDIT_STATUS.NOT_STARTED,
+      AUDIT_STATUS.IN_PROGRESS,
+    ]);
+    await this.requireActiveUsers(userIds);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.auditMember.deleteMany({ where: { auditId: id } });
+      if (userIds.length > 0) {
+        await tx.auditMember.createMany({
+          data: userIds.map((userId) => ({ auditId: id, userId })),
+        });
+      }
+    });
+    return this.getById(id);
+  }
+
+  async updateItem(id: number, itemId: number, dto: UpdateAuditLineDto) {
+    const audit = await this.findAudit(id);
+    this.requireStatus(audit, [AUDIT_STATUS.IN_PROGRESS]);
+    if (!audit.items.some((i) => i.id === itemId)) {
+      throw new NotFoundException(LINE_NOT_FOUND);
+    }
+    await this.prisma.auditItem.update({
+      where: { id: itemId },
+      data: { result: dto.result, note: dto.note },
+    });
+    return this.getById(id);
+  }
+
+  async updateAccessory(
+    id: number,
+    accessoryId: number,
+    dto: UpdateAuditLineDto,
+  ) {
+    const audit = await this.findAudit(id);
+    this.requireStatus(audit, [AUDIT_STATUS.IN_PROGRESS]);
+    if (
+      !audit.items.some((i) => i.accessories.some((a) => a.id === accessoryId))
+    ) {
+      throw new NotFoundException(LINE_NOT_FOUND);
+    }
+    await this.prisma.auditItemAccessory.update({
+      where: { id: accessoryId },
+      data: { result: dto.result, note: dto.note },
+    });
+    return this.getById(id);
+  }
+
+  /** "Ghi Đủ cho dòng chưa đếm" — không đè dòng đã có kết quả. */
+  async markUncountedOk(id: number) {
+    const audit = await this.findAudit(id);
+    this.requireStatus(audit, [AUDIT_STATUS.IN_PROGRESS]);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.auditItem.updateMany({
+        where: { auditId: id, result: null },
+        data: { result: AUDIT_RESULT.OK },
+      });
+      await tx.auditItemAccessory.updateMany({
+        where: {
+          auditItemId: { in: audit.items.map((i) => i.id) },
+          result: null,
+        },
+        data: { result: AUDIT_RESULT.OK },
+      });
+    });
+    return this.getById(id);
+  }
+
+  async submit(id: number) {
+    const audit = await this.findAudit(id);
+    this.requireStatus(audit, [AUDIT_STATUS.IN_PROGRESS]);
+    const { totalLines, countedLines } = countLines(audit.items);
+    if (countedLines < totalLines) {
+      throw new BadRequestException(
+        `Còn ${totalLines - countedLines} dòng chưa có kết quả kiểm kê`,
+      );
+    }
+    await this.transition(this.prisma, id, AUDIT_STATUS.IN_PROGRESS, {
+      status: AUDIT_STATUS.PENDING,
+      submittedAt: new Date(),
+      rejectReason: null,
+    });
+    return this.getById(id);
+  }
+
+  /** Từ chối KHÔNG kết thúc đợt: trả về Đang kiểm kê để CTV sửa rồi gửi lại (#13). */
+  async reject(id: number, decidedById: number, reason: string) {
+    await this.findAudit(id);
+    await this.transition(this.prisma, id, AUDIT_STATUS.PENDING, {
+      status: AUDIT_STATUS.IN_PROGRESS,
+      rejectReason: reason,
+      decidedById,
+      decidedAt: new Date(),
+    });
+    return this.getById(id);
+  }
+
   // --- helpers ---------------------------------------------------------
 
   /** Thiết bị không còn cột phòng ban: thuộc đơn vị = đang cấp cho người của phòng đó (#5). */
@@ -277,6 +402,27 @@ export class AuditsService {
       throw new BadRequestException(
         'Thành viên tham gia không hợp lệ hoặc đã ngừng hoạt động',
       );
+    }
+  }
+
+  /** Ghi có điều kiện status = `from` ngay trong câu update: 2 request gần như đồng thời không
+   *  cùng lọt (đọc-rồi-ghi không atomic). count = 0 → đợt đã bị xử lý giữa chừng. */
+  protected async transition(
+    tx: Pick<PrismaService, 'audit'>,
+    id: number,
+    from: string,
+    data: Prisma.AuditUncheckedUpdateManyInput,
+  ) {
+    const { count } = await tx.audit.updateMany({
+      where: { id, status: from },
+      data,
+    });
+    if (count === 0) throw new BadRequestException(AUDIT_WRONG_STATE);
+  }
+
+  protected requireStatus(audit: { status: string }, allowed: string[]) {
+    if (!allowed.includes(audit.status)) {
+      throw new BadRequestException(AUDIT_WRONG_STATE);
     }
   }
 

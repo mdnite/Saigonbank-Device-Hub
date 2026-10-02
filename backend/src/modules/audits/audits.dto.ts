@@ -6,6 +6,7 @@ import {
   IsDefined,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
@@ -14,7 +15,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { MAX_INT32 } from '../users/users.dto';
-import { AUDIT_PURPOSE, AUDIT_STATUS } from './audit-status';
+import { AUDIT_PURPOSE, AUDIT_RESULT, AUDIT_STATUS } from './audit-status';
 
 export const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
@@ -69,4 +70,39 @@ export class CreateAuditDto {
   @Min(1, { each: true, message: 'Thành viên không hợp lệ' })
   @Max(MAX_INT32, { each: true, message: 'Thành viên không hợp lệ' })
   memberIds?: number[];
+}
+
+export class UpdateAuditLineDto {
+  @IsOptional()
+  @IsIn(Object.values(AUDIT_RESULT), {
+    message: 'Kết quả kiểm kê không hợp lệ',
+  })
+  result?: string;
+
+  /** Chuỗi rỗng = xoá ghi chú (lưu null). */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
+  @IsString()
+  @MaxLength(255)
+  note?: string | null;
+}
+
+export class SetAuditMembersDto {
+  @IsArray()
+  @ArrayUnique({ message: 'Danh sách thành viên bị trùng' })
+  @Type(() => Number)
+  @IsInt({ each: true, message: 'Thành viên không hợp lệ' })
+  @Min(1, { each: true, message: 'Thành viên không hợp lệ' })
+  @Max(MAX_INT32, { each: true, message: 'Thành viên không hợp lệ' })
+  userIds!: number[];
+}
+
+export class RejectAuditDto {
+  @Transform(trim)
+  @IsString()
+  @IsNotEmpty({ message: 'Vui lòng nhập lý do từ chối' })
+  @MaxLength(255)
+  reason!: string;
 }

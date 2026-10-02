@@ -102,6 +102,20 @@ describe('Kiểm kê: /audits', () => {
         ...body,
       });
 
+  const as = (user: User) => ({ Authorization: tokenOf(user) });
+  /** Lập lịch 1 đợt phòng Kỹ thuật có 1 máy (kèm 1 linh kiện nếu withAccessory) và trả về chi tiết. */
+  async function newAudit(withAccessory = true) {
+    const d = allocatedTo(techStaff);
+    if (withAccessory) addAccessory(d.id, `SAC-${d.id}`);
+    const res = await schedule().expect(201);
+    return res.body.data as {
+      id: number;
+      items: { id: number; deviceId: number; accessories: { id: number }[] }[];
+    };
+  }
+  const post = (path: string, user: User, body?: object) =>
+    http().post(path).set(as(user)).send(body);
+
   let admin: User;
   let techHead: User;
   let techCollab: User;
@@ -379,6 +393,206 @@ describe('Kiểm kê: /audits', () => {
         .set('Authorization', tokenOf(acctCollab))
         .expect(200);
       expect(res.body.data).toEqual(['Kho chính', 'Tầng 3']);
+    });
+  });
+
+  describe('vòng đời', () => {
+    it('Bắt đầu: Chưa kiểm kê → Đang kiểm kê; bấm lần 2: 400; TP: 403', async () => {
+      const a = await newAudit();
+      const res = await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      expect(res.body.data.status).toBe('Đang kiểm kê');
+      expect(res.body.data.startedAt).not.toBeNull();
+      expect(res.body.message).toBe('Đã bắt đầu kiểm kê');
+      const again = await post(`/audits/${a.id}/start`, acctCollab).expect(400);
+      expect(again.body.message).toBe(
+        'Đợt kiểm kê đã được xử lý hoặc không ở trạng thái phù hợp',
+      );
+      await post(`/audits/${a.id}/start`, acctHead).expect(403);
+    });
+
+    it('Huỷ: chỉ khi Chưa kiểm kê, nhả máy cho đợt mới', async () => {
+      const a = await newAudit();
+      const res = await post(`/audits/${a.id}/cancel`, acctCollab).expect(201);
+      expect(res.body.data.status).toBe('Đã hủy');
+      await schedule().expect(201); // cùng máy, lập lại được
+
+      const b = (await http().get('/audits').set(as(acctCollab))).body.data[0];
+      await post(`/audits/${b.id}/start`, acctCollab).expect(201);
+      await post(`/audits/${b.id}/cancel`, acctCollab).expect(400);
+    });
+
+    it('Nhập kết quả + ghi chú từng dòng; ghi chú rỗng → null', async () => {
+      const a = await newAudit();
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      const itemId = a.items[0].id;
+      const accId = a.items[0].accessories[0].id;
+
+      let res = await http()
+        .patch(`/audits/${a.id}/items/${itemId}`)
+        .set(as(acctCollab))
+        .send({ result: 'Thiếu', note: '  không thấy  ' })
+        .expect(200);
+      expect(res.body.data.items[0]).toMatchObject({
+        result: 'Thiếu',
+        note: 'không thấy',
+      });
+
+      res = await http()
+        .patch(`/audits/${a.id}/items/${itemId}`)
+        .set(as(acctCollab))
+        .send({ note: '' })
+        .expect(200);
+      expect(res.body.data.items[0]).toMatchObject({
+        result: 'Thiếu',
+        note: null,
+      });
+
+      res = await http()
+        .patch(`/audits/${a.id}/accessories/${accId}`)
+        .set(as(acctCollab))
+        .send({ result: 'Hỏng' })
+        .expect(200);
+      expect(res.body.data.items[0].accessories[0].result).toBe('Hỏng');
+      expect(res.body.data.countedLines).toBe(2);
+    });
+
+    it('Nhập khi chưa bắt đầu: 400; kết quả lạ: 400; dòng của đợt khác: 404', async () => {
+      const a = await newAudit();
+      const itemId = a.items[0].id;
+      await http()
+        .patch(`/audits/${a.id}/items/${itemId}`)
+        .set(as(acctCollab))
+        .send({ result: 'Đủ' })
+        .expect(400);
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      const bad = await http()
+        .patch(`/audits/${a.id}/items/${itemId}`)
+        .set(as(acctCollab))
+        .send({ result: 'Mất' })
+        .expect(400);
+      expect(bad.body.message).toContain('Kết quả kiểm kê không hợp lệ');
+
+      addDevice({ id: 50, deviceCode: 'PC-000050' }); // máy Kho cho đợt thứ 2
+      const other = (await schedule({ departmentId: null }).expect(201)).body
+        .data;
+      const res = await http()
+        .patch(`/audits/${a.id}/items/${other.items[0].id}`)
+        .set(as(acctCollab))
+        .send({ result: 'Đủ' })
+        .expect(404);
+      expect(res.body.message).toBe('Dòng kiểm kê không tồn tại');
+      await http()
+        .patch(`/audits/${a.id}/accessories/9999`)
+        .set(as(acctCollab))
+        .send({ result: 'Đủ' })
+        .expect(404);
+    });
+
+    it('Ghi Đủ cho dòng chưa đếm: không đè dòng đã có kết quả', async () => {
+      const a = await newAudit();
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await http()
+        .patch(`/audits/${a.id}/items/${a.items[0].id}`)
+        .set(as(acctCollab))
+        .send({ result: 'Hỏng' })
+        .expect(200);
+      const res = await post(
+        `/audits/${a.id}/mark-uncounted-ok`,
+        acctCollab,
+      ).expect(201);
+      expect(res.body.data.items[0].result).toBe('Hỏng');
+      expect(res.body.data.items[0].accessories[0].result).toBe('Đủ');
+      expect(res.body.data.countedLines).toBe(res.body.data.totalLines);
+    });
+
+    it('Đợt không có linh kiện nào: Ghi Đủ rồi Gửi duyệt vẫn chạy', async () => {
+      const a = await newAudit(false);
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/mark-uncounted-ok`, acctCollab).expect(201);
+      const res = await post(`/audits/${a.id}/submit`, acctCollab).expect(201);
+      expect(res.body.data.status).toBe('Chờ duyệt');
+    });
+
+    it('Gửi duyệt khi còn dòng chưa đếm: 400 nêu số dòng', async () => {
+      const a = await newAudit();
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await http()
+        .patch(`/audits/${a.id}/items/${a.items[0].id}`)
+        .set(as(acctCollab))
+        .send({ result: 'Đủ' })
+        .expect(200);
+      const res = await post(`/audits/${a.id}/submit`, acctCollab).expect(400);
+      expect(res.body.message).toBe('Còn 1 dòng chưa có kết quả kiểm kê');
+    });
+
+    it('Gửi duyệt → Chờ duyệt, khoá nhập; Từ chối (TP) → Đang kiểm kê + lý do; gửi lại xoá lý do', async () => {
+      const a = await newAudit();
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/mark-uncounted-ok`, acctCollab).expect(201);
+      const sent = await post(`/audits/${a.id}/submit`, acctCollab).expect(201);
+      expect(sent.body.data.status).toBe('Chờ duyệt');
+      expect(sent.body.message).toBe('Đã gửi duyệt');
+      await http()
+        .patch(`/audits/${a.id}/items/${a.items[0].id}`)
+        .set(as(acctCollab))
+        .send({ result: 'Thiếu' })
+        .expect(400);
+
+      await post(`/audits/${a.id}/reject`, acctCollab, { reason: 'x' }).expect(
+        403,
+      );
+      const noReason = await post(`/audits/${a.id}/reject`, acctHead, {
+        reason: '  ',
+      }).expect(400);
+      expect(noReason.body.message).toContain('Vui lòng nhập lý do từ chối');
+
+      const rejected = await post(`/audits/${a.id}/reject`, acctHead, {
+        reason: 'Đếm lại tầng 3',
+      }).expect(201);
+      expect(rejected.body.data).toMatchObject({
+        status: 'Đang kiểm kê',
+        rejectReason: 'Đếm lại tầng 3',
+      });
+      expect(rejected.body.data.decidedBy.id).toBe(acctHead.id);
+
+      const resent = await post(`/audits/${a.id}/submit`, acctCollab).expect(
+        201,
+      );
+      expect(resent.body.data.rejectReason).toBeNull();
+    });
+
+    it('Thành viên: thay toàn bộ; user ngừng hoạt động: 400; sau khi gửi duyệt: 400', async () => {
+      const a = await newAudit();
+      let res = await http()
+        .put(`/audits/${a.id}/members`)
+        .set(as(acctCollab))
+        .send({ userIds: [techStaff.id, acctHead.id] })
+        .expect(200);
+      expect(
+        res.body.data.members.map((m: { id: number }) => m.id).sort(),
+      ).toEqual([techStaff.id, acctHead.id].sort());
+      res = await http()
+        .put(`/audits/${a.id}/members`)
+        .set(as(acctCollab))
+        .send({ userIds: [] })
+        .expect(200);
+      expect(res.body.data.members).toEqual([]);
+
+      const locked = addUser('locked2', 3, 1, USER_STATUS.INACTIVE);
+      await http()
+        .put(`/audits/${a.id}/members`)
+        .set(as(acctCollab))
+        .send({ userIds: [locked.id] })
+        .expect(400);
+
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/mark-uncounted-ok`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/submit`, acctCollab).expect(201);
+      await http()
+        .put(`/audits/${a.id}/members`)
+        .set(as(acctCollab))
+        .send({ userIds: [techStaff.id] })
+        .expect(400);
     });
   });
 });

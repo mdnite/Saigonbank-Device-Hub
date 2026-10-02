@@ -1,7 +1,8 @@
 # IDSM Backend
 
-NestJS 11 + Prisma 7 + PostgreSQL (17 qua Docker, hoặc bản cài sẵn trên máy). Đợt hiện tại: module
-`identity` (đăng nhập, quên mật khẩu) và `devices` (CRUD thiết bị, xoá mềm — xem mục API bên dưới).
+NestJS 11 + Prisma 7 + PostgreSQL (17 qua Docker, hoặc bản cài sẵn trên máy). Các module: `identity`
+(đăng nhập, quên mật khẩu), `users` (quản lý người dùng), `devices` (CRUD thiết bị, xoá mềm),
+`device-orders` (đơn Cấp phát / Thu hồi) và `device-transfers` (lệnh Điều chuyển) — xem mục API bên dưới.
 Đăng xuất xử lý thuần phía FE (JWT stateless) nên không có endpoint.
 
 Project pnpm độc lập — **không** nằm trong npm workspace ở gốc repo. Chạy mọi lệnh bên trong `backend/`.
@@ -31,18 +32,21 @@ Cần role `idms` / `idms_dev` và database `internal_device_management` (khớp
 ```bash
 cp .env.example .env            # điền RESEND_API_KEY thật (+ DEV_USER_EMAIL nếu muốn test quên mật khẩu)
 pnpm install
-npx prisma migrate dev          # áp dụng prisma/migrations (4 bảng Role, Department, User, PasswordResetToken)
-npx prisma db seed              # dev-only: admin / Admin@123 (+ dev / Dev@1234 nếu có DEV_USER_EMAIL)
+npx prisma migrate dev          # áp dụng prisma/migrations (hoặc `pnpm db:setup` = migrate deploy + seed)
+npx prisma db seed              # dev-only, xem tài khoản bên dưới
 pnpm start:dev                  # http://localhost:3000 — frontend (localhost:5173) gọi vào đây
 pnpm test
 ```
 
 Không có `pnpm` cài global thì thay `pnpm` bằng `npx -y pnpm@10`.
 
+- **Tài khoản seed:** `admin` / `Admin@123` (Quản trị viên), `truongphong.kt` / `Head@1234`
+  (Trưởng phòng, `KYTHUAT`), `ctv.kt` / `Collab@1234` (Cộng tác viên, `KYTHUAT`), thêm `dev` / `Dev@1234`
+  nếu có `DEV_USER_EMAIL`. Seed từ chối chạy khi `NODE_ENV=production`.
 - **Seed:** idempotent, chạy lại không đổi mật khẩu user đã có (user `dev` chỉ được cập nhật email).
   `DEV_USER_EMAIL` nên là email chủ tài khoản Resend (xem Quy ước), đọc từ `.env` để không commit
   email cá nhân vào repo.
-- **Test (`pnpm test`):** `auth.spec.ts` dựng module thật (controller, service, validation, JWT, bcrypt,
+- **Test (`pnpm test`):** mỗi module có 1 file `*.spec.ts` dựng module thật (controller, service, validation, JWT, bcrypt,
   envelope) nhưng thay `PrismaService` bằng DB giả trong RAM và `MailService` bằng `jest.fn()` —
   không cần Postgres, không gửi mail thật. Tích hợp với Postgres + Resend thật được kiểm tay.
 - **CORS:** chỉ cho phép `CORS_ORIGIN` (mặc định `http://localhost:5173`).
@@ -60,8 +64,8 @@ Không có `pnpm` cài global thì thay `pnpm` bằng `npx -y pnpm@10`.
 ## API
 
 Mọi response có dạng `{ success, data, error, message }` — FE bóc `data` và hiện `message` khi lỗi
-(`frontend/src/shared/lib/apiClient.ts`). Chưa có endpoint nào yêu cầu JWT; chưa có API quản lý
-người dùng (tạo/sửa/khoá tài khoản) — hiện chỉ tạo qua seed.
+(`frontend/src/shared/lib/apiClient.ts`). Mọi endpoint ngoài `/auth/*` cần header
+`Authorization: Bearer <accessToken>`; thiếu / hết hạn / tài khoản bị khoá hoặc xoá → 401, sai quyền → 403.
 
 | Endpoint | Body | Thành công | Lỗi |
 |---|---|---|---|
@@ -87,7 +91,39 @@ lệnh điều chuyển: đọc = `ADMIN`, `TECH_HEAD`, `TECH_COLLAB`; tạo = `
 | `POST /devices` | Tạo mới — `TECH_HEAD`/`TECH_COLLAB`. Luôn ở trạng thái "Trong kho"; bỏ qua `currentUserId`/`departmentId`/`allocatedOn`/`status` trong body. `deviceCode` phải khớp `/^[A-Z]{2,4}-\d{6}$/` **và** bắt đầu bằng `prefix` của `DeviceType` đã chọn. |
 | `PATCH /devices/:id` | Sửa — `TECH_HEAD`/`TECH_COLLAB`; bỏ qua `currentUserId`/`departmentId`/`allocatedOn`/`status` (người giữ chỉ đổi qua đơn Cấp phát / Thu hồi hoặc lệnh Điều chuyển đã duyệt). Thiết bị "Đang chờ duyệt" → 400 "Thiết bị đang chờ duyệt, không thể sửa hoặc xoá". Gửi `accessories` sẽ thay thế toàn bộ danh sách linh kiện cũ (`deleteMany` + `create`). |
 | `DELETE /devices/:id` | Xoá **mềm** — chỉ `TECH_HEAD` (cũng 400 nếu "Đang chờ duyệt"). Chỉ đổi `Status` thành "Đã xóa", không bao giờ xoá row. |
+| `POST /devices/purge` | Body `ids` — xoá **cứng** các thiết bị "Đã xóa" trong danh sách, bỏ qua thiết bị còn được đơn/lệnh tham chiếu. Chỉ `TECH_HEAD`. |
 | `GET /device-types` | Danh mục loại thiết bị, chỉ đọc — seed 4 dòng (Laptop `LT`, Máy tính để bàn `PC`, Màn hình `MN`, Máy in `MI`). Chưa có màn quản lý (CRUD), chỉ có qua seed. |
+
+### Người dùng (`/users`) — chỉ `ADMIN`
+
+| Endpoint | Ghi chú |
+|---|---|
+| `GET /users` | Lọc `search`/`status`/`roleId`/`departmentId`. Mặc định ẩn "Đã xóa". Chưa phân trang. |
+| `POST /users` | `username`, `email`, `fullName`, `password` (≥ 6), `roleId`, `departmentId` (bắt buộc với Trưởng phòng / Cộng tác viên). Trùng username/email → 409. |
+| `PATCH /users/:id/status` | `status` = "Đang hoạt động" \| "Ngừng hoạt động". Không tự khoá chính mình. |
+| `DELETE /users/:id` | Xoá **mềm** (Status = "Đã xóa"). |
+| `POST /users/purge` | Body `ids` — xoá cứng user "Đã xóa" (kèm `PasswordResetToken`), bỏ qua user còn được đơn/lệnh tham chiếu. |
+| `GET /roles`, `GET /departments`, `GET /users/lookup` | Mọi user đã đăng nhập. `/users/lookup` chỉ trả `{ id, fullName, username }` của user chưa xoá — dùng cho dropdown chọn người. |
+
+### Đơn Cấp phát / Thu hồi (`/device-orders`) và lệnh Điều chuyển (`/device-transfers`)
+
+Đọc = `ADMIN`, `TECH_HEAD`, `TECH_COLLAB`; tạo = `TECH_COLLAB`; duyệt / từ chối = `TECH_HEAD`.
+Trạng thái đơn/lệnh: "Chờ duyệt" → "Đã duyệt" \| "Từ chối" (không sửa, không huỷ, không xoá).
+
+| Endpoint | Ghi chú |
+|---|---|
+| `GET /device-orders` | Lọc `type` ("Cấp phát" \| "Thu hồi"), `status`. |
+| `GET /device-transfers` | Lọc `status`. |
+| `GET /device-orders/:id`, `GET /device-transfers/:id` | Chi tiết kèm danh sách thiết bị (FE dùng để in biên bản). |
+| `POST /device-orders` | `type`, `targetUserId`, `deviceIds` (≥ 1), `note?`. Cấp phát: thiết bị phải "Trong kho"; Thu hồi: "Đã cấp phát" và đang do `targetUserId` giữ. |
+| `POST /device-transfers` | `fromUserId`, `toUserId` (khác nhau), `deviceIds` (≥ 1), `note?`. Thiết bị phải "Đã cấp phát" và đang do `fromUserId` giữ. |
+| `PATCH …/:id/approve` | Ghi trạng thái đích cho thiết bị (Cấp phát / Điều chuyển → "Đã cấp phát" cho người nhận; Thu hồi → "Trong kho"). |
+| `PATCH …/:id/reject` | Body `reason`. Trả thiết bị về trạng thái trước khi tạo. |
+
+Tạo đơn/lệnh **giữ chỗ** thiết bị: chuyển sang "Đang chờ duyệt" trong cùng transaction (ghi có điều
+kiện, chặn 2 đơn tranh cùng thiết bị); thiết bị đang chờ duyệt không vào đơn/lệnh khác, không sửa,
+không xoá. Duyệt / từ chối dùng `updateMany` có điều kiện "Chờ duyệt" → bấm 2 lần đồng thời chỉ 1
+lần thắng, lần kia 400 "Đơn đã được xử lý".
 
 ## Quy ước
 
@@ -110,6 +146,8 @@ npx -y pnpm@10 start:dev
 # cửa sổ 2
 powershell -ExecutionPolicy Bypass -File scripts/e2e-users.ps1
 powershell -ExecutionPolicy Bypass -File scripts/e2e-devices.ps1
+powershell -ExecutionPolicy Bypass -File scripts/e2e-device-orders.ps1
+powershell -ExecutionPolicy Bypass -File scripts/e2e-device-transfers.ps1
 ```
 
 Script tự sinh username theo timestamp nên chạy lại được nhiều lần và không bao giờ xoá cứng row
@@ -118,3 +156,7 @@ Script tự sinh username theo timestamp nên chạy lại được nhiều lầ
 `e2e-devices.ps1` kiểm thêm phần thiết bị trên cùng backend + PostgreSQL thật: tiền tố mã theo
 loại thiết bị, trùng mã, phân quyền theo `@Allow` (Cộng tác viên / Trưởng phòng Kỹ thuật ghi được, Quản trị viên chỉ xem), thiết bị "Đang chờ duyệt", xoá mềm, và nested write
 `PATCH` accessories (`deleteMany` + `create`) — thứ fake Prisma không mô phỏng được.
+
+`e2e-device-orders.ps1` và `e2e-device-transfers.ps1` tự tạo Trưởng phòng + Cộng tác viên Kỹ thuật
+qua API, rồi chạy trọn vòng tạo (giữ chỗ "Đang chờ duyệt") → duyệt / từ chối → kiểm trạng thái thiết
+bị trên DB thật, kèm các ca sai quyền.

@@ -37,15 +37,20 @@ Node's own global `localStorage` shadows jsdom's.
 | `dashboard` | Tổng quan (4 thẻ thống kê) | Group 2 |
 | `device` | Danh mục thiết bị (`/devices`), Thêm/sửa thiết bị (`/devices/new`, `/devices/:id/edit`) | Group 10, 14, 15 |
 | `user` | Quản lý người dùng (`/users`, `/users/new` — chỉ Quản trị viên) + Cài đặt cá nhân (`/settings`, 3 tab) | Group 7, 8, 9 (chỉ màn cài đặt) |
+| `allocation` | Đơn Cấp phát - Thu hồi (`/allocation`, `/allocation/new`), in biên bản PDF | — (theo spec, không theo Figma) |
+| `transfer` | Lệnh Điều chuyển (`/transfers`, `/transfers/new`), in biên bản PDF | — (theo spec, không theo Figma) |
 
-Not yet built (routed to a "đang phát triển" placeholder): Điều chuyển, Cấp phát - Thu hồi, Kiểm kê.
-Not routed at all: Danh sách/Tạo đơn cấp phát, Approvals Center (Group 11–13).
+Not yet built (routed to a "đang phát triển" placeholder): Kiểm kê (`/audit`).
+Approvals Center (Group 13) is not a separate screen — approve/reject sits on the `/allocation` and
+`/transfers` list rows.
 
 `auth`, the admin side of `user`, and `device` are wired to the real API in
 [`../backend/`](../backend/) (login, forgot password → OTP email → reset, logout = client-side
-token removal; `/users` list/create/lock-unlock/soft-delete; `/devices` list/create/update/soft-delete,
-write actions gated to Quản trị viên or Trưởng phòng Kỹ thuật). `dashboard` and `/settings` still
-use in-memory mocks.
+token removal; `/users` list/create/lock-unlock/soft-delete; `/devices` list/create/update/soft-delete;
+`/device-orders`, `/device-transfers`). Permissions (UI hide/show only — the backend enforces them,
+see `src/modules/auth/domain/session.ts`): Cộng tác viên Kỹ thuật adds/edits devices and creates
+orders/transfers, Trưởng phòng Kỹ thuật also deletes devices and approves/rejects, Quản trị viên
+manages users and is read-only elsewhere. `dashboard` and `/settings` still use in-memory mocks.
 
 ## Architecture — pragmatic DDD
 
@@ -54,7 +59,7 @@ Each bounded context under `src/modules/<context>/` has four layers:
 ```
 domain/          Pure models + rules. No React, no fetch. Unit-tested.
 application/     Use-case services + repository *interfaces* (ports).
-infrastructure/  Repository implementations (HTTP for auth + user admin + device, in-memory elsewhere) + container.ts (DI wiring).
+infrastructure/  Repository implementations (HTTP for auth, user admin, device, allocation, transfer; in-memory for dashboard + settings) + container.ts (DI wiring).
 presentation/    React pages, hooks, and UI-only mappings.
 ```
 

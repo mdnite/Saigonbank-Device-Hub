@@ -441,10 +441,10 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 8. **Đăng nhập có cần validate/hiển thị lỗi theo từng ô không?** — hiện chỉ 1 dòng lỗi chung,
    không có yêu cầu định dạng username, không "nhớ đăng nhập", không khoá sau N lần sai.
 
-9. **Độ phủ test** (2026-09-30: **98 test / 22 file**, `npm test` xanh) — `domain` (7 file:
+9. **Độ phủ test** (2026-10-01: **104 test / 23 file**, `npm test` xanh) — `domain` (7 file:
    `credentials`, `session`, `deviceDraft`, `userAccount`, `userSettings`, `validateOrderDraft`,
    `validateTransferDraft`), 5 `Http*Repository` (fetch giả lập), `apiClient`, `useCountdown`,
-   `SessionContext`, 2 `generateBienBan` (nội dung biên bản), và test component `Sidebar`,
+   `SessionContext`, 2 `generateBienBan` (nội dung biên bản), test guard `RequireCan`, và test component `Sidebar`,
    `DeviceCatalogPage`, `UserListPage`, `DeviceOrderListPage`, `DeviceTransferListPage`. Các page
    auth và 2 trang tạo đơn/lệnh chưa có test component.
 

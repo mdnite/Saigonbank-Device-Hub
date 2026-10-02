@@ -4,13 +4,14 @@ Internal IT device / asset management app for SaigonBank. Two top-level apps:
 
 | Folder | What it is | Status |
 |--------|-----------|--------|
-| [`frontend/`](frontend/) | React + Vite + TypeScript + Tailwind web app (pragmatic DDD), npm workspace | Auth wired to the backend; other modules on in-memory mocks |
-| [`backend/`](backend/) | NestJS 11 + Prisma 7 + PostgreSQL API, standalone pnpm project | Module `identity` (auth) implemented |
+| [`frontend/`](frontend/) | React + Vite + TypeScript + Tailwind web app (pragmatic DDD), npm workspace | Auth, users, devices, Cấp phát - Thu hồi, Điều chuyển wired to the backend; dashboard + `/settings` still in-memory mocks; Kiểm kê not built |
+| [`backend/`](backend/) | NestJS 11 + Prisma 7 + PostgreSQL API, standalone pnpm project | Modules `identity`, `users`, `devices`, `device-orders`, `device-transfers` |
 
 ## Run
 
 Login needs both apps running: PostgreSQL → backend (`:3000`) → frontend (`:5173`), each in its own
-terminal. Dev account after `npx prisma db seed`: `admin` / `Admin@123`.
+terminal. Dev accounts after `npx prisma db seed` (or `pnpm db:setup` = migrate deploy + seed): `admin` / `Admin@123`,
+`truongphong.kt` / `Head@1234` (Trưởng phòng Kỹ thuật), `ctv.kt` / `Collab@1234` (Cộng tác viên Kỹ thuật).
 
 ### Frontend
 

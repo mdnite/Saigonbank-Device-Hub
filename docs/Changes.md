@@ -1,6 +1,6 @@
 # Thay đổi cần cập nhật vào báo cáo BCTT-HKTT
 
-> Tổng hợp những điểm code thật (backend `identity` + `users` + `devices`, schema Prisma) đã khác
+> Tổng hợp những điểm code thật (backend `identity` + `users` + `devices` + `device-orders` + `device-transfers`, schema Prisma) đã khác
 > hoặc bổ sung so với bản báo cáo hiện tại. Cập nhật lần cuối: 2026-10-01.
 
 ## 1. UC-01 — Đăng nhập
@@ -144,6 +144,57 @@ Table DeviceAccessory {
   AccessoryName varchar(150) [not null]
   AccessoryType varchar(100) [not null]
   Unit varchar(20) [not null]
+}
+```
+
+## 6b. Đơn Cấp phát - Thu hồi và lệnh Điều chuyển — 4 bảng mới cho ERD (2026-09-24/25)
+- ERD 3.2.1 cần thêm **4 bảng**: `DeviceOrder`, `DeviceOrderItem`, `DeviceTransfer`,
+  `DeviceTransferItem`. Một đơn/lệnh gồm 1 hoặc nhiều thiết bị (bảng `*Item`).
+- `DeviceOrder.Type` = "Cấp phát" | "Thu hồi"; `Status` của cả hai loại = "Chờ duyệt" | "Đã duyệt" |
+  "Từ chối". Đơn/lệnh **không bao giờ bị xoá** — là hồ sơ lịch sử; không sửa, không huỷ sau khi tạo.
+- Quyền: Cộng tác viên Kỹ thuật tạo, Trưởng phòng Kỹ thuật duyệt / từ chối, Quản trị viên chỉ xem
+  (xem mục 4). Vòng đời thiết bị khi tạo / duyệt / từ chối: xem mục 6.
+- Điều chuyển chuyển thiết bị "Đã cấp phát" thẳng từ người giao (`FromUserId`) sang người nhận
+  (`ToUserId`), không qua "Trong kho".
+- Đơn/lệnh "Đã duyệt" in được **biên bản bàn giao** (PDF).
+
+```dbml
+Table DeviceOrder {
+  Id int [pk, increment]
+  Type varchar(20) [not null, note: 'Cấp phát | Thu hồi']
+  Status varchar(20) [not null, default: 'Chờ duyệt', note: 'Chờ duyệt | Đã duyệt | Từ chối']
+  TargetUserId int [not null, ref: > User.Id, note: 'người nhận (Cấp phát) / người trả (Thu hồi)']
+  Note varchar(255)
+  CreatedById int [not null, ref: > User.Id]
+  DecidedById int [ref: > User.Id]
+  DecidedAt timestamp
+  RejectReason varchar(255)
+  CreatedAt timestamp [not null, default: `now()`]
+}
+
+Table DeviceOrderItem {
+  Id int [pk, increment]
+  OrderId int [not null, ref: > DeviceOrder.Id]
+  DeviceId int [not null, ref: > Device.Id]
+}
+
+Table DeviceTransfer {
+  Id int [pk, increment]
+  Status varchar(20) [not null, default: 'Chờ duyệt', note: 'Chờ duyệt | Đã duyệt | Từ chối']
+  FromUserId int [not null, ref: > User.Id]
+  ToUserId int [not null, ref: > User.Id]
+  Note varchar(255)
+  CreatedById int [not null, ref: > User.Id]
+  DecidedById int [ref: > User.Id]
+  DecidedAt timestamp
+  RejectReason varchar(255)
+  CreatedAt timestamp [not null, default: `now()`]
+}
+
+Table DeviceTransferItem {
+  Id int [pk, increment]
+  TransferId int [not null, ref: > DeviceTransfer.Id]
+  DeviceId int [not null, ref: > Device.Id]
 }
 ```
 

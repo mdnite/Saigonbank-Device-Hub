@@ -22,6 +22,11 @@ export function AuditMembersTab({
     [editing],
   );
 
+  const [saving, setSaving] = useState(false);
+  // Thành viên hiện tại không còn trong danh sách đang hoạt động vẫn hiện (đã tick) để CTV bỏ chọn được.
+  const lookupIds = new Set((users ?? []).map((u) => u.id));
+  const stale = users ? members.filter((m) => !lookupIds.has(m.id)) : [];
+
   const startEdit = () => {
     setSelected(members.map((m) => m.id));
     setEditing(true);
@@ -33,11 +38,14 @@ export function AuditMembersTab({
     return (
       <div className="space-y-3">
         <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-line p-3">
-          {(users ?? []).map((u) => (
+          {[
+            ...stale.map((u) => ({ ...u, label: `${u.fullName} (${u.username}) — ngừng hoạt động` })),
+            ...(users ?? []).map((u) => ({ ...u, label: `${u.fullName} (${u.username})` })),
+          ].map((u) => (
             <div key={u.id}>
               <Checkbox
                 id={`member-${u.id}`}
-                label={`${u.fullName} (${u.username})`}
+                label={u.label}
                 checked={selected.includes(u.id)}
                 onChange={() => toggle(u.id)}
               />
@@ -50,9 +58,13 @@ export function AuditMembersTab({
           </Button>
           <Button
             variant="dark"
-            onClick={() =>
-              void onSave(selected).then((ok) => ok && setEditing(false))
-            }
+            disabled={saving}
+            onClick={() => {
+              setSaving(true);
+              void onSave(selected)
+                .then((ok) => ok && setEditing(false))
+                .finally(() => setSaving(false));
+            }}
           >
             Lưu thành viên
           </Button>

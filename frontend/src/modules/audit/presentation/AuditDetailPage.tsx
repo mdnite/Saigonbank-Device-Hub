@@ -41,6 +41,13 @@ export function AuditDetailPage() {
     if (mine === seq.current) setDetail(next);
   });
 
+  // PDF chỉ đọc dữ liệu hiện có — tách khỏi `act` để không ghi đè trang bằng ảnh chụp cũ.
+  const pdf = useAsyncAction(async (d: AuditDetail) => {
+    // Font DejaVu ~1MB: dynamic import để tách khỏi bundle chính, chỉ tải khi bấm.
+    const { downloadAuditReport } = await import('./print/generateAuditReport');
+    downloadAuditReport(d);
+  });
+
   if (!detail) {
     return <p className="text-sm text-ink-muted">{loadError ?? 'Đang tải…'}</p>;
   }
@@ -101,7 +108,6 @@ export function AuditDetailPage() {
             Bị từ chối: {detail.rejectReason}
           </div>
         )}
-        {act.error && <p className="mb-4 text-sm text-status-dangerFg">{act.error}</p>}
 
         <Tabs
           items={[
@@ -130,22 +136,17 @@ export function AuditDetailPage() {
           />
         )}
 
-        {act.error && <p className="mt-4 text-right text-sm text-status-dangerFg">{act.error}</p>}
+        {(act.error || pdf.error) && (
+          <p className="mt-4 text-right text-sm text-status-dangerFg">{act.error ?? pdf.error}</p>
+        )}
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <Button variant="outline" onClick={() => downloadCsv(`kiem-ke-${detail.id}.csv`, auditCsv(detail))}>
             Xuất CSV
           </Button>
           <Button
             variant="outline"
-            disabled={act.pending}
-            onClick={() =>
-              // Font DejaVu ~1MB: dynamic import để tách khỏi bundle chính, chỉ tải khi bấm.
-              void act.run(async () => {
-                const { downloadAuditReport } = await import('./print/generateAuditReport');
-                downloadAuditReport(detail);
-                return detail;
-              })
-            }
+            disabled={pdf.pending}
+            onClick={() => void pdf.run(detail)}
           >
             Xuất PDF
           </Button>

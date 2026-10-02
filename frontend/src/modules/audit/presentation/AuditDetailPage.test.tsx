@@ -175,6 +175,29 @@ it('lưu thành viên lỗi: form vẫn mở, giữ lựa chọn và hiện lỗ
   expect(box).toBeChecked();
   fireEvent.click(box);
   fireEvent.click(screen.getByRole('button', { name: 'Lưu thành viên' }));
-  expect((await screen.findAllByText('Thành viên không hợp lệ')).length).toBeGreaterThan(0);
+  expect(await screen.findByText('Thành viên không hợp lệ')).toBeInTheDocument();
   expect(screen.getByLabelText('Nguyễn Văn A (a)')).not.toBeChecked();
+});
+
+it('thành viên ngừng hoạt động vẫn hiện, bỏ chọn rồi lưu thì PUT không còn id đó', async () => {
+  renderPage('Cộng tác viên', detail());
+  await screen.findByText(/Kiểm kê thiết bị tại/);
+  const put = vi.fn();
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation((u: string, init?: RequestInit) => {
+      if (init?.method === 'PUT') {
+        put(JSON.parse(String(init.body)));
+        return envelope(detail({ members: [] }));
+      }
+      return envelope(u.includes('/users/lookup') ? [{ id: 8, fullName: 'Lê C', username: 'c' }] : detail());
+    }),
+  );
+  fireEvent.click(screen.getByText('Thành viên tham gia'));
+  fireEvent.click(screen.getByRole('button', { name: 'Sửa thành viên' }));
+  const stale = await screen.findByLabelText('Nguyễn Văn A (a) — ngừng hoạt động');
+  expect(stale).toBeChecked();
+  fireEvent.click(stale);
+  fireEvent.click(screen.getByRole('button', { name: 'Lưu thành viên' }));
+  await waitFor(() => expect(put).toHaveBeenCalledWith({ userIds: [] }));
 });

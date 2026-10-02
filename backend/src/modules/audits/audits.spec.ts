@@ -733,4 +733,140 @@ describe('Kiểm kê: /audits', () => {
       await post('/devices/999/found', techHead).expect(404);
     });
   });
+
+  describe('/audit-summaries', () => {
+    async function twoApprovedAudits() {
+      const a1 = allocatedTo(techStaff);
+      const a2 = allocatedTo(techStaff);
+      const first = await submittedAudit([a1, a2], ['Đủ', 'Thiếu']);
+      await post(`/audits/${first}/approve`, acctHead).expect(201);
+      const stock = addDevice({ deviceTypeId: 2 });
+      const second = await submittedAudit([stock], ['Hỏng'], null);
+      await post(`/audits/${second}/approve`, acctHead).expect(201);
+      return [first, second];
+    }
+
+    it('CTV Kế toán lập bảng từ các đợt Đã duyệt; chi tiết có ma trận', async () => {
+      const ids = await twoApprovedAudits();
+      const res = await post('/audit-summaries', acctCollab, {
+        title: '  Kiểm kê quý 3  ',
+        purpose: 'Định kỳ',
+        auditIds: ids,
+      }).expect(201);
+      expect(res.body.message).toBe('Đã lập bảng tổng hợp');
+      const s = res.body.data;
+      expect(s).toMatchObject({
+        title: 'Kiểm kê quý 3',
+        purpose: 'Định kỳ',
+        auditCount: 2,
+      });
+      expect(s.createdBy.id).toBe(acctCollab.id);
+      expect(s.audits.map((a: { id: number }) => a.id)).toEqual(ids);
+      expect(s.matrix).toEqual([
+        {
+          unitName: 'Kho',
+          deviceTypeName: 'Máy tính để bàn',
+          total: 1,
+          ok: 0,
+          missing: 0,
+          broken: 1,
+        },
+        {
+          unitName: 'Phòng Kỹ thuật',
+          deviceTypeName: 'Laptop',
+          total: 2,
+          ok: 1,
+          missing: 1,
+          broken: 0,
+        },
+      ]);
+
+      const list = await http()
+        .get('/audit-summaries')
+        .set(as(acctHead))
+        .expect(200);
+      expect(list.body.data).toEqual([
+        expect.objectContaining({ id: s.id, auditCount: 2 }),
+      ]);
+      const one = await http()
+        .get(`/audit-summaries/${s.id}`)
+        .set(as(acctHead))
+        .expect(200);
+      expect(one.body.data.matrix).toHaveLength(2);
+    });
+
+    it('một đợt vào được nhiều bảng tổng hợp', async () => {
+      const ids = await twoApprovedAudits();
+      await post('/audit-summaries', acctCollab, {
+        title: 'Quý 3',
+        auditIds: ids,
+      }).expect(201);
+      await post('/audit-summaries', acctCollab, {
+        title: 'Cả năm',
+        auditIds: [ids[0]],
+      }).expect(201);
+    });
+
+    it('đợt chưa Đã duyệt hoặc không tồn tại: 400 liệt kê id', async () => {
+      allocatedTo(techStaff);
+      const open = (await schedule().expect(201)).body.data.id;
+      const res = await post('/audit-summaries', acctCollab, {
+        title: 'X',
+        auditIds: [open, 999],
+      }).expect(400);
+      expect(res.body.message).toBe(
+        `Chỉ tổng hợp được đợt kiểm kê đã duyệt (không hợp lệ: #${open}, #999)`,
+      );
+    });
+
+    it('thiếu tiêu đề / không chọn đợt: 400; TP Kế toán lập: 403; Admin xem: 403; 404', async () => {
+      const t = await post('/audit-summaries', acctCollab, {
+        title: ' ',
+        auditIds: [1],
+      }).expect(400);
+      expect(t.body.message).toContain('Vui lòng nhập tiêu đề');
+      const e = await post('/audit-summaries', acctCollab, {
+        title: 'X',
+        auditIds: [],
+      }).expect(400);
+      expect(e.body.message).toContain('Vui lòng chọn ít nhất 1 đợt kiểm kê');
+      await post('/audit-summaries', acctHead, {
+        title: 'X',
+        auditIds: [1],
+      }).expect(403);
+      await http().get('/audit-summaries').set(as(admin)).expect(403);
+      const nf = await http()
+        .get('/audit-summaries/77')
+        .set(as(acctHead))
+        .expect(404);
+      expect(nf.body.message).toBe('Bảng tổng hợp không tồn tại');
+    });
+  });
+
+  describe('dọn thùng rác bỏ qua dữ liệu kiểm kê', () => {
+    it('thiết bị đã nằm trong một đợt: /devices/purge không xoá cứng', async () => {
+      const d = allocatedTo(techStaff);
+      await schedule().expect(201);
+      d.status = 'Đã xóa';
+      const res = await post('/devices/purge', techHead, {
+        ids: [d.id],
+      }).expect(201);
+      expect(res.body.data.count).toBe(0);
+      expect(prisma.devices.some((x) => x.id === d.id)).toBe(true);
+    });
+
+    it('user lập đợt / thành viên: /users/purge bỏ qua', async () => {
+      const member = addUser('member', 3, 1);
+      allocatedTo(techStaff);
+      const id = (await schedule({ memberIds: [member.id] }).expect(201)).body
+        .data.id;
+      expect(id).toBeGreaterThan(0);
+      for (const u of [acctCollab, member]) u.status = USER_STATUS.DELETED;
+      const res = await post('/users/purge', admin, {
+        ids: [acctCollab.id, member.id],
+      }).expect(201);
+      expect(res.body.data.count).toBe(0);
+      expect(prisma.users.some((u) => u.id === member.id)).toBe(true);
+    });
+  });
 });

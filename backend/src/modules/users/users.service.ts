@@ -180,6 +180,21 @@ export class UsersService {
           decidedById: true,
         },
       });
+      // Kiểm kê: người lập / duyệt đợt, thành viên tham gia, người lập bảng tổng hợp — đều FK RESTRICT.
+      const referencedAudits = await tx.audit.findMany({
+        where: {
+          OR: [{ createdById: { in: ids } }, { decidedById: { in: ids } }],
+        },
+        select: { createdById: true, decidedById: true },
+      });
+      const memberships = await tx.auditMember.findMany({
+        where: { userId: { in: ids } },
+        select: { userId: true },
+      });
+      const summaries = await tx.auditSummary.findMany({
+        where: { createdById: { in: ids } },
+        select: { createdById: true },
+      });
       const blocked = new Set<number>();
       for (const o of referencedOrders) {
         blocked.add(o.targetUserId);
@@ -192,6 +207,12 @@ export class UsersService {
         blocked.add(t.createdById);
         if (t.decidedById !== null) blocked.add(t.decidedById);
       }
+      for (const a of referencedAudits) {
+        blocked.add(a.createdById);
+        if (a.decidedById !== null) blocked.add(a.decidedById);
+      }
+      for (const m of memberships) blocked.add(m.userId);
+      for (const s of summaries) blocked.add(s.createdById);
       const purgeable = ids.filter((id) => !blocked.has(id));
 
       await tx.passwordResetToken.deleteMany({

@@ -206,19 +206,26 @@ export class DevicesService {
     // DeviceOrderItem.deviceId và DeviceTransferItem.deviceId đều FK RESTRICT — thiết bị từng
     // nằm trong bất kỳ đơn/lệnh nào (đã duyệt/từ chối/còn chờ) không thể xoá cứng. Bỏ qua các
     // id đó, giống cách users.service.ts đã làm với DeviceOrder/DeviceTransfer cho /users/purge.
-    const [referencedByOrders, referencedByTransfers] = await Promise.all([
-      this.prisma.deviceOrderItem.findMany({
-        where: { deviceId: { in: ids } },
-        select: { deviceId: true },
-      }),
-      this.prisma.deviceTransferItem.findMany({
-        where: { deviceId: { in: ids } },
-        select: { deviceId: true },
-      }),
-    ]);
+    const [referencedByOrders, referencedByTransfers, referencedByAudits] =
+      await Promise.all([
+        this.prisma.deviceOrderItem.findMany({
+          where: { deviceId: { in: ids } },
+          select: { deviceId: true },
+        }),
+        this.prisma.deviceTransferItem.findMany({
+          where: { deviceId: { in: ids } },
+          select: { deviceId: true },
+        }),
+        // AuditItem.deviceId cũng RESTRICT — thiết bị từng được kiểm kê là hồ sơ lịch sử.
+        this.prisma.auditItem.findMany({
+          where: { deviceId: { in: ids } },
+          select: { deviceId: true },
+        }),
+      ]);
     const blocked = new Set([
       ...referencedByOrders.map((i) => i.deviceId),
       ...referencedByTransfers.map((i) => i.deviceId),
+      ...referencedByAudits.map((i) => i.deviceId),
     ]);
     const purgeable = ids.filter((id) => !blocked.has(id));
 

@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsDateString,
@@ -105,4 +106,25 @@ export class RejectAuditDto {
   @IsNotEmpty({ message: 'Vui lòng nhập lý do từ chối' })
   @MaxLength(255)
   reason!: string;
+}
+
+export class CreateAuditSummaryDto {
+  @Transform(trim)
+  @IsString()
+  @IsNotEmpty({ message: 'Vui lòng nhập tiêu đề' })
+  @MaxLength(150)
+  title!: string;
+
+  @IsOptional()
+  @IsIn(Object.values(AUDIT_PURPOSE), { message: 'Mục đích không hợp lệ' })
+  purpose?: string;
+
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Vui lòng chọn ít nhất 1 đợt kiểm kê' })
+  @ArrayUnique({ message: 'Danh sách đợt kiểm kê bị trùng' })
+  @Type(() => Number)
+  @IsInt({ each: true, message: 'Đợt kiểm kê không hợp lệ' })
+  @Min(1, { each: true, message: 'Đợt kiểm kê không hợp lệ' })
+  @Max(MAX_INT32, { each: true, message: 'Đợt kiểm kê không hợp lệ' })
+  auditIds!: number[];
 }

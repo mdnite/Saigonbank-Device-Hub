@@ -135,6 +135,20 @@ export function AuditDetailPage() {
           <Button variant="outline" onClick={() => downloadCsv(`kiem-ke-${detail.id}.csv`, auditCsv(detail))}>
             Xuất CSV
           </Button>
+          <Button
+            variant="outline"
+            disabled={act.pending}
+            onClick={() =>
+              // Font DejaVu ~1MB: dynamic import để tách khỏi bundle chính, chỉ tải khi bấm.
+              void act.run(async () => {
+                const { downloadAuditReport } = await import('./print/generateAuditReport');
+                downloadAuditReport(detail);
+                return detail;
+              })
+            }
+          >
+            Xuất PDF
+          </Button>
           {isCollab && status === AUDIT_STATUS.NOT_STARTED && (
             <>
               <Button variant="outline" disabled={act.pending} onClick={cancel}>

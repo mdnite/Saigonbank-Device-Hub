@@ -15,6 +15,7 @@ import { AppShell } from '@/shared/layout/AppShell';
 import { AuthLayout } from '@/shared/layout/AuthLayout';
 import { AuditHomePage } from '@/modules/audit/presentation/AuditHomePage';
 import { AuditDetailPage } from '@/modules/audit/presentation/AuditDetailPage';
+import { AuditSummaryPage } from '@/modules/audit/presentation/AuditSummaryPage';
 import { LoginPage } from '@/modules/auth/presentation/LoginPage';
 import { ForgotPasswordPage } from '@/modules/auth/presentation/ForgotPasswordPage';
 import { OtpPage } from '@/modules/auth/presentation/OtpPage';
@@ -97,6 +98,7 @@ export const router = createBrowserRouter([
             element: <RequireCan can={canAccessAudits} />,
             children: [
               { path: '/audit', element: <AuditHomePage /> },
+              { path: '/audit/summaries/:id', element: <AuditSummaryPage /> },
               { path: '/audit/:id', element: <AuditDetailPage /> },
             ],
           },

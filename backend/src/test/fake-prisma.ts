@@ -1,4 +1,10 @@
 import type {
+  Audit,
+  AuditItem,
+  AuditItemAccessory,
+  AuditMember,
+  AuditSummary,
+  AuditSummaryAudit,
   Department,
   Device,
   DeviceAccessory,
@@ -14,7 +20,7 @@ import type {
 
 // Prisma giả trong RAM cho test: chỉ hỗ trợ đúng những toán tử code đang dùng
 // (so bằng, `not`, `contains` không phân biệt hoa thường, `OR`, `include` role/department/
-// deviceType/currentUser/accessories, `select` phẳng ở user.findMany).
+// deviceType/currentUser/accessories, audit/summary lồng nhau, `select` phẳng ở user.findMany).
 
 type Where = Record<string, unknown>;
 type Include = { role?: boolean; department?: boolean };
@@ -85,6 +91,42 @@ type TransferCreateData = Pick<
 > &
   Partial<DeviceTransfer> & { items?: { create: TransferItemCreateInput[] } };
 
+type AuditItemIncludeArg = {
+  include?: { accessories?: boolean };
+  orderBy?: unknown;
+};
+type AuditInclude = {
+  createdBy?: boolean;
+  decidedBy?: boolean;
+  deviceType?: boolean;
+  members?: { include?: { user?: boolean } };
+  items?: boolean | AuditItemIncludeArg;
+};
+type AccessoryLineCreate = Pick<
+  AuditItemAccessory,
+  'accessoryCode' | 'accessoryName' | 'accessoryType' | 'unit'
+>;
+type AuditItemCreate = Omit<AuditItem, 'id' | 'auditId' | 'result' | 'note'> & {
+  accessories?: { create: AccessoryLineCreate[] };
+};
+type AuditCreateData = Pick<
+  Audit,
+  'unitName' | 'dueDate' | 'purpose' | 'createdById'
+> &
+  Partial<Audit> & {
+    items?: { create: AuditItemCreate[] };
+    members?: { create: { userId: number }[] };
+  };
+type SummaryAuditsArg = {
+  include?: { audit?: boolean | { include?: AuditInclude } };
+};
+type SummaryInclude = {
+  createdBy?: boolean;
+  audits?: boolean | SummaryAuditsArg;
+};
+type SummaryCreateData = Pick<AuditSummary, 'title' | 'createdById'> &
+  Partial<AuditSummary> & { audits?: { create: { auditId: number }[] } };
+
 function matchValue(value: unknown, cond: unknown): boolean {
   if (cond === undefined) return true; // Prisma bỏ qua điều kiện undefined
   if (cond !== null && typeof cond === 'object' && !(cond instanceof Date)) {
@@ -135,6 +177,12 @@ export function createFakePrisma() {
   const deviceOrderItems: DeviceOrderItem[] = [];
   const deviceTransfers: DeviceTransfer[] = [];
   const deviceTransferItems: DeviceTransferItem[] = [];
+  const audits: Audit[] = [];
+  const auditItems: AuditItem[] = [];
+  const auditItemAccessories: AuditItemAccessory[] = [];
+  const auditMembers: AuditMember[] = [];
+  const auditSummaries: AuditSummary[] = [];
+  const auditSummaryAudits: AuditSummaryAudit[] = [];
 
   const forbidden = () => {
     throw new Error('Không được xoá cứng dữ liệu');
@@ -236,6 +284,95 @@ export function createFakePrisma() {
         }
       : t;
 
+  const withAuditItem = (i: AuditItem, arg?: AuditItemIncludeArg) =>
+    arg?.include?.accessories
+      ? {
+          ...i,
+          accessories: auditItemAccessories.filter(
+            (x) => x.auditItemId === i.id,
+          ),
+        }
+      : i;
+  // Kiểu trả về `object` tường minh để cắt vòng suy luận kiểu (withSummaryRelations gọi lại hàm này).
+  const withAuditRelations = (a: Audit, include?: AuditInclude): object => {
+    if (!include) return a;
+    const itemsArg =
+      include.items === true
+        ? undefined
+        : (include.items as AuditItemIncludeArg | undefined);
+    return {
+      ...a,
+      ...(include.createdBy && {
+        createdBy: users.find((u) => u.id === a.createdById)!,
+      }),
+      ...(include.decidedBy && {
+        decidedBy: users.find((u) => u.id === a.decidedById) ?? null,
+      }),
+      ...(include.deviceType && {
+        deviceType: deviceTypes.find((t) => t.id === a.deviceTypeId) ?? null,
+      }),
+      ...(include.members && {
+        members: auditMembers
+          .filter((m) => m.auditId === a.id)
+          .map((m) =>
+            include.members!.include?.user
+              ? { ...m, user: users.find((u) => u.id === m.userId)! }
+              : m,
+          ),
+      }),
+      ...(include.items && {
+        items: auditItems
+          .filter((i) => i.auditId === a.id)
+          .sort((x, y) => x.id - y.id)
+          .map((i) => withAuditItem(i, itemsArg)),
+      }),
+    };
+  };
+  const withSummaryRelations = (
+    s: AuditSummary,
+    include?: SummaryInclude,
+  ): object => {
+    if (!include) return s;
+    const auditArg =
+      include.audits === true
+        ? undefined
+        : (include.audits as SummaryAuditsArg | undefined)?.include?.audit;
+    return {
+      ...s,
+      ...(include.createdBy && {
+        createdBy: users.find((u) => u.id === s.createdById)!,
+      }),
+      ...(include.audits && {
+        audits: auditSummaryAudits
+          .filter((l) => l.summaryId === s.id)
+          .map((l) =>
+            auditArg
+              ? {
+                  ...l,
+                  audit: withAuditRelations(
+                    audits.find((a) => a.id === l.auditId),
+                    auditArg === true ? undefined : auditArg.include,
+                  ),
+                }
+              : l,
+          ),
+      }),
+    };
+  };
+  const updateRows = <T extends object>(
+    rows: T[],
+    where: Where,
+    data: Partial<T>,
+  ) => {
+    const hit = rows.filter((r) => matches(r, where));
+    for (const r of hit) {
+      for (const [k, v] of Object.entries(data)) {
+        if (v !== undefined) (r as Record<string, unknown>)[k] = v;
+      }
+    }
+    return hit;
+  };
+
   const prisma = {
     users,
     tokens,
@@ -248,6 +385,12 @@ export function createFakePrisma() {
     deviceOrderItems,
     deviceTransfers,
     deviceTransferItems,
+    audits,
+    auditItems,
+    auditItemAccessories,
+    auditMembers,
+    auditSummaries,
+    auditSummaryAudits,
     user: {
       findFirst: jest.fn(
         async ({ where, include }: { where: Where; include?: Include }) => {
@@ -634,6 +777,208 @@ export function createFakePrisma() {
       findMany: jest.fn(async ({ where }: { where?: Where }) =>
         deviceTransferItems.filter((i) => matches(i, where)),
       ),
+    },
+    audit: {
+      findMany: jest.fn(
+        async ({
+          where,
+          include,
+          select,
+        }: {
+          where?: Where;
+          include?: AuditInclude;
+          select?: Select;
+          orderBy?: unknown;
+        }) =>
+          audits
+            .filter((a) => matches(a, where))
+            .sort((a, b) => b.id - a.id)
+            .map((a) => project(withAuditRelations(a, include), select)),
+      ),
+      findUnique: jest.fn(
+        async ({
+          where,
+          include,
+        }: {
+          where: Where;
+          include?: AuditInclude;
+        }) => {
+          const hit = audits.find((a) => matches(a, where));
+          return hit ? withAuditRelations(hit, include) : null;
+        },
+      ),
+      create: jest.fn(
+        async ({
+          data,
+          include,
+        }: {
+          data: AuditCreateData;
+          include?: AuditInclude;
+        }) => {
+          const { items, members, ...rest } = data;
+          const row: Audit = {
+            id: audits.length + 1,
+            status: 'Chưa kiểm kê',
+            departmentId: null,
+            deviceTypeId: null,
+            location: null,
+            startedAt: null,
+            submittedAt: null,
+            decidedById: null,
+            decidedAt: null,
+            rejectReason: null,
+            createdAt: new Date(),
+            ...rest,
+          };
+          audits.push(row);
+          for (const { accessories, ...item } of items?.create ?? []) {
+            const itemRow: AuditItem = {
+              id: auditItems.length + 1,
+              auditId: row.id,
+              result: null,
+              note: null,
+              ...item,
+            };
+            auditItems.push(itemRow);
+            for (const acc of accessories?.create ?? []) {
+              auditItemAccessories.push({
+                id: auditItemAccessories.length + 1,
+                auditItemId: itemRow.id,
+                result: null,
+                note: null,
+                ...acc,
+              });
+            }
+          }
+          for (const m of members?.create ?? []) {
+            auditMembers.push({ auditId: row.id, userId: m.userId });
+          }
+          return withAuditRelations(row, include);
+        },
+      ),
+      updateMany: jest.fn(
+        async ({ where, data }: { where: Where; data: Partial<Audit> }) => ({
+          count: updateRows(audits, where, data).length,
+        }),
+      ),
+      delete: jest.fn(forbidden),
+    },
+    auditItem: {
+      findMany: jest.fn(
+        async ({ where, select }: { where?: Where; select?: Select }) =>
+          auditItems
+            .filter((i) => matches(i, where))
+            .map((i) => project(i, select)),
+      ),
+      update: jest.fn(
+        async ({ where, data }: { where: Where; data: Partial<AuditItem> }) =>
+          updateRows(auditItems, where, data)[0],
+      ),
+      updateMany: jest.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: Where;
+          data: Partial<AuditItem>;
+        }) => ({
+          count: updateRows(auditItems, where, data).length,
+        }),
+      ),
+    },
+    auditItemAccessory: {
+      update: jest.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: Where;
+          data: Partial<AuditItemAccessory>;
+        }) => updateRows(auditItemAccessories, where, data)[0],
+      ),
+      updateMany: jest.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: Where;
+          data: Partial<AuditItemAccessory>;
+        }) => ({
+          count: updateRows(auditItemAccessories, where, data).length,
+        }),
+      ),
+    },
+    auditMember: {
+      findMany: jest.fn(
+        async ({ where, select }: { where?: Where; select?: Select }) =>
+          auditMembers
+            .filter((m) => matches(m, where))
+            .map((m) => project(m, select)),
+      ),
+      // Chỉ PUT /audits/:id/members dùng — thay toàn bộ danh sách thành viên của 1 đợt.
+      deleteMany: jest.fn(async ({ where }: { where: Where }) => {
+        const toRemove = auditMembers.filter((m) => matches(m, where));
+        for (const m of toRemove)
+          auditMembers.splice(auditMembers.indexOf(m), 1);
+        return { count: toRemove.length };
+      }),
+      createMany: jest.fn(async ({ data }: { data: AuditMember[] }) => {
+        auditMembers.push(...data);
+        return { count: data.length };
+      }),
+    },
+    auditSummary: {
+      findMany: jest.fn(
+        async ({
+          where,
+          include,
+          select,
+        }: {
+          where?: Where;
+          include?: SummaryInclude;
+          select?: Select;
+          orderBy?: unknown;
+        }) =>
+          auditSummaries
+            .filter((s) => matches(s, where))
+            .sort((a, b) => b.id - a.id)
+            .map((s) => project(withSummaryRelations(s, include), select)),
+      ),
+      findUnique: jest.fn(
+        async ({
+          where,
+          include,
+        }: {
+          where: Where;
+          include?: SummaryInclude;
+        }) => {
+          const hit = auditSummaries.find((s) => matches(s, where));
+          return hit ? withSummaryRelations(hit, include) : null;
+        },
+      ),
+      create: jest.fn(
+        async ({
+          data,
+          include,
+        }: {
+          data: SummaryCreateData;
+          include?: SummaryInclude;
+        }) => {
+          const { audits: links, ...rest } = data;
+          const row: AuditSummary = {
+            id: auditSummaries.length + 1,
+            purpose: null,
+            createdAt: new Date(),
+            ...rest,
+          };
+          auditSummaries.push(row);
+          for (const l of links?.create ?? []) {
+            auditSummaryAudits.push({ summaryId: row.id, auditId: l.auditId });
+          }
+          return withSummaryRelations(row, include);
+        },
+      ),
+      delete: jest.fn(forbidden),
     },
     passwordResetToken: {
       create: jest.fn(

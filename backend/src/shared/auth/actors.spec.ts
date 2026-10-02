@@ -12,9 +12,9 @@ describe('ACTOR', () => {
     [ROLE.ADMIN, 'KYTHUAT', ['ADMIN']],
     [ROLE.HEAD, 'KYTHUAT', ['TECH_HEAD']],
     [ROLE.COLLAB, 'KYTHUAT', ['TECH_COLLAB']],
-    // Không khớp actor nào: Kế toán, không phòng ban (dữ liệu cũ), Nhân viên.
-    [ROLE.HEAD, 'KETOAN', []],
-    [ROLE.COLLAB, 'KETOAN', []],
+    [ROLE.HEAD, 'KETOAN', ['ACCT_HEAD']],
+    [ROLE.COLLAB, 'KETOAN', ['ACCT_COLLAB']],
+    // Không khớp actor nào: không phòng ban (dữ liệu cũ), Nhân viên.
     [ROLE.HEAD, null, []],
     [ROLE.COLLAB, null, []],
     [ROLE.STAFF, 'KYTHUAT', []],

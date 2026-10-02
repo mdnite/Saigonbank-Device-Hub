@@ -74,22 +74,38 @@ async function main() {
       `${deviceTypes.length} loại thiết bị, user=${admin.username}`,
   );
 
-  // Tài khoản dev cho 2 vai nghiệp vụ Kỹ thuật — để thử luồng tạo/duyệt mà không phải tạo tay.
-  const techAccounts = [
+  // Tài khoản dev cho 4 vai nghiệp vụ Kỹ thuật / Kế toán — để thử luồng tạo/duyệt mà không phải tạo tay.
+  const devAccounts = [
     {
       username: 'truongphong.kt',
       password: 'Head@1234',
       fullName: 'Trưởng phòng Kỹ thuật (dev)',
       roleName: ROLE.HEAD,
+      departmentCode: 'KYTHUAT',
     },
     {
       username: 'ctv.kt',
       password: 'Collab@1234',
       fullName: 'Cộng tác viên Kỹ thuật (dev)',
       roleName: ROLE.COLLAB,
+      departmentCode: 'KYTHUAT',
+    },
+    {
+      username: 'truongphong.ketoan',
+      password: 'Head@1234',
+      fullName: 'Trưởng phòng Kế toán (dev)',
+      roleName: ROLE.HEAD,
+      departmentCode: 'KETOAN',
+    },
+    {
+      username: 'ctv.ketoan',
+      password: 'Collab@1234',
+      fullName: 'Cộng tác viên Kế toán (dev)',
+      roleName: ROLE.COLLAB,
+      departmentCode: 'KETOAN',
     },
   ];
-  for (const a of techAccounts) {
+  for (const a of devAccounts) {
     await prisma.user.upsert({
       where: { username: a.username },
       update: {},
@@ -99,14 +115,14 @@ async function main() {
         password: await hashPassword(a.password),
         fullName: a.fullName,
         roleId: roleIds[a.roleName],
-        departmentId: departmentIds.KYTHUAT,
+        departmentId: departmentIds[a.departmentCode],
         status: USER_STATUS.ACTIVE,
         isVerified: true,
       },
     });
   }
   console.log(
-    `Seed user dev Kỹ thuật: ${techAccounts.map((a) => a.username).join(', ')}`,
+    `Seed user dev Kỹ thuật/Kế toán: ${devAccounts.map((a) => a.username).join(', ')}`,
   );
 
   // User để test luồng quên mật khẩu: Resend (onboarding@resend.dev) chỉ gửi được tới email chủ tài khoản.

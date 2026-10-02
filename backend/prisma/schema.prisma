@@ -32,7 +32,8 @@
 //      Password của User.
 //
 // ĐÃ bổ sung ở đợt Quản lý thiết bị: DeviceType, Device, DeviceAccessory.
-// CHƯA đưa vào: Notification và các bảng khác — sẽ bổ sung ở đợt sau.
+// ĐÃ bổ sung ở đợt Kiểm kê: Audit, AuditItem, AuditItemAccessory, AuditMember, AuditSummary, AuditSummaryAudit.
+// CHƯA đưa vào: Notification — sẽ bổ sung ở đợt sau.
 // ============================================================================
 
 generator client {
@@ -66,6 +67,7 @@ model Department {
   departmentName String @map("DepartmentName") @db.VarChar(150)
 
   users User[]
+  audits Audit[]
 
   @@map("Department")
 }
@@ -117,6 +119,10 @@ model User {
   deviceTransfersTo        DeviceTransfer[] @relation("DeviceTransferTo")
   deviceTransfersCreatedBy DeviceTransfer[] @relation("DeviceTransferCreatedBy")
   deviceTransfersDecidedBy DeviceTransfer[] @relation("DeviceTransferDecidedBy")
+  auditsCreated         Audit[]        @relation("AuditCreatedBy")
+  auditsDecided         Audit[]        @relation("AuditDecidedBy")
+  auditMemberships      AuditMember[]
+  auditSummariesCreated AuditSummary[] @relation("AuditSummaryCreatedBy")
 
   @@map("User")
 }
@@ -156,6 +162,7 @@ model DeviceType {
   prefix   String @unique @map("Prefix") @db.VarChar(4)
 
   devices Device[]
+  audits Audit[]
 
   @@map("DeviceType")
 }
@@ -191,6 +198,7 @@ model Device {
   accessories DeviceAccessory[]
   orderItems DeviceOrderItem[]
   transferItems DeviceTransferItem[]
+  auditItems AuditItem[]
 
   @@map("Device")
 }
@@ -286,6 +294,123 @@ model DeviceTransferItem {
 }
 
 // ============================================================================
+// --- Audit ----------------------------------------------------------------
+// Một đợt kiểm kê chi tiết. Không bao giờ bị xoá — là hồ sơ lịch sử. DepartmentId null = đơn vị
+// "Kho" (thiết bị Trong kho). UnitName là snapshot tên đơn vị: đổi tên phòng ban không đổi biên bản cũ.
+model Audit {
+  id           Int       @id @default(autoincrement()) @map("Id")
+  status       String    @default("Chưa kiểm kê") @map("Status") @db.VarChar(20)
+  departmentId Int?      @map("DepartmentId")
+  unitName     String    @map("UnitName") @db.VarChar(150)
+  dueDate      DateTime  @map("DueDate") @db.Date
+  purpose      String    @map("Purpose") @db.VarChar(20)
+  deviceTypeId Int?      @map("DeviceTypeId")
+  location     String?   @map("Location") @db.VarChar(150)
+  createdById  Int       @map("CreatedById")
+  startedAt    DateTime? @map("StartedAt")
+  submittedAt  DateTime? @map("SubmittedAt")
+  decidedById  Int?      @map("DecidedById")
+  decidedAt    DateTime? @map("DecidedAt")
+  rejectReason String?   @map("RejectReason") @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("CreatedAt")
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  deviceType DeviceType? @relation(fields: [deviceTypeId], references: [id], onDelete: Restrict)
+  createdBy  User        @relation("AuditCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  decidedBy  User?       @relation("AuditDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  items      AuditItem[]
+  members    AuditMember[]
+  summaries  AuditSummaryAudit[]
+
+  @@map("Audit")
+}
+
+// --- AuditItem ------------------------------------------------------------
+// Snapshot 1 thiết bị lúc lập lịch + kết quả đếm. HolderUserId CỐ Ý không phải FK: chỉ để so với
+// Device lúc duyệt (máy đã đổi người giữ thì chặn duyệt), không ràng buộc vòng đời User.
+model AuditItem {
+  id             Int     @id @default(autoincrement()) @map("Id")
+  auditId        Int     @map("AuditId")
+  deviceId       Int     @map("DeviceId")
+  deviceCode     String  @map("DeviceCode") @db.VarChar(20)
+  deviceName     String  @map("DeviceName") @db.VarChar(150)
+  serialNumber   String? @map("SerialNumber") @db.VarChar(100)
+  deviceTypeName String  @map("DeviceTypeName") @db.VarChar(100)
+  unit           String  @map("Unit") @db.VarChar(20)
+  holderUserId   Int?    @map("HolderUserId")
+  holderName     String? @map("HolderName") @db.VarChar(150)
+  departmentName String? @map("DepartmentName") @db.VarChar(150)
+  deviceStatus   String  @map("DeviceStatus") @db.VarChar(50)
+  result         String? @map("Result") @db.VarChar(10)
+  note           String? @map("Note") @db.VarChar(255)
+
+  audit       Audit                @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  device      Device               @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+  accessories AuditItemAccessory[]
+
+  @@unique([auditId, deviceId])
+  @@index([deviceId])
+  @@map("AuditItem")
+}
+
+// --- AuditItemAccessory ---------------------------------------------------
+// Snapshot 1 linh kiện + kết quả. Chỉ ghi nhận — duyệt KHÔNG ghi ngược vào DeviceAccessory.
+model AuditItemAccessory {
+  id            Int     @id @default(autoincrement()) @map("Id")
+  auditItemId   Int     @map("AuditItemId")
+  accessoryCode String  @map("AccessoryCode") @db.VarChar(50)
+  accessoryName String  @map("AccessoryName") @db.VarChar(150)
+  accessoryType String  @map("AccessoryType") @db.VarChar(100)
+  unit          String  @map("Unit") @db.VarChar(20)
+  result        String? @map("Result") @db.VarChar(10)
+  note          String? @map("Note") @db.VarChar(255)
+
+  auditItem AuditItem @relation(fields: [auditItemId], references: [id], onDelete: Cascade)
+
+  @@map("AuditItemAccessory")
+}
+
+// --- AuditMember ----------------------------------------------------------
+// Thành viên tham gia — chỉ ghi nhận / in biên bản, không cấp quyền gì.
+model AuditMember {
+  auditId Int @map("AuditId")
+  userId  Int @map("UserId")
+
+  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([auditId, userId])
+  @@map("AuditMember")
+}
+
+// --- AuditSummary ---------------------------------------------------------
+// Bảng tổng hợp nhiều đợt "Đã duyệt". Không trạng thái, không duyệt, không bao giờ bị xoá.
+model AuditSummary {
+  id          Int      @id @default(autoincrement()) @map("Id")
+  title       String   @map("Title") @db.VarChar(150)
+  purpose     String?  @map("Purpose") @db.VarChar(20)
+  createdById Int      @map("CreatedById")
+  createdAt   DateTime @default(now()) @map("CreatedAt")
+
+  createdBy User                @relation("AuditSummaryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  audits    AuditSummaryAudit[]
+
+  @@map("AuditSummary")
+}
+
+// --- AuditSummaryAudit ----------------------------------------------------
+// Nối n-n: một đợt được vào nhiều bảng tổng hợp.
+model AuditSummaryAudit {
+  summaryId Int @map("SummaryId")
+  auditId   Int @map("AuditId")
+
+  summary AuditSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  audit   Audit        @relation(fields: [auditId], references: [id], onDelete: Restrict)
+
+  @@id([summaryId, auditId])
+  @@map("AuditSummaryAudit")
+}
+
 // CHỦ ĐỘNG KHÔNG THÊM (đã quyết định, không phải còn treo):
 //   - Bảng refresh token / session cho JWT — JWT stateless hoàn toàn, và
 //     logout xử lý thuần phía client, không cần lưu trạng thái gì ở server.

@@ -15,6 +15,12 @@ export interface UserQuery {
   departmentId: string;
 }
 
+/** Kết quả dọn thùng rác: user còn bị đơn/lệnh/kiểm kê tham chiếu thì bị giữ lại kèm lý do. */
+export interface PurgeResult {
+  count: number;
+  skipped: Array<{ id: number; username: string; fullName: string; reasons: string[] }>;
+}
+
 export interface UserAdminRepository {
   list(query: UserQuery): Promise<UserAccount[]>;
   create(draft: NewUserDraft): Promise<UserAccount>;
@@ -22,7 +28,7 @@ export interface UserAdminRepository {
   /** Xoá mềm — backend chỉ đổi Status thành "Đã xóa". */
   remove(id: number): Promise<void>;
   /** Xoá cứng hàng loạt (dọn thùng rác) — chỉ xoá được user đã ở Status "Đã xóa". */
-  purge(ids: number[]): Promise<number>;
+  purge(ids: number[]): Promise<PurgeResult>;
   roles(): Promise<Role[]>;
   departments(): Promise<Department[]>;
 }

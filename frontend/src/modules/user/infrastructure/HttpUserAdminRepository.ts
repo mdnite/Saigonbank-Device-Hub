@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/shared/lib/apiClient';
-import type { UserAdminRepository, UserQuery } from '../application/UserAdminRepository';
+import type { PurgeResult, UserAdminRepository, UserQuery } from '../application/UserAdminRepository';
 import type { Department, NewUserDraft, Role, UserAccount, UserStatus } from '../domain/userAccount';
 
 /** Adapter gọi module `users` của backend (backend/src/modules/users). */
@@ -27,9 +27,8 @@ export class HttpUserAdminRepository implements UserAdminRepository {
     await apiDelete<null>(`/users/${id}`);
   }
 
-  async purge(ids: number[]): Promise<number> {
-    const res = await apiPost<{ count: number }>('/users/purge', { ids });
-    return res.count;
+  purge(ids: number[]) {
+    return apiPost<PurgeResult>('/users/purge', { ids });
   }
 
   roles() {

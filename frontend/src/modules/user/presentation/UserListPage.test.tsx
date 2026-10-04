@@ -28,7 +28,7 @@ const envelope = (data: unknown) =>
     new Response(JSON.stringify({ success: true, data, error: null, message: 'OK' }), { status: 200 }),
   );
 
-function renderPage(roleName: string) {
+function renderPage(roleName: string, purgeResult: object = { count: 1, skipped: [] }) {
   localStorage.setItem(
     'idsm.session',
     JSON.stringify({
@@ -44,7 +44,7 @@ function renderPage(roleName: string) {
   const fetchMock = vi.fn().mockImplementation((url: string) => {
     if (url.endsWith('/users/purge')) {
       purged = true;
-      return envelope({ count: 1 });
+      return envelope(purgeResult);
     }
     if (url.includes('/roles')) return envelope([]);
     if (url.includes('/departments')) return envelope([]);
@@ -75,6 +75,21 @@ it('Dọn thùng rác (Admin, đang lọc "Đã xóa"): xoá vĩnh viễn toàn 
   await waitFor(() => expect(screen.getByText('Không tìm thấy người dùng nào')).toBeInTheDocument());
   const purgeCall = fetchMock.mock.calls.find((c) => (c[0] as string).endsWith('/users/purge'))!;
   expect(JSON.parse((purgeCall[1] as RequestInit).body as string)).toEqual({ ids: [9] });
+});
+
+it('Dọn thùng rác: user còn lịch sử bị giữ lại → hiện tên và lý do không xoá được', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  renderPage('Quản trị viên', {
+    count: 0,
+    skipped: [{ id: 9, username: 'removed', fullName: 'Removed', reasons: ['đơn cấp phát - thu hồi', 'đợt kiểm kê'] }],
+  });
+  fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'Đã xóa' } });
+  await waitFor(() => expect(screen.getByText('removed')).toBeInTheDocument());
+
+  fireEvent.click(screen.getByRole('button', { name: 'Dọn thùng rác' }));
+
+  expect(await screen.findByText(/Không thể xoá 1 người dùng/)).toBeInTheDocument();
+  expect(screen.getByText(/removed \(Removed\): còn trong đơn cấp phát - thu hồi, đợt kiểm kê/)).toBeInTheDocument();
 });
 
 it('Không phải Quản trị viên: không thấy nút "Dọn thùng rác" dù đang lọc "Đã xóa"', async () => {

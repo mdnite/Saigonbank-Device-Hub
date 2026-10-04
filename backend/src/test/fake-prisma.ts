@@ -366,7 +366,7 @@ export function createFakePrisma() {
               ? {
                   ...l,
                   audit: withAuditRelations(
-                    audits.find((a) => a.id === l.auditId),
+                    audits.find((a) => a.id === l.auditId)!,
                     auditArg === true ? undefined : auditArg.include,
                   ),
                 }

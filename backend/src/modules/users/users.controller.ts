@@ -68,9 +68,8 @@ export class UsersController {
   /** Dọn thùng rác — xoá cứng, chỉ Quản trị viên (đã áp ở @Allow class-level). */
   @Post('purge')
   @ResponseMessage('Đã dọn thùng rác')
-  async purge(@Body() dto: PurgeUsersDto) {
-    const count = await this.users.purge(dto.ids);
-    return { count };
+  purge(@Body() dto: PurgeUsersDto) {
+    return this.users.purge(dto.ids);
   }
 }
 

@@ -12,7 +12,7 @@ import { SearchInput } from '@/shared/ui/SearchInput';
 import { Select } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { useAsyncData } from '@/shared/lib/useAsyncData';
-import type { UserQuery } from '../application/UserAdminRepository';
+import type { PurgeResult, UserQuery } from '../application/UserAdminRepository';
 import { USER_STATUS, type UserAccount, type UserStatus } from '../domain/userAccount';
 import { userAdminService } from '../infrastructure/container';
 import { useUserLookups } from './useUserLookups';
@@ -56,15 +56,19 @@ export function UserListPage() {
   });
 
   const canPurge = query.status === USER_STATUS.DELETED && isAdmin(session);
+  const [purgeResult, setPurgeResult] = useState<PurgeResult | null>(null);
   const purge = useAsyncAction(async () => {
     const ids = (users ?? []).map((u) => u.id);
     if (ids.length === 0) return;
     if (!window.confirm(`Xoá vĩnh viễn ${ids.length} người dùng? Không thể khôi phục.`)) return;
-    await userAdminService.purge(ids);
+    setPurgeResult(await userAdminService.purge(ids));
     setReloadKey((k) => k + 1);
   });
 
-  const set = (patch: Partial<UserQuery>) => setQuery((q) => ({ ...q, ...patch }));
+  const set = (patch: Partial<UserQuery>) => {
+    setPurgeResult(null);
+    setQuery((q) => ({ ...q, ...patch }));
+  };
 
   const columns: Array<Column<UserAccount>> = [
     { key: 'username', header: 'Tên đăng nhập', cell: (u) => <span className="font-medium">{u.username}</span> },
@@ -176,6 +180,26 @@ export function UserListPage() {
             </Button>
           )}
         </div>
+
+        {purgeResult && (
+          <div role="status" className="mb-3 rounded bg-status-warnBg p-3 text-sm text-status-warnFg">
+            <p>Đã xoá vĩnh viễn {purgeResult.count} người dùng.</p>
+            {purgeResult.skipped.length > 0 && (
+              <>
+                <p className="mt-1">
+                  Không thể xoá {purgeResult.skipped.length} người dùng vì còn được lưu trong lịch sử:
+                </p>
+                <ul className="mt-1 list-disc pl-5">
+                  {purgeResult.skipped.map((u) => (
+                    <li key={u.id}>
+                      {u.username} ({u.fullName}): còn trong {u.reasons.join(', ')}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
 
         {(act.error ?? purge.error ?? error) && (
           <p className="mb-3 text-sm text-status-dangerFg">{act.error ?? purge.error ?? error}</p>

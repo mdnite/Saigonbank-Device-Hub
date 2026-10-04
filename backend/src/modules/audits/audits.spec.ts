@@ -895,6 +895,15 @@ describe('Kiểm kê: /audits', () => {
         ids: [acctCollab.id, member.id],
       }).expect(201);
       expect(res.body.data.count).toBe(0);
+      expect(
+        res.body.data.skipped.map((s: { id: number; reasons: string[] }) => [
+          s.id,
+          s.reasons,
+        ]),
+      ).toEqual([
+        [acctCollab.id, ['đợt kiểm kê']],
+        [member.id, ['đợt kiểm kê']],
+      ]);
       expect(prisma.users.some((u) => u.id === member.id)).toBe(true);
     });
   });

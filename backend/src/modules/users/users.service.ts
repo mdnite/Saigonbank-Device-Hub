@@ -151,8 +151,9 @@ export class UsersService {
    *  nên phải xoá token của các user này trước, không thì DB chặn. Device.currentUserId là
    *  SET NULL, không cần dọn tay. DeviceOrder/DeviceTransfer đều RESTRICT nhưng KHÔNG được
    *  dọn theo (đơn/lệnh là hồ sơ lịch sử) — id còn bị đơn/lệnh nào tham chiếu thì bị loại khỏi
-   *  danh sách xoá, lặng lẽ như cách id không đủ status="Đã xóa" bị bỏ qua. */
-  async purge(ids: number[]): Promise<number> {
+   *  danh sách xoá và được trả về trong `skipped` kèm lý do; id không đủ status="Đã xóa" thì
+   *  bị bỏ qua lặng lẽ. */
+  async purge(ids: number[]) {
     return this.prisma.$transaction(async (tx) => {
       const referencedOrders = await tx.deviceOrder.findMany({
         where: {
@@ -195,25 +196,44 @@ export class UsersService {
         where: { createdById: { in: ids } },
         select: { createdById: true },
       });
-      const blocked = new Set<number>();
-      for (const o of referencedOrders) {
-        blocked.add(o.targetUserId);
-        blocked.add(o.createdById);
-        if (o.decidedById !== null) blocked.add(o.decidedById);
-      }
-      for (const t of referencedTransfers) {
-        blocked.add(t.fromUserId);
-        blocked.add(t.toUserId);
-        blocked.add(t.createdById);
-        if (t.decidedById !== null) blocked.add(t.decidedById);
-      }
+      // id → lý do bị giữ lại, để Admin biết vì sao user không xoá được.
+      const blocked = new Map<number, Set<string>>();
+      const block = (id: number | null, reason: string) => {
+        if (id === null) return;
+        if (!blocked.has(id)) blocked.set(id, new Set());
+        blocked.get(id)!.add(reason);
+      };
+      for (const o of referencedOrders)
+        for (const id of [o.targetUserId, o.createdById, o.decidedById])
+          block(id, 'đơn cấp phát - thu hồi');
+      for (const t of referencedTransfers)
+        for (const id of [
+          t.fromUserId,
+          t.toUserId,
+          t.createdById,
+          t.decidedById,
+        ])
+          block(id, 'lệnh điều chuyển');
       for (const a of referencedAudits) {
-        blocked.add(a.createdById);
-        if (a.decidedById !== null) blocked.add(a.decidedById);
+        block(a.createdById, 'đợt kiểm kê');
+        block(a.decidedById, 'đợt kiểm kê');
       }
-      for (const m of memberships) blocked.add(m.userId);
-      for (const s of summaries) blocked.add(s.createdById);
+      for (const m of memberships) block(m.userId, 'đợt kiểm kê');
+      for (const s of summaries) block(s.createdById, 'bảng tổng hợp kiểm kê');
       const purgeable = ids.filter((id) => !blocked.has(id));
+
+      // Chỉ báo user thật sự nằm trong thùng rác; id chưa xoá mềm vẫn bị bỏ qua lặng lẽ.
+      const kept = await tx.user.findMany({
+        where: {
+          id: { in: ids.filter((id) => blocked.has(id)) },
+          status: USER_STATUS.DELETED,
+        },
+        select: { id: true, username: true, fullName: true },
+      });
+      const skipped = ids.flatMap((id) => {
+        const u = kept.find((k) => k.id === id);
+        return u ? [{ ...u, reasons: [...blocked.get(id)!] }] : [];
+      });
 
       await tx.passwordResetToken.deleteMany({
         where: { userId: { in: purgeable } },
@@ -221,7 +241,7 @@ export class UsersService {
       const { count } = await tx.user.deleteMany({
         where: { id: { in: purgeable }, status: USER_STATUS.DELETED },
       });
-      return count;
+      return { count, skipped };
     });
   }
 

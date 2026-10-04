@@ -455,7 +455,7 @@ describe('Users: /users, /roles, /departments', () => {
 
       expect(res.body).toEqual({
         success: true,
-        data: { count: 1 },
+        data: { count: 1, skipped: [] },
         error: null,
         message: 'Đã dọn thùng rác',
       });
@@ -486,7 +486,17 @@ describe('Users: /users, /roles, /departments', () => {
         .send({ ids: [removed.id, removed2.id] })
         .expect(201);
 
-      expect(res.body.data).toEqual({ count: 1 });
+      expect(res.body.data).toEqual({
+        count: 1,
+        skipped: [
+          {
+            id: removed2.id,
+            username: 'removed2',
+            fullName: removed2.fullName,
+            reasons: ['đơn cấp phát - thu hồi'],
+          },
+        ],
+      });
       expect(prisma.users.some((u) => u.id === removed.id)).toBe(false);
       expect(prisma.users.some((u) => u.id === removed2.id)).toBe(true);
     });
@@ -512,7 +522,17 @@ describe('Users: /users, /roles, /departments', () => {
         .send({ ids: [removed.id, removed3.id] })
         .expect(201);
 
-      expect(res.body.data).toEqual({ count: 1 });
+      expect(res.body.data).toEqual({
+        count: 1,
+        skipped: [
+          {
+            id: removed3.id,
+            username: 'removed3',
+            fullName: removed3.fullName,
+            reasons: ['lệnh điều chuyển'],
+          },
+        ],
+      });
       expect(prisma.users.some((u) => u.id === removed.id)).toBe(false);
       expect(prisma.users.some((u) => u.id === removed3.id)).toBe(true);
     });

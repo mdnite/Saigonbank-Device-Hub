@@ -1,0 +1,232 @@
+// IDSM — ERD (DBML cho dbdiagram.io)
+// Sinh từ backend/prisma/schema.prisma + 8 migration (đến 20261002051508_add_audit), ngày 2026-10-05.
+// Dán toàn bộ file vào https://dbdiagram.io/d (khung bên trái).
+
+Project IDSM {
+  database_type: 'PostgreSQL'
+  Note: 'Internal Device Management — Saigonbank'
+}
+
+Table Role {
+  Id int [pk, increment]
+  RoleName varchar(100) [not null]
+}
+
+Table Department {
+  Id int [pk, increment]
+  DepartmentCode varchar(50) [not null, unique]
+  DepartmentName varchar(150) [not null]
+}
+
+Table User {
+  Id int [pk, increment]
+  RoleId int [not null]
+  DepartmentId int
+  Username varchar(100) [not null, unique]
+  Password varchar(255) [not null, note: 'bcrypt hash']
+  FullName varchar(150) [not null]
+  Email varchar(150) [not null, unique]
+  Status varchar(50) [not null, default: 'Đang hoạt động', note: 'Đang hoạt động | Ngừng hoạt động | Đã xóa']
+  IsVerified boolean [not null, default: false]
+  CreatedAt timestamp [not null, default: `now()`]
+  UpdatedAt timestamp [not null]
+}
+
+Table PasswordResetToken {
+  Id int [pk, increment]
+  UserId int [not null]
+  TokenHash varchar(255) [not null, note: 'OTP 4 số, lưu dạng hash']
+  ExpiresAt timestamp [not null]
+  UsedAt timestamp
+  CreatedAt timestamp [not null, default: `now()`]
+
+  Indexes {
+    TokenHash
+  }
+}
+
+Table DeviceType {
+  Id int [pk, increment]
+  TypeName varchar(100) [not null]
+  Prefix varchar(4) [not null, unique, note: 'Tiền tố DeviceCode, vd. LT']
+}
+
+Table Device {
+  Id int [pk, increment]
+  DeviceCode varchar(20) [not null, unique]
+  DeviceName varchar(150) [not null]
+  SerialNumber varchar(100) [unique]
+  SpecDetail varchar(255) [not null]
+  Unit varchar(20) [not null]
+  Location varchar(150)
+  PurchaseDate date
+  Supplier varchar(150)
+  WarrantyMonths int
+  WarrantyCondition varchar(255)
+  WarrantyExpiresOn date
+  Status varchar(50) [not null, note: 'Trong kho | Đã cấp phát | Đang chờ duyệt | Thất lạc | Chờ thanh lý | Đã xóa']
+  AllocatedOn date
+  DeviceTypeId int [not null]
+  CurrentUserId int [note: 'Người đang giữ']
+  CreatedAt timestamp [not null, default: `now()`]
+  UpdatedAt timestamp [not null]
+}
+
+Table DeviceAccessory {
+  Id int [pk, increment]
+  DeviceId int [not null]
+  AccessoryCode varchar(50) [not null]
+  AccessoryName varchar(150) [not null]
+  AccessoryType varchar(100) [not null]
+  Unit varchar(20) [not null]
+}
+
+Table DeviceOrder {
+  Id int [pk, increment]
+  Type varchar(20) [not null, note: 'Cấp phát | Thu hồi']
+  Status varchar(20) [not null, default: 'Chờ duyệt', note: 'Chờ duyệt | Đã duyệt | Từ chối']
+  TargetUserId int [not null]
+  Note varchar(255)
+  CreatedById int [not null]
+  DecidedById int
+  DecidedAt timestamp
+  RejectReason varchar(255)
+  CreatedAt timestamp [not null, default: `now()`]
+}
+
+Table DeviceOrderItem {
+  Id int [pk, increment]
+  OrderId int [not null]
+  DeviceId int [not null]
+}
+
+Table DeviceTransfer {
+  Id int [pk, increment]
+  Status varchar(20) [not null, default: 'Chờ duyệt', note: 'Chờ duyệt | Đã duyệt | Từ chối']
+  FromUserId int [not null]
+  ToUserId int [not null]
+  Note varchar(255)
+  CreatedById int [not null]
+  DecidedById int
+  DecidedAt timestamp
+  RejectReason varchar(255)
+  CreatedAt timestamp [not null, default: `now()`]
+}
+
+Table DeviceTransferItem {
+  Id int [pk, increment]
+  TransferId int [not null]
+  DeviceId int [not null]
+}
+
+Table Audit {
+  Id int [pk, increment]
+  Status varchar(20) [not null, default: 'Chưa kiểm kê', note: 'Chưa kiểm kê | Đang kiểm kê | Chờ duyệt | Đã duyệt | Đã hủy']
+  DepartmentId int [note: 'null = đơn vị "Kho"']
+  UnitName varchar(150) [not null, note: 'Snapshot tên đơn vị']
+  DueDate date [not null]
+  Purpose varchar(20) [not null, note: 'Định kỳ | Đột xuất | Cuối năm']
+  DeviceTypeId int
+  Location varchar(150)
+  CreatedById int [not null]
+  StartedAt timestamp
+  SubmittedAt timestamp
+  DecidedById int
+  DecidedAt timestamp
+  RejectReason varchar(255)
+  CreatedAt timestamp [not null, default: `now()`]
+}
+
+Table AuditItem {
+  Id int [pk, increment]
+  AuditId int [not null]
+  DeviceId int [not null]
+  DeviceCode varchar(20) [not null]
+  DeviceName varchar(150) [not null]
+  SerialNumber varchar(100)
+  DeviceTypeName varchar(100) [not null]
+  Unit varchar(20) [not null]
+  HolderUserId int [note: 'Snapshot, cố ý KHÔNG là FK']
+  HolderName varchar(150)
+  DepartmentName varchar(150)
+  DeviceStatus varchar(50) [not null]
+  Result varchar(10) [note: 'Đủ | Thiếu | Hỏng']
+  Note varchar(255)
+
+  Indexes {
+    (AuditId, DeviceId) [unique]
+    DeviceId
+  }
+}
+
+Table AuditItemAccessory {
+  Id int [pk, increment]
+  AuditItemId int [not null]
+  AccessoryCode varchar(50) [not null]
+  AccessoryName varchar(150) [not null]
+  AccessoryType varchar(100) [not null]
+  Unit varchar(20) [not null]
+  Result varchar(10) [note: 'Đủ | Thiếu | Hỏng']
+  Note varchar(255)
+}
+
+Table AuditMember {
+  AuditId int [not null]
+  UserId int [not null]
+
+  Indexes {
+    (AuditId, UserId) [pk]
+  }
+}
+
+Table AuditSummary {
+  Id int [pk, increment]
+  Title varchar(150) [not null]
+  Purpose varchar(20)
+  CreatedById int [not null]
+  CreatedAt timestamp [not null, default: `now()`]
+}
+
+Table AuditSummaryAudit {
+  SummaryId int [not null]
+  AuditId int [not null]
+
+  Indexes {
+    (SummaryId, AuditId) [pk]
+  }
+}
+
+// --- Quan hệ (ON DELETE lấy từ migration thật) ---
+Ref: User.RoleId > Role.Id [delete: restrict]
+Ref: User.DepartmentId > Department.Id [delete: set null]
+Ref: PasswordResetToken.UserId > User.Id [delete: restrict]
+
+Ref: Device.DeviceTypeId > DeviceType.Id [delete: restrict]
+Ref: Device.CurrentUserId > User.Id [delete: set null]
+Ref: DeviceAccessory.DeviceId > Device.Id [delete: cascade]
+
+Ref: DeviceOrder.TargetUserId > User.Id [delete: restrict]
+Ref: DeviceOrder.CreatedById > User.Id [delete: restrict]
+Ref: DeviceOrder.DecidedById > User.Id [delete: restrict]
+Ref: DeviceOrderItem.OrderId > DeviceOrder.Id [delete: cascade]
+Ref: DeviceOrderItem.DeviceId > Device.Id [delete: restrict]
+
+Ref: DeviceTransfer.FromUserId > User.Id [delete: restrict]
+Ref: DeviceTransfer.ToUserId > User.Id [delete: restrict]
+Ref: DeviceTransfer.CreatedById > User.Id [delete: restrict]
+Ref: DeviceTransfer.DecidedById > User.Id [delete: restrict]
+Ref: DeviceTransferItem.TransferId > DeviceTransfer.Id [delete: cascade]
+Ref: DeviceTransferItem.DeviceId > Device.Id [delete: restrict]
+
+Ref: Audit.DepartmentId > Department.Id [delete: restrict]
+Ref: Audit.DeviceTypeId > DeviceType.Id [delete: restrict]
+Ref: Audit.CreatedById > User.Id [delete: restrict]
+Ref: Audit.DecidedById > User.Id [delete: restrict]
+Ref: AuditItem.AuditId > Audit.Id [delete: cascade]
+Ref: AuditItem.DeviceId > Device.Id [delete: restrict]
+Ref: AuditItemAccessory.AuditItemId > AuditItem.Id [delete: cascade]
+Ref: AuditMember.AuditId > Audit.Id [delete: cascade]
+Ref: AuditMember.UserId > User.Id [delete: restrict]
+Ref: AuditSummary.CreatedById > User.Id [delete: restrict]
+Ref: AuditSummaryAudit.SummaryId > AuditSummary.Id [delete: cascade]
+Ref: AuditSummaryAudit.AuditId > Audit.Id [delete: restrict]

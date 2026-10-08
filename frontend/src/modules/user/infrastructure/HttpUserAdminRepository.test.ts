@@ -43,6 +43,20 @@ it('create chuẩn hoá body: trim, email thường, id số, bỏ phòng ban tr
   });
 });
 
+it('create với departmentId NONE (Quản trị viên): body không có departmentId', async () => {
+  const fetchMock = stubFetch({ id: 9 }, 201);
+  await repo.create({
+    username: 'admin2',
+    fullName: 'Admin 2',
+    email: 'a2@sgb.vn',
+    password: 'Init@123',
+    confirmPassword: 'Init@123',
+    roleId: '1',
+    departmentId: 'NONE',
+  });
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty('departmentId');
+});
+
 it('setStatus → PATCH /users/:id/status, remove → DELETE /users/:id', async () => {
   const fetchMock = stubFetch(null);
   await repo.setStatus(5, 'Ngừng hoạt động');

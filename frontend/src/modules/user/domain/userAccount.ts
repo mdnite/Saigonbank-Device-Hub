@@ -1,4 +1,4 @@
-import { SPECIALIST_ROLE, HEAD_ROLE } from '@/modules/auth/domain/session';
+import { ADMIN_ROLE, HEAD_ROLE, SPECIALIST_ROLE } from '@/modules/auth/domain/session';
 import { Email, PASSWORD_MIN_LENGTH } from '@/modules/auth/domain/credentials';
 
 /** Giá trị User.Status đã chốt ở backend (backend/src/modules/identity/user-status.ts). */
@@ -58,11 +58,29 @@ export type NewUserErrors = Partial<Record<keyof NewUserDraft, string>>;
 
 const REQUIRED = 'Bắt buộc';
 
-/** Role vô nghĩa nếu thiếu phòng ban — khớp DEPARTMENT_REQUIRED_ROLES ở backend. */
-const DEPARTMENT_REQUIRED_ROLES: readonly string[] = [HEAD_ROLE, SPECIALIST_ROLE];
+/** Giá trị ô Phòng ban khi chọn "— Không (Quản trị viên) —". '' = chưa chọn. */
+export const NO_DEPARTMENT = 'NONE';
 
-/** `roleName`: tên role đang chọn (tra từ danh mục theo `d.roleId`) — quyết định phòng ban có bắt buộc không. */
-export function validateNewUser(d: NewUserDraft, roleName?: string): NewUserErrors {
+const STAFF_ROLE = 'Nhân viên';
+
+/** Khớp ROLES_BY_DEPARTMENT ở backend (backend/src/modules/identity/roles.ts). */
+const ROLES_BY_DEPARTMENT: Record<string, readonly string[]> = {
+  KYTHUAT: [HEAD_ROLE, SPECIALIST_ROLE, STAFF_ROLE],
+  KETOAN: [HEAD_ROLE, SPECIALIST_ROLE, STAFF_ROLE],
+  KINHDOANH: [HEAD_ROLE, STAFF_ROLE],
+  NGHIEPVU: [HEAD_ROLE, STAFF_ROLE],
+};
+
+export function allowedRoleNames(departmentCode: string | null): readonly string[] {
+  return departmentCode === null ? [ADMIN_ROLE] : (ROLES_BY_DEPARTMENT[departmentCode] ?? []);
+}
+
+/** `roleName` / `departmentCode`: tra từ danh mục theo draft; undefined = danh mục chưa tải, không kiểm tổ hợp. */
+export function validateNewUser(
+  d: NewUserDraft,
+  roleName?: string,
+  departmentCode?: string | null,
+): NewUserErrors {
   const errors: NewUserErrors = {};
   if (!d.username.trim()) errors.username = REQUIRED;
   if (!d.fullName.trim()) errors.fullName = REQUIRED;
@@ -71,8 +89,9 @@ export function validateNewUser(d: NewUserDraft, roleName?: string): NewUserErro
   if (d.password.length < PASSWORD_MIN_LENGTH)
     errors.password = `Mật khẩu phải có ít nhất ${PASSWORD_MIN_LENGTH} ký tự`;
   if (d.confirmPassword !== d.password) errors.confirmPassword = 'Mật khẩu xác nhận không khớp';
+  if (!d.departmentId) errors.departmentId = 'Vui lòng chọn phòng ban';
   if (!d.roleId) errors.roleId = REQUIRED;
-  if (!d.departmentId && roleName && DEPARTMENT_REQUIRED_ROLES.includes(roleName))
-    errors.departmentId = 'Vui lòng chọn phòng ban';
+  else if (roleName && departmentCode !== undefined && !allowedRoleNames(departmentCode).includes(roleName))
+    errors.roleId = 'Chức vụ không thuộc phòng ban đã chọn';
   return errors;
 }

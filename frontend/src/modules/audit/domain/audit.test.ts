@@ -5,6 +5,7 @@ import {
   groupByType,
   isOverdue,
   matrixTotal,
+  membersOfDepartment,
   tally,
   todayIso,
   type AuditItem,
@@ -96,5 +97,12 @@ describe('matrixTotal', () => {
         { unitName: 'Kho', deviceTypeName: 'PC', total: 3, ok: 2, missing: 0, broken: 1 },
       ]),
     ).toEqual({ total: 5, ok: 3, missing: 1, broken: 1 });
+  });
+});
+
+describe('membersOfDepartment', () => {
+  const u = (id: number, departmentId: number | null) => ({ id, fullName: `U${id}`, username: `u${id}`, departmentId });
+  it('chỉ giữ user thuộc phòng đã chọn, bỏ user không phòng ban', () => {
+    expect(membersOfDepartment([u(1, 1), u(2, 2), u(3, null), u(4, 1)], 1).map((x) => x.id)).toEqual([1, 4]);
   });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSession } from '@/app/session/SessionContext';
-import { canCreateAudit, canDecideAudit } from '@/modules/auth/domain/session';
+import { canCreateAudit, canDecideAudit, canDeleteAudits } from '@/modules/auth/domain/session';
 import { PageHeader } from '@/shared/layout/PageHeader';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
@@ -9,7 +9,7 @@ import { Card } from '@/shared/ui/Card';
 import { Tabs } from '@/shared/ui/Tabs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { downloadCsv } from '@/shared/lib/downloadCsv';
-import { AUDIT_STATUS, formatDate, isOverdue, todayIso, type AuditDetail } from '../domain/audit';
+import { AUDIT_STATUS, DELETABLE_AUDIT_STATUSES, formatDate, isOverdue, todayIso, type AuditDetail } from '../domain/audit';
 import { auditCsv } from '../domain/auditCsv';
 import { auditService } from '../infrastructure/container';
 import { AUDIT_STATUS_TONE } from './auditStatusTone';
@@ -19,8 +19,9 @@ import { AuditMembersTab } from './AuditMembersTab';
 export function AuditDetailPage() {
   const auditId = Number(useParams().id);
   const { session } = useSession();
-  const isCollab = canCreateAudit(session);
+  const isSpecialist = canCreateAudit(session);
   const isHead = canDecideAudit(session);
+  const canDelete = canDeleteAudits(session);
   const [detail, setDetail] = useState<AuditDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState('items');
@@ -53,9 +54,9 @@ export function AuditDetailPage() {
   }
 
   const { status } = detail;
-  const editable = isCollab && status === AUDIT_STATUS.IN_PROGRESS;
+  const editable = isSpecialist && status === AUDIT_STATUS.IN_PROGRESS;
   const membersEditable =
-    isCollab && (status === AUDIT_STATUS.NOT_STARTED || status === AUDIT_STATUS.IN_PROGRESS);
+    isSpecialist && (status === AUDIT_STATUS.NOT_STARTED || status === AUDIT_STATUS.IN_PROGRESS);
   const allCounted = detail.countedLines === detail.totalLines;
 
   const cancel = () => {
@@ -63,10 +64,15 @@ export function AuditDetailPage() {
       void act.run(() => auditService.cancel(auditId));
     }
   };
+  const remove = () => {
+    if (window.confirm('Xoá đợt kiểm kê này? Đợt sẽ vào thùng rác; trạng thái thiết bị đã đổi không được hoàn tác.')) {
+      void act.run(() => auditService.remove(auditId));
+    }
+  };
   const approve = () => {
     if (
       window.confirm(
-        'Duyệt kết quả kiểm kê? Thiết bị "Thiếu" sẽ chuyển Thất lạc, "Hỏng" sẽ chuyển Chờ thanh lý.',
+        'Duyệt kết quả kiểm kê? Thiết bị "Thiếu" sẽ chuyển Thất lạc, "Hỏng" sẽ chuyển Chờ xử lý.',
       )
     ) {
       void act.run(() => auditService.approve(auditId));
@@ -150,7 +156,7 @@ export function AuditDetailPage() {
           >
             Xuất PDF
           </Button>
-          {isCollab && status === AUDIT_STATUS.NOT_STARTED && (
+          {isSpecialist && status === AUDIT_STATUS.NOT_STARTED && (
             <>
               <Button variant="outline" disabled={act.pending} onClick={cancel}>
                 Huỷ đợt
@@ -178,6 +184,11 @@ export function AuditDetailPage() {
                 Gửi duyệt
               </Button>
             </>
+          )}
+          {canDelete && DELETABLE_AUDIT_STATUSES.includes(status) && (
+            <Button variant="outline" disabled={act.pending} onClick={remove}>
+              Xoá đợt
+            </Button>
           )}
           {isHead && status === AUDIT_STATUS.PENDING && (
             <>

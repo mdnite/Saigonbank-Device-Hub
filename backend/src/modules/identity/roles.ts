@@ -1,14 +1,24 @@
-// Tên role đã chốt (cột Role.RoleName). "Trưởng phòng" và "Cộng tác viên" phân biệt
-// Kế toán / Kỹ thuật bằng User.DepartmentId.
+// Tên role đã chốt (cột Role.RoleName). "Trưởng phòng" và "Chuyên viên" phân biệt
+// phòng ban bằng User.DepartmentId.
 export const ROLE = {
   ADMIN: 'Quản trị viên',
   HEAD: 'Trưởng phòng',
   STAFF: 'Nhân viên',
-  COLLAB: 'Cộng tác viên',
+  SPECIALIST: 'Chuyên viên',
 } as const;
 
-/** Role vô nghĩa nếu thiếu phòng ban — bắt buộc chọn phòng ban khi tạo user. */
-export const DEPARTMENT_REQUIRED_ROLES: readonly string[] = [
-  ROLE.HEAD,
-  ROLE.COLLAB,
-];
+/** Chức vụ hợp lệ theo DepartmentCode. Không phòng ban → chỉ Quản trị viên. */
+export const ROLES_BY_DEPARTMENT: Record<string, readonly string[]> = {
+  KYTHUAT: [ROLE.HEAD, ROLE.SPECIALIST, ROLE.STAFF],
+  KETOAN: [ROLE.HEAD, ROLE.SPECIALIST, ROLE.STAFF],
+  KINHDOANH: [ROLE.HEAD, ROLE.STAFF],
+  NGHIEPVU: [ROLE.HEAD, ROLE.STAFF],
+};
+
+export function roleAllowedFor(
+  roleName: string,
+  departmentCode: string | null,
+): boolean {
+  if (departmentCode === null) return roleName === ROLE.ADMIN;
+  return (ROLES_BY_DEPARTMENT[departmentCode] ?? []).includes(roleName);
+}

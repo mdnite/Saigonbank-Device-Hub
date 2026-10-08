@@ -61,6 +61,23 @@ it('phiên cũ thiếu departmentCode: bỏ phiên, không báo', () => {
   expect(screen.getByText('notice:')).toBeInTheDocument();
 });
 
+it('phiên cũ còn vai trò "Cộng tác viên" (đã đổi thành Chuyên viên): bỏ phiên, không báo', () => {
+  localStorage.setItem(
+    KEY,
+    JSON.stringify({
+      userId: '1',
+      displayName: 'A',
+      email: 'a@b.vn',
+      token: fakeJwt(inOneHour()),
+      roleName: 'Cộng tác viên',
+      departmentCode: 'KETOAN',
+    }),
+  );
+  renderProbe();
+  expect(screen.getByText('session:no')).toBeInTheDocument();
+  expect(screen.getByText('notice:')).toBeInTheDocument();
+});
+
 it('API trả 401 khi đang đăng nhập: tự đăng xuất + báo hết phiên', async () => {
   stored(fakeJwt(inOneHour()));
   renderProbe();

@@ -80,7 +80,7 @@ function renderPage(roleName: string, first: ReturnType<typeof detail>, after?: 
 }
 
 it('tiêu đề theo Figma, có dòng linh kiện và dòng Tổng cộng', async () => {
-  renderPage('Cộng tác viên', detail());
+  renderPage('Chuyên viên', detail());
   expect(await screen.findByText(/Kiểm kê thiết bị tại Phòng Kỹ thuật đến ngày 31\/10\/2099/)).toBeInTheDocument();
   expect(screen.getByText('↳ Sạc 65W')).toBeInTheDocument();
   expect(screen.getByText(/1 thiết bị · Đủ 0 · Thiếu 0 · Hỏng 0 · Chưa đếm 1/)).toBeInTheDocument();
@@ -91,7 +91,7 @@ it('CTV + Đang kiểm kê: đổi kết quả gửi PATCH và cập nhật theo
     countedLines: 1,
     items: [{ ...detail().items[0], result: 'Thiếu' }],
   });
-  const fetchMock = renderPage('Cộng tác viên', detail(), counted);
+  const fetchMock = renderPage('Chuyên viên', detail(), counted);
   const select = await screen.findByLabelText('Kết quả LT-000001');
   expect(screen.getByRole('button', { name: 'Gửi duyệt' })).toBeDisabled();
 
@@ -103,7 +103,7 @@ it('CTV + Đang kiểm kê: đổi kết quả gửi PATCH và cập nhật theo
 });
 
 it('CTV + Chưa kiểm kê: có "Bắt đầu kiểm kê" và "Huỷ đợt", chưa nhập được', async () => {
-  renderPage('Cộng tác viên', detail({ status: 'Chưa kiểm kê' }));
+  renderPage('Chuyên viên', detail({ status: 'Chưa kiểm kê' }));
   expect(await screen.findByRole('button', { name: 'Bắt đầu kiểm kê' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Huỷ đợt' })).toBeInTheDocument();
   expect(screen.queryByLabelText('Kết quả LT-000001')).toBeNull();
@@ -117,8 +117,30 @@ it('TP Kế toán + Chờ duyệt: Duyệt / Từ chối, không ô nhập', asy
   expect(screen.queryByRole('button', { name: 'Gửi duyệt' })).toBeNull();
 });
 
+it('TP Kế toán + Đã duyệt: "Xoá đợt" → confirm → badge Đã xóa, nút biến mất', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  renderPage('Trưởng phòng', detail({ status: 'Đã duyệt', countedLines: 2 }), detail({ status: 'Đã xóa', countedLines: 2 }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Xoá đợt' }));
+  expect(await screen.findByText('Đã xóa')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Xoá đợt' })).toBeNull();
+});
+
+it('TP Kế toán + Chờ duyệt: không có "Xoá đợt"', async () => {
+  renderPage('Trưởng phòng', detail({ status: 'Chờ duyệt', countedLines: 2 }));
+  await screen.findByRole('button', { name: 'Duyệt' });
+  expect(screen.queryByRole('button', { name: 'Xoá đợt' })).toBeNull();
+});
+
+it('Chuyên viên + Đã xóa: chỉ còn Xuất CSV / PDF', async () => {
+  renderPage('Chuyên viên', detail({ status: 'Đã xóa' }));
+  await screen.findByRole('button', { name: 'Xuất CSV' });
+  for (const name of ['Bắt đầu kiểm kê', 'Sửa thành viên', 'Xoá đợt']) {
+    expect(screen.queryByRole('button', { name })).toBeNull();
+  }
+});
+
 it('bị từ chối: banner lý do', async () => {
-  renderPage('Cộng tác viên', detail({ rejectReason: 'Đếm lại tầng 3' }));
+  renderPage('Chuyên viên', detail({ rejectReason: 'Đếm lại tầng 3' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Bị từ chối: Đếm lại tầng 3');
 });
 
@@ -127,7 +149,7 @@ it('hai lần lưu chồng nhau: phản hồi của lần gửi sau thắng dù 
   const res = (d: unknown) => new Response(JSON.stringify({ success: true, data: d, error: null, message: 'OK' }), { status: 200 });
   localStorage.setItem(
     'idsm.session',
-    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName: 'Cộng tác viên', departmentCode: 'KETOAN' }),
+    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName: 'Chuyên viên', departmentCode: 'KETOAN' }),
   );
   vi.stubGlobal(
     'fetch',
@@ -159,18 +181,20 @@ it('hai lần lưu chồng nhau: phản hồi của lần gửi sau thắng dù 
 });
 
 it('lưu thành viên lỗi: form vẫn mở, giữ lựa chọn và hiện lỗi', async () => {
-  renderPage('Cộng tác viên', detail());
+  renderPage('Chuyên viên', detail());
   await screen.findByText(/Kiểm kê thiết bị tại/);
   vi.stubGlobal(
     'fetch',
     vi.fn().mockImplementation((u: string, init?: RequestInit) => {
       if (init?.method === 'PUT')
         return Promise.resolve(new Response(JSON.stringify({ success: false, data: null, error: 'X', message: 'Thành viên không hợp lệ' }), { status: 400 }));
-      return envelope(u.includes('/users/lookup') ? [{ id: 7, fullName: 'Nguyễn Văn A', username: 'a' }] : detail());
+      if (u.includes('/departments')) return envelope([{ id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' }]);
+      return envelope(u.includes('/users/lookup') ? [{ id: 7, fullName: 'Nguyễn Văn A', username: 'a', departmentId: 1 }] : detail());
     }),
   );
   fireEvent.click(screen.getByText('Thành viên tham gia'));
   fireEvent.click(screen.getByRole('button', { name: 'Sửa thành viên' }));
+  fireEvent.change(await screen.findByLabelText('Phòng ban'), { target: { value: '1' } });
   const box = await screen.findByLabelText('Nguyễn Văn A (a)');
   expect(box).toBeChecked();
   fireEvent.click(box);
@@ -180,7 +204,7 @@ it('lưu thành viên lỗi: form vẫn mở, giữ lựa chọn và hiện lỗ
 });
 
 it('thành viên ngừng hoạt động vẫn hiện, bỏ chọn rồi lưu thì PUT không còn id đó', async () => {
-  renderPage('Cộng tác viên', detail());
+  renderPage('Chuyên viên', detail());
   await screen.findByText(/Kiểm kê thiết bị tại/);
   const put = vi.fn();
   vi.stubGlobal(
@@ -190,14 +214,14 @@ it('thành viên ngừng hoạt động vẫn hiện, bỏ chọn rồi lưu th�
         put(JSON.parse(String(init.body)));
         return envelope(detail({ members: [] }));
       }
-      return envelope(u.includes('/users/lookup') ? [{ id: 8, fullName: 'Lê C', username: 'c' }] : detail());
+      if (u.includes('/departments')) return envelope([{ id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' }]);
+      return envelope(u.includes('/users/lookup') ? [{ id: 8, fullName: 'Lê C', username: 'c', departmentId: 1 }] : detail());
     }),
   );
   fireEvent.click(screen.getByText('Thành viên tham gia'));
   fireEvent.click(screen.getByRole('button', { name: 'Sửa thành viên' }));
-  const stale = await screen.findByLabelText('Nguyễn Văn A (a) — ngừng hoạt động');
-  expect(stale).toBeChecked();
-  fireEvent.click(stale);
+  await screen.findByText(/Nguyễn Văn A — ngừng hoạt động/);
+  fireEvent.click(screen.getByRole('button', { name: 'Bỏ Nguyễn Văn A' }));
   fireEvent.click(screen.getByRole('button', { name: 'Lưu thành viên' }));
   await waitFor(() => expect(put).toHaveBeenCalledWith({ userIds: [] }));
 });

@@ -40,7 +40,7 @@ Node's own global `localStorage` shadows jsdom's.
 | `user` | Quản lý người dùng (`/users`, `/users/new` — chỉ Quản trị viên) + Cài đặt cá nhân (`/settings`, 3 tab) | Group 7, 8, 9 (chỉ màn cài đặt) |
 | `allocation` | Đơn Cấp phát - Thu hồi (`/allocation`, `/allocation/new`), in biên bản PDF | — (theo spec, không theo Figma) |
 | `transfer` | Lệnh Điều chuyển (`/transfers`, `/transfers/new`), in biên bản PDF | — (theo spec, không theo Figma) |
-| `audit` | Kiểm kê (`/audit` 3 tab `?tab=detail\|quantity\|summary`, `/audit/:id`, `/audit/summaries/:id`), xuất PDF / CSV — chỉ TP + CTV Kế toán | Frame `337:2672`, `337:2805`, `338:2878`, `338:3004` + spec |
+| `audit` | Kiểm kê (`/audit` 3 tab `?tab=detail\|quantity\|summary`, `/audit/:id`, `/audit/summaries/:id`), xuất PDF / CSV — chỉ TP + Chuyên viên Kế toán | Frame `337:2672`, `337:2805`, `338:2878`, `338:3004` + spec |
 
 Not yet built: Kiểm kê số lượng (tab placeholder trong `/audit`), QR thiết bị.
 Approvals Center (Group 13) is not a separate screen — approve/reject sits on the `/allocation` and
@@ -50,10 +50,10 @@ Approvals Center (Group 13) is not a separate screen — approve/reject sits on 
 [`../backend/`](../backend/) (login, forgot password → OTP email → reset, logout = client-side
 token removal; `/users` list/create/lock-unlock/soft-delete; `/devices` list/create/update/soft-delete;
 `/device-orders`, `/device-transfers`, `/audits`, `/audit-summaries`). Permissions (UI hide/show only — the backend enforces them,
-see `src/modules/auth/domain/session.ts`): Cộng tác viên Kỹ thuật adds/edits devices and creates
+see `src/modules/auth/domain/session.ts`): Chuyên viên Kỹ thuật adds/edits devices and creates
 orders/transfers, Trưởng phòng Kỹ thuật also deletes devices and approves/rejects, Quản trị viên
-manages users and is read-only elsewhere. Kế toán: Cộng tác viên Kế toán schedules / counts / submits audits and builds summaries,
-Trưởng phòng Kế toán approves / rejects (Kiểm kê is hidden from every other role); Trưởng phòng Kỹ thuật can mark a
+manages users and is read-only elsewhere. Kế toán: Chuyên viên Kế toán schedules / counts / submits audits and builds summaries,
+Trưởng phòng Kế toán approves / rejects and deletes audits / empties the audit trash / deletes summaries (Kiểm kê is hidden from every other role); Trưởng phòng Kỹ thuật can mark a
 "Thất lạc" device as found. `dashboard` and `/settings` still use in-memory mocks.
 
 ## Architecture — pragmatic DDD

@@ -4,7 +4,7 @@ export const DEVICE_STATUS = {
   ALLOCATED: 'Đã cấp phát',
   /** Đang nằm trong đơn/lệnh chờ duyệt — bị khoá, không sửa/xoá được. */
   PENDING_APPROVAL: 'Đang chờ duyệt',
-  PENDING_DISPOSAL: 'Chờ thanh lý',
+  PENDING_PROCESSING: 'Chờ xử lý',
   /** Kiểm kê ghi "Thiếu" và đã duyệt — TP Kỹ thuật bấm "Tìm thấy" để đưa về. */
   LOST: 'Thất lạc',
   DELETED: 'Đã xóa',
@@ -17,7 +17,7 @@ export const DEVICE_STATUS_OPTIONS: DeviceStatus[] = [
   DEVICE_STATUS.IN_STOCK,
   DEVICE_STATUS.ALLOCATED,
   DEVICE_STATUS.PENDING_APPROVAL,
-  DEVICE_STATUS.PENDING_DISPOSAL,
+  DEVICE_STATUS.PENDING_PROCESSING,
   DEVICE_STATUS.LOST,
   DEVICE_STATUS.DELETED,
 ];

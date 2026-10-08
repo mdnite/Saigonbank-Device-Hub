@@ -11,7 +11,7 @@ import { hashPassword } from '../../shared/security/password';
 import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { USER_STATUS } from '../identity/user-status';
 
-// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Cộng tác viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
+// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Chuyên viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
 // DeviceType id trong fake: 1 Laptop (LT), 2 Máy tính để bàn (PC).
 
 describe('Device orders: /device-orders', () => {
@@ -315,7 +315,7 @@ describe('Device orders: /device-orders', () => {
   });
 
   describe('GET /device-orders', () => {
-    it('Quản trị viên, Trưởng phòng Kỹ thuật, Cộng tác viên Kỹ thuật đều xem được', async () => {
+    it('Quản trị viên, Trưởng phòng Kỹ thuật, Chuyên viên Kỹ thuật đều xem được', async () => {
       for (const actor of [admin, techHead, collab]) {
         await http()
           .get('/device-orders')
@@ -324,7 +324,7 @@ describe('Device orders: /device-orders', () => {
       }
     });
 
-    it('Cộng tác viên Kế toán không xem được: 403', async () => {
+    it('Chuyên viên Kế toán không xem được: 403', async () => {
       const financeCollab = addUser('financecollab', 4, 2);
       await http()
         .get('/device-orders')
@@ -532,7 +532,7 @@ describe('Device orders: /device-orders', () => {
       expect(device.currentUser).toBeNull();
     });
 
-    it('Quản trị viên và Cộng tác viên Kỹ thuật không được duyệt/từ chối: 403', async () => {
+    it('Quản trị viên và Chuyên viên Kỹ thuật không được duyệt/từ chối: 403', async () => {
       const deviceId = await createDevice();
       const created = await http()
         .post('/device-orders')

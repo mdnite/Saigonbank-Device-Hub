@@ -7,7 +7,7 @@ import {
 import { Department, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { hashPassword } from '../../shared/security/password';
-import { DEPARTMENT_REQUIRED_ROLES } from '../identity/roles';
+import { ROLE, roleAllowedFor } from '../identity/roles';
 import { USER_STATUS } from '../identity/user-status';
 import { CreateUserDto, ListUsersQuery, MAX_INT32 } from './users.dto';
 
@@ -82,16 +82,23 @@ export class UsersService {
     });
     if (!role) throw new BadRequestException('Vai trò không tồn tại');
     // `== null`: @IsOptional cho cả null lẫn undefined lọt qua DTO.
-    if (dto.departmentId == null) {
-      if (DEPARTMENT_REQUIRED_ROLES.includes(role.roleName)) {
-        throw new BadRequestException('Vui lòng chọn phòng ban');
-      }
-    } else if (
-      !(await this.prisma.department.findUnique({
-        where: { id: dto.departmentId },
-      }))
-    ) {
+    const department =
+      dto.departmentId == null
+        ? null
+        : await this.prisma.department.findUnique({
+            where: { id: dto.departmentId },
+          });
+    if (dto.departmentId != null && !department) {
       throw new BadRequestException('Phòng ban không tồn tại');
+    }
+    if (!roleAllowedFor(role.roleName, department?.departmentCode ?? null)) {
+      if (!department) throw new BadRequestException('Vui lòng chọn phòng ban');
+      if (role.roleName === ROLE.ADMIN) {
+        throw new BadRequestException('Quản trị viên không thuộc phòng ban');
+      }
+      throw new BadRequestException(
+        `Phòng ${department.departmentName.replace(/^Phòng /, '')} không có chức vụ ${role.roleName}`,
+      );
     }
 
     try {
@@ -259,7 +266,7 @@ export class UsersService {
       where: {
         status: activeOnly ? USER_STATUS.ACTIVE : { not: USER_STATUS.DELETED },
       },
-      select: { id: true, fullName: true, username: true },
+      select: { id: true, fullName: true, username: true, departmentId: true },
       orderBy: { id: 'asc' },
     });
   }

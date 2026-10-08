@@ -11,8 +11,8 @@ Internal IT device / asset management app for SaigonBank. Two top-level apps:
 
 Login needs both apps running: PostgreSQL → backend (`:3000`) → frontend (`:5173`), each in its own
 terminal. Dev accounts after `npx prisma db seed` (or `pnpm db:setup` = migrate deploy + seed): `admin` / `Admin@123`,
-`truongphong.kt` / `Head@1234` (Trưởng phòng Kỹ thuật), `ctv.kt` / `Collab@1234` (Cộng tác viên Kỹ thuật), `truongphong.ketoan` / `Head@1234` (Trưởng phòng Kế toán),
-`ctv.ketoan` / `Collab@1234` (Cộng tác viên Kế toán).
+`truongphong.kt` / `Head@1234` (Trưởng phòng Kỹ thuật), `ctv.kt` / `Collab@1234` (Chuyên viên Kỹ thuật), `truongphong.ketoan` / `Head@1234` (Trưởng phòng Kế toán),
+`ctv.ketoan` / `Collab@1234` (Chuyên viên Kế toán).
 
 ### Frontend
 

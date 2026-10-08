@@ -90,10 +90,10 @@ $login = Api -Method Post -Path '/auth/login' -Body @{ identifier = $AdminUserna
 $adminToken = $login.data.accessToken
 if ($adminToken) { Ok "admin dang nhap duoc" } else { Fail "khong lay duoc accessToken"; exit 1 }
 
-# Role id cua 'Cộng tác viên' tra theo ten: role them sau nen id tren DB that khong co dinh.
+# Role id cua 'Chuyên viên' tra theo ten: role them sau nen id tren DB that khong co dinh.
 $collabRole = (Api -Method Get -Path '/roles' -Token $adminToken).data |
-  Where-Object { $_.roleName -eq 'Cộng tác viên' } | Select-Object -First 1
-if (-not $collabRole) { Fail "chua co role 'Cộng tác viên' — chay lai seed (npm run db:setup)"; exit 1 }
+  Where-Object { $_.roleName -eq 'Chuyên viên' } | Select-Object -First 1
+if (-not $collabRole) { Fail "chua co role 'Chuyên viên' — chay lai seed (npm run db:setup)"; exit 1 }
 $depts = (Api -Method Get -Path '/departments' -Token $adminToken).data
 $techDept = ($depts | Where-Object { $_.departmentCode -eq 'KYTHUAT' }).id
 $acctDept = ($depts | Where-Object { $_.departmentCode -eq 'KETOAN' }).id

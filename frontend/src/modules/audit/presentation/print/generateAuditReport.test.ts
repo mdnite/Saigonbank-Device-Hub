@@ -31,7 +31,7 @@ describe('buildAuditReportContent', () => {
   it('tiêu đề, thông tin đợt, thành viên, máy + linh kiện + kết quả, tổng', () => {
     const lines = buildAuditReportContent(detail());
     expect(lines[0]).toBe('BIÊN BẢN KIỂM KÊ THIẾT BỊ');
-    expect(lines).toContain('Đơn vị kiểm kê: Kho');
+    expect(lines).toContain('Đơn vị được kiểm kê: Kho');
     expect(lines).toContain('Đến ngày: 31/10/2026');
     expect(lines).toContain('Loại thiết bị: Laptop');
     expect(lines).toContain('Người duyệt: TP Kế toán');

@@ -175,11 +175,13 @@ export function createFakePrisma() {
     { id: 1, roleName: 'Quản trị viên' },
     { id: 2, roleName: 'Trưởng phòng' },
     { id: 3, roleName: 'Nhân viên' },
-    { id: 4, roleName: 'Cộng tác viên' },
+    { id: 4, roleName: 'Chuyên viên' },
   ];
   const departments: Department[] = [
     { id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' },
     { id: 2, departmentCode: 'KETOAN', departmentName: 'Phòng Kế toán' },
+    { id: 3, departmentCode: 'KINHDOANH', departmentName: 'Phòng Kinh doanh' },
+    { id: 4, departmentCode: 'NGHIEPVU', departmentName: 'Phòng Nghiệp vụ' },
   ];
   const users: User[] = [];
   const tokens: PasswordResetToken[] = [];
@@ -877,6 +879,26 @@ export function createFakePrisma() {
           count: updateRows(audits, where, data).length,
         }),
       ),
+      // Chỉ /audits/purge dùng. Cascade như migration: AuditItem(+AuditItemAccessory), AuditMember.
+      deleteMany: jest.fn(async ({ where }: { where: Where }) => {
+        const gone = audits.filter((a) => matches(a, where));
+        const ids = new Set(gone.map((a) => a.id));
+        if (auditSummaryAudits.some((l) => ids.has(l.auditId))) {
+          throw new Error('FK RESTRICT: AuditSummaryAudit.AuditId');
+        }
+        const itemIds = new Set(
+          auditItems.filter((i) => ids.has(i.auditId)).map((i) => i.id),
+        );
+        const keep = <T>(arr: T[], drop: (x: T) => boolean) => {
+          for (let k = arr.length - 1; k >= 0; k--)
+            if (drop(arr[k])) arr.splice(k, 1);
+        };
+        keep(auditItemAccessories, (x) => itemIds.has(x.auditItemId));
+        keep(auditItems, (i) => ids.has(i.auditId));
+        keep(auditMembers, (m) => ids.has(m.auditId));
+        keep(audits, (a) => ids.has(a.id));
+        return { count: gone.length };
+      }),
       delete: jest.fn(forbidden),
     },
     auditItem: {
@@ -955,7 +977,23 @@ export function createFakePrisma() {
         return { count: data.length };
       }),
     },
+    auditSummaryAudit: {
+      findMany: jest.fn(async ({ where }: { where?: Where }) =>
+        auditSummaryAudits.filter((l) => matches(l, where)),
+      ),
+    },
     auditSummary: {
+      // Cascade AuditSummaryAudit như migration.
+      deleteMany: jest.fn(async ({ where }: { where: Where }) => {
+        const gone = auditSummaries.filter((s) => matches(s, where));
+        for (const s of gone) {
+          auditSummaries.splice(auditSummaries.indexOf(s), 1);
+          for (let k = auditSummaryAudits.length - 1; k >= 0; k--)
+            if (auditSummaryAudits[k].summaryId === s.id)
+              auditSummaryAudits.splice(k, 1);
+        }
+        return { count: gone.length };
+      }),
       findMany: jest.fn(
         async ({
           where,

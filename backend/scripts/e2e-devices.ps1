@@ -108,10 +108,10 @@ Api -Method Post -Path '/users' -Token $adminToken -Body @{
 $techToken = (Api -Method Post -Path '/auth/login' -Body @{ identifier = $techUname; password = $techPass }).data.accessToken
 if ($techToken) { Ok "$techUname dang nhap duoc" } else { Fail "$techUname khong dang nhap duoc"; exit 1 }
 
-# Role id của 'Cộng tác viên' tra theo tên: role thêm sau nên id trên DB thật không cố định.
+# Role id của 'Chuyên viên' tra theo tên: role thêm sau nên id trên DB thật không cố định.
 $collabRole = (Api -Method Get -Path '/roles' -Token $adminToken).data |
-  Where-Object { $_.roleName -eq 'Cộng tác viên' } | Select-Object -First 1
-if (-not $collabRole) { Fail "chưa có role 'Cộng tác viên' — chạy lại seed (npm run db:setup)"; exit 1 }
+  Where-Object { $_.roleName -eq 'Chuyên viên' } | Select-Object -First 1
+if (-not $collabRole) { Fail "chưa có role 'Chuyên viên' — chạy lại seed (npm run db:setup)"; exit 1 }
 
 $collabUname = "e2ectv$stamp"
 $collabPass = 'E2e@1234'
@@ -263,11 +263,11 @@ ExpectStatus -Method Post -Path '/devices' -Token $staffToken -Expected 403 -Lab
   deviceTypeId = $laptop.id
 }
 
-Step "11b. Quản trị viên chỉ đọc; Cộng tác viên Kỹ thuật sửa được nhưng không xoá"
+Step "11b. Quản trị viên chỉ đọc; Chuyên viên Kỹ thuật sửa được nhưng không xoá"
 ExpectStatus -Method Patch -Path "/devices/$deviceId" -Token $adminToken -Expected 403 -Label "Quản trị viên PATCH /devices" -Body @{ deviceName = 'x' }
 Api -Method Patch -Path "/devices/$deviceId" -Token $collabToken -Body @{ deviceName = "Laptop CTV sửa $stamp" } | Out-Null
-Ok "Cộng tác viên Kỹ thuật PATCH /devices được"
-ExpectStatus -Method Delete -Path "/devices/$deviceId" -Token $collabToken -Expected 403 -Label "Cộng tác viên Kỹ thuật DELETE /devices"
+Ok "Chuyên viên Kỹ thuật PATCH /devices được"
+ExpectStatus -Method Delete -Path "/devices/$deviceId" -Token $collabToken -Expected 403 -Label "Chuyên viên Kỹ thuật DELETE /devices"
 
 Step "12. Xoá mềm thiết bị"
 Api -Method Delete -Path "/devices/$deviceId" -Token $techToken | Out-Null

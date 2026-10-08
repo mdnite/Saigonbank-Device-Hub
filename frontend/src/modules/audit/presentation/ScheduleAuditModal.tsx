@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Field } from '@/shared/ui/Field';
-import { Checkbox, Input, Radio, Select } from '@/shared/ui/inputs';
+import { Input, Radio, Select } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { useAsyncData } from '@/shared/lib/useAsyncData';
 import { AUDIT_PURPOSES, WAREHOUSE_LABEL, WAREHOUSE_UNIT, type AuditDetail } from '../domain/audit';
@@ -13,6 +13,7 @@ import {
   type AuditDraft,
   type AuditDraftErrors,
 } from '../domain/validateAuditDraft';
+import { AuditMemberPicker } from './AuditMemberPicker';
 import { auditService } from '../infrastructure/container';
 
 export function ScheduleAuditModal({
@@ -57,13 +58,6 @@ export function ScheduleAuditModal({
     onCreated(created);
   });
 
-  const toggleMember = (id: number) =>
-    set({
-      memberIds: draft.memberIds.includes(id)
-        ? draft.memberIds.filter((m) => m !== id)
-        : [...draft.memberIds, id],
-    });
-
   return (
     <Modal
       open={open}
@@ -81,7 +75,7 @@ export function ScheduleAuditModal({
       }
     >
       <div className="grid gap-4">
-        <Field label="Đơn vị kiểm kê" htmlFor="audit-unit" required error={errors.unit}>
+        <Field label="Đơn vị được kiểm kê" htmlFor="audit-unit" required error={errors.unit}>
           <Select
             id="audit-unit"
             placeholder="Chọn đơn vị"
@@ -146,18 +140,12 @@ export function ScheduleAuditModal({
           </Select>
         </Field>
         <Field label="Thành viên tham gia">
-          <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-line p-3">
-            {users.map((u) => (
-              <div key={u.id}>
-                <Checkbox
-                  id={`audit-member-${u.id}`}
-                  label={`${u.fullName} (${u.username})`}
-                  checked={draft.memberIds.includes(u.id)}
-                  onChange={() => toggleMember(u.id)}
-                />
-              </div>
-            ))}
-          </div>
+          <AuditMemberPicker
+            users={users}
+            departments={departments}
+            selected={draft.memberIds}
+            onChange={(memberIds) => set({ memberIds })}
+          />
         </Field>
         {submit.error && <p className="text-sm text-status-dangerFg">{submit.error}</p>}
       </div>

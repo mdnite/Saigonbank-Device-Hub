@@ -11,7 +11,7 @@ import { hashPassword } from '../../shared/security/password';
 import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { USER_STATUS } from '../identity/user-status';
 
-// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Cộng tác viên.
+// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Chuyên viên.
 // Phòng ban: 1 KYTHUAT "Phòng Kỹ thuật", 2 KETOAN "Phòng Kế toán". DeviceType: 1 Laptop, 2 Máy tính để bàn.
 
 describe('Kiểm kê: /audits', () => {
@@ -240,11 +240,11 @@ describe('Kiểm kê: /audits', () => {
       expect(res.body.data.location).toBe('Tầng 3');
     });
 
-    it('bỏ qua máy Đang chờ duyệt / Chờ thanh lý / Thất lạc / Đã xóa', async () => {
+    it('bỏ qua máy Đang chờ duyệt / Chờ xử lý / Thất lạc / Đã xóa', async () => {
       const ok = allocatedTo(techStaff);
       for (const status of [
         'Đang chờ duyệt',
-        'Chờ thanh lý',
+        'Chờ xử lý',
         'Thất lạc',
         'Đã xóa',
       ]) {
@@ -275,7 +275,7 @@ describe('Kiểm kê: /audits', () => {
     });
 
     it.each([
-      [{ departmentId: undefined }, 'Vui lòng chọn đơn vị kiểm kê'],
+      [{ departmentId: undefined }, 'Vui lòng chọn đơn vị được kiểm kê'],
       [{ purpose: 'Bất chợt' }, 'Mục đích không hợp lệ'],
       [{ dueDate: 'không phải ngày' }, 'Ngày kiểm kê không hợp lệ'],
     ])('body sai %j: 400 "%s"', async (body, message) => {
@@ -286,7 +286,7 @@ describe('Kiểm kê: /audits', () => {
 
     it('phòng ban không tồn tại: 400', async () => {
       const res = await schedule({ departmentId: 99 }).expect(400);
-      expect(res.body.message).toBe('Đơn vị kiểm kê không tồn tại');
+      expect(res.body.message).toBe('Đơn vị được kiểm kê không tồn tại');
     });
 
     it('thành viên đã ngừng hoạt động: 400', async () => {
@@ -325,10 +325,10 @@ describe('Kiểm kê: /audits', () => {
     it.each([
       ['Quản trị viên', () => admin, 403],
       ['TP Kỹ thuật', () => techHead, 403],
-      ['CTV Kỹ thuật', () => techCollab, 403],
+      ['Chuyên viên Kỹ thuật', () => techCollab, 403],
       ['Nhân viên', () => acctStaff, 403],
       ['TP Kế toán', () => acctHead, 200],
-      ['CTV Kế toán', () => acctCollab, 200],
+      ['Chuyên viên Kế toán', () => acctCollab, 200],
     ])('GET /audits — %s → %i', async (_label, who, status) => {
       await http()
         .get('/audits')
@@ -650,7 +650,7 @@ describe('Kiểm kê: /audits', () => {
   const deviceById = (id: number) => prisma.devices.find((d) => d.id === id)!;
 
   describe('POST /audits/:id/approve', () => {
-    it('Thiếu → Thất lạc, Hỏng → Chờ thanh lý, giữ người sở hữu; Đủ không đổi', async () => {
+    it('Thiếu → Thất lạc, Hỏng → Chờ xử lý, giữ người sở hữu; Đủ không đổi', async () => {
       const ok = allocatedTo(techStaff);
       const missing = allocatedTo(techStaff);
       const broken = allocatedTo(techStaff);
@@ -669,7 +669,7 @@ describe('Kiểm kê: /audits', () => {
         currentUserId: techStaff.id,
       });
       expect(deviceById(broken.id)).toMatchObject({
-        status: 'Chờ thanh lý',
+        status: 'Chờ xử lý',
         currentUserId: techStaff.id,
       });
     });
@@ -711,7 +711,7 @@ describe('Kiểm kê: /audits', () => {
       expect(deviceById(a.id).status).toBe('Đang chờ duyệt');
     });
 
-    it('duyệt 2 lần: 400; chưa gửi duyệt: 400; CTV Kế toán / TP Kỹ thuật: 403', async () => {
+    it('duyệt 2 lần: 400; chưa gửi duyệt: 400; Chuyên viên Kế toán / TP Kỹ thuật: 403', async () => {
       const a = allocatedTo(techStaff);
       const id = await submittedAudit([a], ['Đủ']);
       await post(`/audits/${id}/approve`, acctCollab).expect(403);
@@ -753,7 +753,7 @@ describe('Kiểm kê: /audits', () => {
       expect(deviceById(stock.id).status).toBe('Trong kho');
     });
 
-    it('máy không Thất lạc: 400; CTV Kỹ thuật / Kế toán: 403; không tồn tại: 404', async () => {
+    it('máy không Thất lạc: 400; Chuyên viên Kỹ thuật / Kế toán: 403; không tồn tại: 404', async () => {
       const d = allocatedTo(techStaff);
       const res = await post(`/devices/${d.id}/found`, techHead).expect(400);
       expect(res.body.message).toBe('Thiết bị không ở trạng thái Thất lạc');
@@ -775,7 +775,7 @@ describe('Kiểm kê: /audits', () => {
       return [first, second];
     }
 
-    it('CTV Kế toán lập bảng từ các đợt Đã duyệt; chi tiết có ma trận', async () => {
+    it('Chuyên viên Kế toán lập bảng từ các đợt Đã duyệt; chi tiết có ma trận', async () => {
       const ids = await twoApprovedAudits();
       const res = await post('/audit-summaries', acctCollab, {
         title: '  Kiểm kê quý 3  ',
@@ -905,6 +905,131 @@ describe('Kiểm kê: /audits', () => {
         [member.id, ['đợt kiểm kê']],
       ]);
       expect(prisma.users.some((u) => u.id === member.id)).toBe(true);
+    });
+  });
+
+  describe('Xoá / thùng rác', () => {
+    const del = (id: number, user: User) =>
+      http().delete(`/audits/${id}`).set(as(user));
+    const purge = (ids: number[], user: User = acctHead) =>
+      post('/audits/purge', user, { ids });
+
+    it('TP Kế toán xoá đợt Chưa kiểm kê → Đã xóa; Chuyên viên bị 403', async () => {
+      const a = await newAudit();
+      await del(a.id, acctCollab).expect(403);
+      const res = await del(a.id, acctHead).expect(200);
+      expect(res.body.data.status).toBe('Đã xóa');
+    });
+
+    it('không xoá được đợt Chờ duyệt (400)', async () => {
+      const a = await newAudit(false);
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/mark-uncounted-ok`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/submit`, acctCollab).expect(201);
+      await del(a.id, acctHead).expect(400);
+    });
+
+    it('xoá đợt Đang kiểm kê nhả thiết bị — lập đợt mới cho cùng máy được', async () => {
+      const a = await newAudit(false);
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await del(a.id, acctHead).expect(200);
+      const again = await schedule().expect(201);
+      expect(
+        again.body.data.items.map((i: { deviceId: number }) => i.deviceId),
+      ).toContain(a.items[0].deviceId);
+    });
+
+    it('đợt Đã xóa: mọi thao tác ghi trả 400', async () => {
+      const a = await newAudit(false);
+      await del(a.id, acctHead).expect(200);
+      await post(`/audits/${a.id}/start`, acctCollab).expect(400);
+      await http()
+        .put(`/audits/${a.id}/members`)
+        .set(as(acctCollab))
+        .send({ userIds: [] })
+        .expect(400);
+    });
+
+    it('GET /audits mặc định ẩn Đã xóa; lọc status=Đã xóa thì Chuyên viên vẫn xem được', async () => {
+      const a = await newAudit(false);
+      await del(a.id, acctHead).expect(200);
+      const all = await http().get('/audits').set(as(acctCollab)).expect(200);
+      expect(all.body.data.map((x: { id: number }) => x.id)).not.toContain(
+        a.id,
+      );
+      const trash = await http()
+        .get('/audits')
+        .query({ status: 'Đã xóa' })
+        .set(as(acctCollab))
+        .expect(200);
+      expect(trash.body.data.map((x: { id: number }) => x.id)).toEqual([a.id]);
+      await http().get(`/audits/${a.id}`).set(as(acctCollab)).expect(200);
+    });
+
+    it('purge: xoá cứng đợt Đã xóa, bỏ qua lặng lẽ đợt chưa xoá mềm; Chuyên viên 403', async () => {
+      const deleted = await newAudit(false);
+      await del(deleted.id, acctHead).expect(200); // nhả máy trước, đợt sau mới lập được
+      const alive = await newAudit(false);
+      await purge([deleted.id, alive.id], acctCollab).expect(403);
+      const res = await purge([deleted.id, alive.id]).expect(201);
+      expect(res.body.data).toEqual({ count: 1, skipped: [] });
+      expect(prisma.audits.map((x) => x.id)).toEqual([alive.id]);
+      expect(prisma.auditItems.some((i) => i.auditId === deleted.id)).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('Xoá bảng tổng hợp', () => {
+    async function approvedAudit() {
+      const a = await newAudit(false);
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/mark-uncounted-ok`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/submit`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/approve`, acctHead).expect(201);
+      return a;
+    }
+
+    it('đợt nằm trong bảng tổng hợp: purge bỏ qua kèm lý do; xoá bảng rồi purge được', async () => {
+      const a = await approvedAudit();
+      const s = await post('/audit-summaries', acctCollab, {
+        title: 'Q3',
+        auditIds: [a.id],
+      }).expect(201);
+      await http().delete(`/audits/${a.id}`).set(as(acctHead)).expect(200);
+      const first = await post('/audits/purge', acctHead, {
+        ids: [a.id],
+      }).expect(201);
+      expect(first.body.data).toEqual({
+        count: 0,
+        skipped: [
+          {
+            id: a.id,
+            unitName: 'Phòng Kỹ thuật',
+            reasons: [`bảng tổng hợp #${s.body.data.id}`],
+          },
+        ],
+      });
+      await http()
+        .delete(`/audit-summaries/${s.body.data.id}`)
+        .set(as(acctCollab))
+        .expect(403);
+      await http()
+        .delete(`/audit-summaries/${s.body.data.id}`)
+        .set(as(acctHead))
+        .expect(200);
+      await http()
+        .get(`/audit-summaries/${s.body.data.id}`)
+        .set(as(acctHead))
+        .expect(404);
+      const second = await post('/audits/purge', acctHead, {
+        ids: [a.id],
+      }).expect(201);
+      expect(second.body.data.count).toBe(1);
+    });
+
+    it('xoá bảng tổng hợp không tồn tại: 404', async () => {
+      await http().delete('/audit-summaries/999').set(as(acctHead)).expect(404);
     });
   });
 });

@@ -12,7 +12,7 @@ export interface AuthSession {
 
 export const ADMIN_ROLE = 'Quản trị viên';
 export const HEAD_ROLE = 'Trưởng phòng';
-export const COLLAB_ROLE = 'Cộng tác viên';
+export const SPECIALIST_ROLE = 'Chuyên viên';
 export const TECH_DEPARTMENT_CODE = 'KYTHUAT';
 export const ACCT_DEPARTMENT_CODE = 'KETOAN';
 
@@ -24,23 +24,23 @@ export const isAdmin: Can = (session) => session?.roleName === ADMIN_ROLE;
 export const isTechHead: Can = (session) =>
   session?.roleName === HEAD_ROLE && session?.departmentCode === TECH_DEPARTMENT_CODE;
 
-export const isTechCollab: Can = (session) =>
-  session?.roleName === COLLAB_ROLE && session?.departmentCode === TECH_DEPARTMENT_CODE;
+export const isTechSpecialist: Can = (session) =>
+  session?.roleName === SPECIALIST_ROLE && session?.departmentCode === TECH_DEPARTMENT_CODE;
 
-const isTechTeam: Can = (session) => isTechHead(session) || isTechCollab(session);
+const isTechTeam: Can = (session) => isTechHead(session) || isTechSpecialist(session);
 const isAdminOrTechTeam: Can = (session) => isAdmin(session) || isTechTeam(session);
 
-/** Thêm/sửa thông tin thiết bị: Trưởng phòng Kỹ thuật hoặc Cộng tác viên Kỹ thuật. */
+/** Thêm/sửa thông tin thiết bị: Trưởng phòng Kỹ thuật hoặc Chuyên viên Kỹ thuật. */
 export const canWriteDevices = isTechTeam;
 
 /** Xoá mềm + dọn thùng rác thiết bị: CHỈ Trưởng phòng Kỹ thuật. */
 export const canDeleteDevices = isTechHead;
 
-/** Xem đơn Cấp phát - Thu hồi: Quản trị viên (chỉ xem), Trưởng phòng và Cộng tác viên Kỹ thuật. */
+/** Xem đơn Cấp phát - Thu hồi: Quản trị viên (chỉ xem), Trưởng phòng và Chuyên viên Kỹ thuật. */
 export const canAccessOrders = isAdminOrTechTeam;
 
-/** Tạo đơn: CHỈ Cộng tác viên Kỹ thuật. */
-export const canCreateOrder = isTechCollab;
+/** Tạo đơn: CHỈ Chuyên viên Kỹ thuật. */
+export const canCreateOrder = isTechSpecialist;
 
 /** Duyệt/từ chối đơn: CHỈ Trưởng phòng Kỹ thuật. */
 export const canDecideOrder = isTechHead;
@@ -48,8 +48,8 @@ export const canDecideOrder = isTechHead;
 /** Xem lệnh Điều chuyển: cùng tập với canAccessOrders. */
 export const canAccessTransfers = isAdminOrTechTeam;
 
-/** Tạo lệnh điều chuyển: CHỈ Cộng tác viên Kỹ thuật. */
-export const canCreateTransfer = isTechCollab;
+/** Tạo lệnh điều chuyển: CHỈ Chuyên viên Kỹ thuật. */
+export const canCreateTransfer = isTechSpecialist;
 
 /** Duyệt/từ chối lệnh điều chuyển: CHỈ Trưởng phòng Kỹ thuật. */
 export const canDecideTransfer = isTechHead;
@@ -57,17 +57,19 @@ export const canDecideTransfer = isTechHead;
 export const isAcctHead: Can = (session) =>
   session?.roleName === HEAD_ROLE && session?.departmentCode === ACCT_DEPARTMENT_CODE;
 
-export const isAcctCollab: Can = (session) =>
-  session?.roleName === COLLAB_ROLE && session?.departmentCode === ACCT_DEPARTMENT_CODE;
+export const isAcctSpecialist: Can = (session) =>
+  session?.roleName === SPECIALIST_ROLE && session?.departmentCode === ACCT_DEPARTMENT_CODE;
 
-/** Kiểm kê: CHỈ Trưởng phòng và Cộng tác viên Kế toán — Admin và Kỹ thuật không thấy. */
-export const canAccessAudits: Can = (session) => isAcctHead(session) || isAcctCollab(session);
+/** Kiểm kê: CHỈ Trưởng phòng và Chuyên viên Kế toán — Admin và Kỹ thuật không thấy. */
+export const canAccessAudits: Can = (session) => isAcctHead(session) || isAcctSpecialist(session);
 
-/** Lập lịch, nhập kết quả, gửi duyệt, lập bảng tổng hợp: CHỈ Cộng tác viên Kế toán. */
-export const canCreateAudit = isAcctCollab;
+/** Lập lịch, nhập kết quả, gửi duyệt, lập bảng tổng hợp: CHỈ Chuyên viên Kế toán. */
+export const canCreateAudit = isAcctSpecialist;
 
 /** Duyệt / từ chối kết quả kiểm kê: CHỈ Trưởng phòng Kế toán. */
 export const canDecideAudit = isAcctHead;
+/** Xoá đợt, dọn thùng rác, xoá bảng tổng hợp: CHỈ Trưởng phòng Kế toán. */
+export const canDeleteAudits = isAcctHead;
 
 /** "Tìm thấy" thiết bị Thất lạc: CHỈ Trưởng phòng Kỹ thuật. */
 export const canMarkDeviceFound = isTechHead;

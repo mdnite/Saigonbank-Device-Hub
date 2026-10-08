@@ -22,7 +22,7 @@ export type AuditDraftErrors = Partial<Record<'unit' | 'dueDate' | 'purpose', st
 
 export function validateAuditDraft(d: AuditDraft): AuditDraftErrors {
   const e: AuditDraftErrors = {};
-  if (!d.unit) e.unit = 'Vui lòng chọn đơn vị kiểm kê';
+  if (!d.unit) e.unit = 'Vui lòng chọn đơn vị được kiểm kê';
   if (!d.dueDate) e.dueDate = 'Vui lòng chọn ngày';
   if (!d.purpose) e.purpose = 'Vui lòng chọn mục đích';
   return e;

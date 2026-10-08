@@ -46,20 +46,20 @@ export class DevicesController {
   }
 
   @Post()
-  @Allow(ACTOR.TECH_HEAD, ACTOR.TECH_COLLAB)
+  @Allow(ACTOR.TECH_HEAD, ACTOR.TECH_SPECIALIST)
   @ResponseMessage('Đã tạo thiết bị')
   create(@Body() dto: CreateDeviceDto) {
     return this.devices.create(dto);
   }
 
   @Patch(':id')
-  @Allow(ACTOR.TECH_HEAD, ACTOR.TECH_COLLAB)
+  @Allow(ACTOR.TECH_HEAD, ACTOR.TECH_SPECIALIST)
   @ResponseMessage('Đã cập nhật thiết bị')
   update(@DeviceId() id: number, @Body() dto: UpdateDeviceDto) {
     return this.devices.update(id, dto);
   }
 
-  /** Xoá mềm — chỉ Trưởng phòng Kỹ thuật; Cộng tác viên thêm/sửa được nhưng không xoá. */
+  /** Xoá mềm — chỉ Trưởng phòng Kỹ thuật; Chuyên viên thêm/sửa được nhưng không xoá. */
   @Delete(':id')
   @Allow(ACTOR.TECH_HEAD)
   @ResponseMessage('Đã xoá thiết bị')

@@ -7,6 +7,7 @@ export const AUDIT_STATUS = {
   PENDING: 'Chờ duyệt',
   APPROVED: 'Đã duyệt',
   CANCELLED: 'Đã hủy',
+  DELETED: 'Đã xóa',
 } as const;
 export type AuditStatus = (typeof AUDIT_STATUS)[keyof typeof AUDIT_STATUS];
 
@@ -16,13 +17,26 @@ export const OPEN_AUDIT_STATUSES: AuditStatus[] = [
   AUDIT_STATUS.PENDING,
 ];
 
+/** Trạng thái được phép xoá mềm (Chờ duyệt thì phải duyệt/từ chối trước). */
+export const DELETABLE_AUDIT_STATUSES: AuditStatus[] = [
+  AUDIT_STATUS.NOT_STARTED,
+  AUDIT_STATUS.IN_PROGRESS,
+  AUDIT_STATUS.APPROVED,
+  AUDIT_STATUS.CANCELLED,
+];
+
+export interface PurgeResult {
+  count: number;
+  skipped: { id: number; unitName: string; reasons: string[] }[];
+}
+
 export const AUDIT_RESULT = { OK: 'Đủ', MISSING: 'Thiếu', BROKEN: 'Hỏng' } as const;
 export type AuditResult = (typeof AUDIT_RESULT)[keyof typeof AUDIT_RESULT];
 export const AUDIT_RESULTS: AuditResult[] = [AUDIT_RESULT.OK, AUDIT_RESULT.MISSING, AUDIT_RESULT.BROKEN];
 
 export const AUDIT_PURPOSES = ['Định kỳ', 'Đột xuất', 'Cuối năm'] as const;
 
-/** Giá trị ô "Đơn vị kiểm kê" cho đơn vị giả Kho — backend nhận departmentId = null. */
+/** Giá trị ô "Đơn vị được kiểm kê" cho đơn vị giả Kho — backend nhận departmentId = null. */
 export const WAREHOUSE_UNIT = 'KHO';
 export const WAREHOUSE_LABEL = 'Kho';
 
@@ -173,4 +187,16 @@ export function matrixTotal(rows: MatrixRow[]) {
     }),
     { total: 0, ok: 0, missing: 0, broken: 0 },
   );
+}
+
+/** 1 dòng của GET /users/lookup — có phòng ban để lọc thành viên kiểm kê. */
+export interface MemberOption {
+  id: number;
+  fullName: string;
+  username: string;
+  departmentId: number | null;
+}
+
+export function membersOfDepartment(users: MemberOption[], departmentId: number): MemberOption[] {
+  return users.filter((u) => u.departmentId === departmentId);
 }

@@ -11,7 +11,7 @@ import { hashPassword } from '../../shared/security/password';
 import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { USER_STATUS } from '../identity/user-status';
 
-// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Cộng tác viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
+// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Chuyên viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
 // DeviceType id trong fake: 1 Laptop (LT), 2 Máy tính để bàn (PC).
 
 describe('Devices: /devices, /device-types', () => {
@@ -569,7 +569,7 @@ describe('Devices: /devices, /device-types', () => {
     await http().get(`/devices/${id}`).set('Authorization', auth).expect(200);
   });
 
-  it('Cộng tác viên Kỹ thuật: tạo + sửa được, xoá mềm và dọn thùng rác 403', async () => {
+  it('Chuyên viên Kỹ thuật: tạo + sửa được, xoá mềm và dọn thùng rác 403', async () => {
     const auth = tokenOf(collab);
     const created = await http()
       .post('/devices')
@@ -596,7 +596,7 @@ describe('Devices: /devices, /device-types', () => {
     expect(prisma.devices.find((d) => d.id === id)!.status).toBe('Trong kho');
   });
 
-  it('Trưởng phòng / Cộng tác viên Kế toán hoặc không phòng ban: không được tạo', async () => {
+  it('Trưởng phòng / Chuyên viên Kế toán hoặc không phòng ban: không được tạo', async () => {
     const cases: Array<[number, number | null]> = [
       [2, 2],
       [4, 2],

@@ -4,7 +4,7 @@ export const DEVICE_STATUS = {
   ALLOCATED: 'Đã cấp phát',
   /** Đang nằm trong một đơn Cấp phát / Thu hồi hoặc lệnh Điều chuyển chờ duyệt — bị khoá. */
   PENDING_APPROVAL: 'Đang chờ duyệt',
-  PENDING_DISPOSAL: 'Chờ thanh lý',
+  PENDING_PROCESSING: 'Chờ xử lý',
   /** Kiểm kê ghi "Thiếu" và đã được duyệt. TP Kỹ thuật bấm "Tìm thấy" để đưa về. */
   LOST: 'Thất lạc',
   DELETED: 'Đã xóa',

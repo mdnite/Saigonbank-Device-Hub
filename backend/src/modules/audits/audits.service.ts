@@ -14,6 +14,7 @@ import {
   AUDIT_RESULT,
   AUDIT_STATUS,
   AUDIT_WRONG_STATE,
+  DELETABLE_AUDIT_STATUSES,
   devicesChanged,
   LINE_NOT_FOUND,
   OPEN_AUDIT_STATUSES,
@@ -116,7 +117,8 @@ export class AuditsService {
     const s = q.q?.trim();
     const audits = await this.prisma.audit.findMany({
       where: {
-        status: q.status,
+        // Thùng rác chỉ hiện khi lọc đúng "Đã xóa".
+        status: q.status ?? { not: AUDIT_STATUS.DELETED },
         ...(s
           ? {
               OR: [
@@ -174,7 +176,7 @@ export class AuditsService {
     await this.requireActiveUsers(memberIds);
 
     // ponytail: kiểm tra trùng đợt rồi mới tạo (2 câu lệnh) — 2 người lập lịch trùng máy đúng cùng
-    // lúc có thể lọt cả hai. Thêm khoá (SELECT … FOR UPDATE) nếu có nhiều CTV lập lịch song song.
+    // lúc có thể lọt cả hai. Thêm khoá (SELECT … FOR UPDATE) nếu có nhiều Chuyên viên lập lịch song song.
     const audit = await this.prisma.audit.create({
       data: {
         departmentId: department?.id ?? null,
@@ -229,6 +231,46 @@ export class AuditsService {
       status: AUDIT_STATUS.CANCELLED,
     });
     return this.getById(id);
+  }
+
+  /** Xoá mềm (TP Kế toán). Không hoàn tác trạng thái thiết bị; đợt đang mở tự nhả máy. */
+  async remove(id: number) {
+    await this.findAudit(id);
+    const { count } = await this.prisma.audit.updateMany({
+      where: { id, status: { in: DELETABLE_AUDIT_STATUSES } },
+      data: { status: AUDIT_STATUS.DELETED },
+    });
+    if (count === 0) throw new BadRequestException(AUDIT_WRONG_STATE);
+    return this.getById(id);
+  }
+
+  /** Dọn thùng rác — xoá cứng đợt "Đã xóa". Đợt còn trong bảng tổng hợp (FK RESTRICT) bị giữ lại kèm lý do;
+   *  id chưa xoá mềm bị bỏ qua lặng lẽ. Dòng / linh kiện / thành viên đi theo cascade. */
+  async purge(ids: number[]) {
+    return this.prisma.$transaction(async (tx) => {
+      const links = await tx.auditSummaryAudit.findMany({
+        where: { auditId: { in: ids } },
+      });
+      const blocked = new Set(links.map((l) => l.auditId));
+      const kept = await tx.audit.findMany({
+        where: { id: { in: [...blocked] }, status: AUDIT_STATUS.DELETED },
+        select: { id: true, unitName: true },
+      });
+      const skipped = kept.map((a) => ({
+        id: a.id,
+        unitName: a.unitName,
+        reasons: links
+          .filter((l) => l.auditId === a.id)
+          .map((l) => `bảng tổng hợp #${l.summaryId}`),
+      }));
+      const { count } = await tx.audit.deleteMany({
+        where: {
+          id: { in: ids.filter((id) => !blocked.has(id)) },
+          status: AUDIT_STATUS.DELETED,
+        },
+      });
+      return { count, skipped };
+    });
   }
 
   async setMembers(id: number, userIds: number[]) {
@@ -333,7 +375,7 @@ export class AuditsService {
     return this.getById(id);
   }
 
-  /** Từ chối KHÔNG kết thúc đợt: trả về Đang kiểm kê để CTV sửa rồi gửi lại (#13). */
+  /** Từ chối KHÔNG kết thúc đợt: trả về Đang kiểm kê để Chuyên viên sửa rồi gửi lại (#13). */
   async reject(id: number, decidedById: number, reason: string) {
     await this.findAudit(id);
     await this.transition(this.prisma, id, AUDIT_STATUS.PENDING, {
@@ -403,7 +445,7 @@ export class AuditsService {
       where: { id },
     });
     if (!department) {
-      throw new BadRequestException('Đơn vị kiểm kê không tồn tại');
+      throw new BadRequestException('Đơn vị được kiểm kê không tồn tại');
     }
     return department;
   }
@@ -475,7 +517,7 @@ export class AuditsService {
             status:
               item.result === AUDIT_RESULT.MISSING
                 ? DEVICE_STATUS.LOST
-                : DEVICE_STATUS.PENDING_DISPOSAL,
+                : DEVICE_STATUS.PENDING_PROCESSING,
           },
         });
         if (count === 0) {

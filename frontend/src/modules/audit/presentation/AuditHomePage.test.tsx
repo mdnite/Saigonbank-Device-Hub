@@ -53,13 +53,17 @@ function renderPage(roleName: string, url = '/audit') {
   const fetchMock = vi.fn().mockImplementation((u: string, init?: RequestInit) => {
     if (failPost && init?.method === 'POST')
       return Promise.resolve(new Response(JSON.stringify({ success: false, data: null, error: 'X', message: 'Lỗi máy chủ' }), { status: 400 }));
+    if (init?.method === 'DELETE' && u.endsWith('/audits/1')) return envelope({ ...audit(1), status: 'Đã xóa', items: [], members: [] });
+    if (init?.method === 'DELETE' && u.endsWith('/audit-summaries/4')) return envelope({ id: 4 });
+    if (u.endsWith('/audits/purge'))
+      return envelope({ count: 0, skipped: [{ id: 1, unitName: 'Phòng Kỹ thuật', reasons: ['bảng tổng hợp #4'] }] });
     if (u.endsWith('/audits') && init?.method === 'POST') return envelope({ ...audit(9), items: [], members: [] });
     if (u.includes('/audits/locations')) return envelope(['Tầng 3']);
     if (u.includes('/audit-summaries')) return envelope([{ id: 4, title: 'Quý 3', purpose: null, createdAt: '2026-10-01T00:00:00.000Z', createdBy: { id: 5, fullName: 'CTV' }, auditCount: 2 }]);
     if (u.includes('/audits')) return envelope([audit(1)]);
     if (u.includes('/departments')) return envelope([{ id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' }]);
     if (u.includes('/device-types')) return envelope([{ id: 1, typeName: 'Laptop', prefix: 'LT' }]);
-    if (u.includes('/users/lookup')) return envelope([{ id: 7, fullName: 'Nguyễn Văn A', username: 'a' }]);
+    if (u.includes('/users/lookup')) return envelope([{ id: 7, fullName: 'Nguyễn Văn A', username: 'a', departmentId: 1 }]);
     return envelope([]);
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -74,7 +78,7 @@ function renderPage(roleName: string, url = '/audit') {
 }
 
 it('CTV Kế toán: thấy "Lập lịch kiểm kê"; danh sách có tiến độ và nhãn Quá hạn', async () => {
-  renderPage('Cộng tác viên');
+  renderPage('Chuyên viên');
   await waitFor(() => expect(screen.getByText('Phòng Kỹ thuật')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'Lập lịch kiểm kê' })).toBeInTheDocument();
   expect(screen.getByText('1/3')).toBeInTheDocument();
@@ -89,21 +93,22 @@ it('TP Kế toán: không có nút lập lịch', async () => {
 });
 
 it('tab Tổng hợp qua ?tab=summary: danh sách bảng + nút lập bảng (CTV)', async () => {
-  renderPage('Cộng tác viên', '/audit?tab=summary');
+  renderPage('Chuyên viên', '/audit?tab=summary');
   await waitFor(() => expect(screen.getByText('Quý 3')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'Lập bảng tổng hợp' })).toBeInTheDocument();
 });
 
 it('Lập lịch: bỏ trống → báo lỗi; điền đủ (Kho) → POST đúng body', async () => {
-  const fetchMock = renderPage('Cộng tác viên');
+  const fetchMock = renderPage('Chuyên viên');
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch kiểm kê' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch' }));
-  expect(await screen.findByText('Vui lòng chọn đơn vị kiểm kê')).toBeInTheDocument();
+  expect(await screen.findByText('Vui lòng chọn đơn vị được kiểm kê')).toBeInTheDocument();
 
-  await screen.findByRole('option', { name: 'Phòng Kỹ thuật' });
-  fireEvent.change(screen.getByLabelText(/Đơn vị kiểm kê/), { target: { value: 'KHO' } });
+  await screen.findAllByRole('option', { name: 'Phòng Kỹ thuật' });
+  fireEvent.change(screen.getByLabelText(/Đơn vị được kiểm kê/), { target: { value: 'KHO' } });
   fireEvent.change(screen.getByLabelText(/Đến ngày/), { target: { value: '2026-10-31' } });
   fireEvent.change(screen.getByLabelText(/Mục đích/), { target: { value: 'Định kỳ' } });
+  fireEvent.change(screen.getByLabelText('Phòng ban'), { target: { value: '1' } });
   fireEvent.click(screen.getByLabelText('Nguyễn Văn A (a)'));
   fireEvent.click(screen.getByRole('button', { name: 'Lập lịch' }));
 
@@ -121,23 +126,23 @@ it('Lập lịch: bỏ trống → báo lỗi; điền đủ (Kho) → POST đú
 
 it('Lập lịch: lỗi gửi hiện ra, đóng rồi mở lại thì mất', async () => {
   failPost = true;
-  renderPage('Cộng tác viên');
+  renderPage('Chuyên viên');
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch kiểm kê' }));
-  await screen.findByRole('option', { name: 'Phòng Kỹ thuật' });
-  fireEvent.change(screen.getByLabelText(/Đơn vị kiểm kê/), { target: { value: 'KHO' } });
+  await screen.findAllByRole('option', { name: 'Phòng Kỹ thuật' });
+  fireEvent.change(screen.getByLabelText(/Đơn vị được kiểm kê/), { target: { value: 'KHO' } });
   fireEvent.change(screen.getByLabelText(/Đến ngày/), { target: { value: '2026-10-31' } });
   fireEvent.change(screen.getByLabelText(/Mục đích/), { target: { value: 'Định kỳ' } });
   fireEvent.click(screen.getByRole('button', { name: 'Lập lịch' }));
   expect(await screen.findByText('Lỗi máy chủ')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Hủy' }));
   fireEvent.click(screen.getByRole('button', { name: 'Lập lịch kiểm kê' }));
-  await screen.findByRole('option', { name: 'Phòng Kỹ thuật' });
+  await screen.findAllByRole('option', { name: 'Phòng Kỹ thuật' });
   expect(screen.queryByText('Lỗi máy chủ')).toBeNull();
 });
 
 it('Lập bảng tổng hợp: nhãn đợt có #id; lỗi gửi mất sau khi đóng và mở lại', async () => {
   failPost = true;
-  renderPage('Cộng tác viên', '/audit?tab=summary');
+  renderPage('Chuyên viên', '/audit?tab=summary');
   fireEvent.click(await screen.findByRole('button', { name: 'Lập bảng tổng hợp' }));
   fireEvent.change(screen.getByLabelText(/Tiêu đề/), { target: { value: 'Quý 4' } });
   fireEvent.click(await screen.findByLabelText('#1 · Phòng Kỹ thuật · Định kỳ · đến 31/01/2020'));
@@ -147,4 +152,40 @@ it('Lập bảng tổng hợp: nhãn đợt có #id; lỗi gửi mất sau khi �
   fireEvent.click(screen.getByRole('button', { name: 'Lập bảng tổng hợp' }));
   await screen.findByLabelText('#1 · Phòng Kỹ thuật · Định kỳ · đến 31/01/2020');
   expect(screen.queryByText('Lỗi máy chủ')).toBeNull();
+});
+
+it('TP Kế toán: có nút Xoá ở dòng, xác nhận → DELETE', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  const fetchMock = renderPage('Trưởng phòng');
+  fireEvent.click(await screen.findByRole('button', { name: 'Xoá' }));
+  await waitFor(() =>
+    expect(fetchMock.mock.calls.some(([u, i]) => String(u).endsWith('/audits/1') && i?.method === 'DELETE')).toBe(true),
+  );
+});
+
+it('Chuyên viên Kế toán: không có Xoá; lọc Đã xóa vẫn xem được nhưng không có Dọn thùng rác', async () => {
+  renderPage('Chuyên viên');
+  await screen.findByText('Phòng Kỹ thuật');
+  expect(screen.queryByRole('button', { name: 'Xoá' })).toBeNull();
+  fireEvent.change(screen.getByDisplayValue('Trạng thái (Tất cả)'), { target: { value: 'Đã xóa' } });
+  await screen.findByText('Phòng Kỹ thuật');
+  expect(screen.queryByRole('button', { name: 'Dọn thùng rác' })).toBeNull();
+});
+
+it('TP Kế toán: Dọn thùng rác → hiện đợt bị giữ lại kèm lý do', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  renderPage('Trưởng phòng');
+  await screen.findByText('Phòng Kỹ thuật');
+  fireEvent.change(screen.getByDisplayValue('Trạng thái (Tất cả)'), { target: { value: 'Đã xóa' } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Dọn thùng rác' }));
+  expect(await screen.findByText(/Đợt #1 \(Phòng Kỹ thuật\): bảng tổng hợp #4/)).toBeInTheDocument();
+});
+
+it('TP Kế toán: tab Tổng hợp có Xoá bảng → DELETE /audit-summaries/4', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  const fetchMock = renderPage('Trưởng phòng', '/audit?tab=summary');
+  fireEvent.click(await screen.findByRole('button', { name: 'Xoá' }));
+  await waitFor(() =>
+    expect(fetchMock.mock.calls.some(([u, i]) => String(u).endsWith('/audit-summaries/4') && i?.method === 'DELETE')).toBe(true),
+  );
 });

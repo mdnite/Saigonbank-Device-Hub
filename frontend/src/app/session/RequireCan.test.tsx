@@ -34,8 +34,8 @@ function openDeviceForm(roleName: string, departmentCode: string | null) {
   );
 }
 
-it('Cộng tác viên Kỹ thuật vào được trang thêm thiết bị', () => {
-  openDeviceForm('Cộng tác viên', 'KYTHUAT');
+it('Chuyên viên Kỹ thuật vào được trang thêm thiết bị', () => {
+  openDeviceForm('Chuyên viên', 'KYTHUAT');
   expect(screen.getByText('FORM')).toBeInTheDocument();
 });
 

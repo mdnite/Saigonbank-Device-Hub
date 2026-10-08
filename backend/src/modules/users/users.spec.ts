@@ -11,7 +11,7 @@ import { hashPassword } from '../../shared/security/password';
 import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { USER_STATUS } from '../identity/user-status';
 
-// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Cộng tác viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
+// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Chuyên viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
 
 describe('Users: /users, /roles, /departments', () => {
   let app: INestApplication;
@@ -132,7 +132,7 @@ describe('Users: /users, /roles, /departments', () => {
         { id: 1, roleName: 'Quản trị viên' },
         { id: 2, roleName: 'Trưởng phòng' },
         { id: 3, roleName: 'Nhân viên' },
-        { id: 4, roleName: 'Cộng tác viên' },
+        { id: 4, roleName: 'Chuyên viên' },
       ]);
       const deps = await http()
         .get('/departments')
@@ -141,21 +141,38 @@ describe('Users: /users, /roles, /departments', () => {
       expect(deps.body.data).toEqual([
         { id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' },
         { id: 2, departmentCode: 'KETOAN', departmentName: 'Phòng Kế toán' },
+        { id: 3, departmentCode: 'KINHDOANH', departmentName: 'Phòng Kinh doanh' },
+        { id: 4, departmentCode: 'NGHIEPVU', departmentName: 'Phòng Nghiệp vụ' },
       ]);
     });
   });
 
   describe('GET /users/lookup', () => {
     // 200 (không phải 403) cho Nhân viên cũng chứng minh route không bị UsersController nuốt.
-    it('chỉ trả id/fullName/username, bỏ user "Đã xóa"', async () => {
+    it('chỉ trả id/fullName/username/departmentId, bỏ user "Đã xóa"', async () => {
       const res = await http()
         .get('/users/lookup')
         .set('Authorization', tokenOf(staff))
         .expect(200);
       expect(res.body.data).toEqual([
-        { id: admin.id, fullName: admin.fullName, username: 'admin' },
-        { id: staff.id, fullName: staff.fullName, username: 'staff' },
-        { id: locked.id, fullName: locked.fullName, username: 'locked' },
+        {
+          id: admin.id,
+          fullName: admin.fullName,
+          username: 'admin',
+          departmentId: admin.departmentId,
+        },
+        {
+          id: staff.id,
+          fullName: staff.fullName,
+          username: 'staff',
+          departmentId: staff.departmentId,
+        },
+        {
+          id: locked.id,
+          fullName: locked.fullName,
+          username: 'locked',
+          departmentId: locked.departmentId,
+        },
       ]);
       expect(
         res.body.data.some(
@@ -172,6 +189,19 @@ describe('Users: /users, /roles, /departments', () => {
       expect(
         res.body.data.map((u: { username: string }) => u.username),
       ).toEqual(['admin', 'staff']);
+    });
+
+    it('trả departmentId để FE lọc theo phòng ban', async () => {
+      const res = await http()
+        .get('/users/lookup?active=true')
+        .set('Authorization', tokenOf(admin))
+        .expect(200);
+      expect(res.body.data[0]).toEqual(
+        expect.objectContaining({
+          id: expect.any(Number),
+          departmentId: admin.departmentId,
+        }),
+      );
     });
   });
 
@@ -267,19 +297,20 @@ describe('Users: /users, /roles, /departments', () => {
       expect(saved.password).toMatch(/^\$2[aby]\$/);
     });
 
-    it('không có departmentId: department null', async () => {
+    it('201 Quản trị viên không có phòng ban', async () => {
       const res = await http()
         .post('/users')
         .set('Authorization', tokenOf(admin))
-        .send({ ...body, roleId: 3, departmentId: undefined })
+        .send({ ...body, roleId: 1, departmentId: undefined })
         .expect(201);
       expect(res.body.data.department).toBeNull();
     });
 
     it.each([
       ['Trưởng phòng thiếu phòng ban', 2, undefined],
-      ['Cộng tác viên thiếu phòng ban', 4, undefined],
-      ['Cộng tác viên gửi departmentId: null', 4, null],
+      ['Nhân viên thiếu phòng ban', 3, undefined],
+      ['Chuyên viên thiếu phòng ban', 4, undefined],
+      ['Chuyên viên gửi departmentId: null', 4, null],
     ])('400 %s', async (_label, roleId, departmentId) => {
       const res = await http()
         .post('/users')
@@ -290,13 +321,51 @@ describe('Users: /users, /roles, /departments', () => {
       expect(prisma.users.some((u) => u.username === 'tp.ketoan')).toBe(false);
     });
 
-    it('201 Cộng tác viên có phòng ban', async () => {
+    it('400 Quản trị viên có phòng ban', async () => {
+      const res = await http()
+        .post('/users')
+        .set('Authorization', tokenOf(admin))
+        .send({ ...body, roleId: 1, departmentId: 2 })
+        .expect(400);
+      expect(res.body.message).toBe('Quản trị viên không thuộc phòng ban');
+    });
+
+    it.each([
+      [3, 'Phòng Kinh doanh'],
+      [4, 'Phòng Nghiệp vụ'],
+    ])('400 Chuyên viên ở phòng %i', async (departmentId, name) => {
+      const res = await http()
+        .post('/users')
+        .set('Authorization', tokenOf(admin))
+        .send({ ...body, roleId: 4, departmentId })
+        .expect(400);
+      expect(res.body.message).toBe(
+        `Phòng ${name.replace('Phòng ', '')} không có chức vụ Chuyên viên`,
+      );
+    });
+
+    it.each([
+      [2, 3],
+      [3, 3],
+      [2, 4],
+      [3, 4],
+      [3, 1],
+      [3, 2],
+    ])('201 roleId %i ở phòng %i', async (roleId, departmentId) => {
+      await http()
+        .post('/users')
+        .set('Authorization', tokenOf(admin))
+        .send({ ...body, roleId, departmentId })
+        .expect(201);
+    });
+
+    it('201 Chuyên viên có phòng ban', async () => {
       const res = await http()
         .post('/users')
         .set('Authorization', tokenOf(admin))
         .send({ ...body, roleId: 4, departmentId: 1 })
         .expect(201);
-      expect(res.body.data.role).toEqual({ id: 4, roleName: 'Cộng tác viên' });
+      expect(res.body.data.role).toEqual({ id: 4, roleName: 'Chuyên viên' });
       expect(res.body.data.department.departmentCode).toBe('KYTHUAT');
     });
 

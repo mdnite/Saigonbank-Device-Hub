@@ -1,6 +1,6 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/shared/lib/apiClient';
 import type { PurgeResult, UserAdminRepository, UserQuery } from '../application/UserAdminRepository';
-import type { Department, NewUserDraft, Role, UserAccount, UserStatus } from '../domain/userAccount';
+import { NO_DEPARTMENT, type Department, type NewUserDraft, type Role, type UserAccount, type UserStatus } from '../domain/userAccount';
 
 /** Adapter gọi module `users` của backend (backend/src/modules/users). */
 export class HttpUserAdminRepository implements UserAdminRepository {
@@ -15,7 +15,8 @@ export class HttpUserAdminRepository implements UserAdminRepository {
       email: d.email.trim().toLowerCase(),
       password: d.password,
       roleId: Number(d.roleId),
-      departmentId: d.departmentId ? Number(d.departmentId) : undefined, // undefined bị JSON bỏ qua
+      departmentId:
+        d.departmentId && d.departmentId !== NO_DEPARTMENT ? Number(d.departmentId) : undefined, // undefined bị JSON bỏ qua
     });
   }
 

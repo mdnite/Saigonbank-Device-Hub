@@ -41,8 +41,8 @@ pnpm test
 Không có `pnpm` cài global thì thay `pnpm` bằng `npx -y pnpm@10`.
 
 - **Tài khoản seed:** `admin` / `Admin@123` (Quản trị viên), `truongphong.kt` / `Head@1234`
-  (Trưởng phòng, `KYTHUAT`), `ctv.kt` / `Collab@1234` (Cộng tác viên, `KYTHUAT`), `truongphong.ketoan` / `Head@1234`
-  (Trưởng phòng, `KETOAN`), `ctv.ketoan` / `Collab@1234` (Cộng tác viên, `KETOAN`), thêm `dev` / `Dev@1234`
+  (Trưởng phòng, `KYTHUAT`), `ctv.kt` / `Collab@1234` (Chuyên viên, `KYTHUAT`), `truongphong.ketoan` / `Head@1234`
+  (Trưởng phòng, `KETOAN`), `ctv.ketoan` / `Collab@1234` (Chuyên viên, `KETOAN`), thêm `dev` / `Dev@1234`
   nếu có `DEV_USER_EMAIL`. Seed từ chối chạy khi `NODE_ENV=production`.
 - **Seed:** idempotent, chạy lại không đổi mật khẩu user đã có (user `dev` chỉ được cập nhật email).
   `DEV_USER_EMAIL` nên là email chủ tài khoản Resend (xem Quy ước), đọc từ `.env` để không commit
@@ -79,18 +79,18 @@ Mọi response có dạng `{ success, data, error, message }` — FE bóc `data`
 
 Phân quyền dùng `@Allow(...ACTOR)` (`backend/src/shared/auth/actors.ts`), kiểm trong `AuthGuard`
 (`@Allow` ở handler ghi đè `@Allow` ở class; không có `@Allow` = mọi user đã đăng nhập). Actor:
-`ADMIN` (Quản trị viên), `TECH_HEAD` (Trưởng phòng + phòng `KYTHUAT`), `TECH_COLLAB` (Cộng tác viên +
-`KYTHUAT`), `ACCT_HEAD` (Trưởng phòng + `KETOAN`), `ACCT_COLLAB` (Cộng tác viên + `KETOAN`). Với thiết bị: đọc = mọi role đã đăng nhập; `POST`/`PATCH` = `TECH_HEAD`, `TECH_COLLAB`;
+`ADMIN` (Quản trị viên), `TECH_HEAD` (Trưởng phòng + phòng `KYTHUAT`), `TECH_SPECIALIST` (Chuyên viên +
+`KYTHUAT`), `ACCT_HEAD` (Trưởng phòng + `KETOAN`), `ACCT_SPECIALIST` (Chuyên viên + `KETOAN`). Với thiết bị: đọc = mọi role đã đăng nhập; `POST`/`PATCH` = `TECH_HEAD`, `TECH_SPECIALIST`;
 `DELETE`, `POST /devices/purge` và `POST /devices/:id/found` = chỉ `TECH_HEAD`. Quản trị viên chỉ xem. Đơn cấp phát / thu hồi và
-lệnh điều chuyển: đọc = `ADMIN`, `TECH_HEAD`, `TECH_COLLAB`; tạo = `TECH_COLLAB`; duyệt / từ chối =
+lệnh điều chuyển: đọc = `ADMIN`, `TECH_HEAD`, `TECH_SPECIALIST`; tạo = `TECH_SPECIALIST`; duyệt / từ chối =
 `TECH_HEAD`. `/users` = `ADMIN`.
 
 | Endpoint | Ghi chú |
 |---|---|
 | `GET /devices` | Danh sách; lọc `search`/`status`/`deviceTypeId` phía server. Mặc định ẩn thiết bị "Đã xóa". Chưa phân trang. |
 | `GET /devices/:id` | Chi tiết 1 thiết bị. |
-| `POST /devices` | Tạo mới — `TECH_HEAD`/`TECH_COLLAB`. Luôn ở trạng thái "Trong kho"; bỏ qua `currentUserId`/`departmentId`/`allocatedOn`/`status` trong body. `deviceCode` phải khớp `/^[A-Z]{2,4}-\d{6}$/` **và** bắt đầu bằng `prefix` của `DeviceType` đã chọn. |
-| `PATCH /devices/:id` | Sửa — `TECH_HEAD`/`TECH_COLLAB`; bỏ qua `currentUserId`/`departmentId`/`allocatedOn`/`status` (người giữ chỉ đổi qua đơn Cấp phát / Thu hồi hoặc lệnh Điều chuyển đã duyệt). Thiết bị "Đang chờ duyệt" → 400 "Thiết bị đang chờ duyệt, không thể sửa hoặc xoá". Gửi `accessories` sẽ thay thế toàn bộ danh sách linh kiện cũ (`deleteMany` + `create`). |
+| `POST /devices` | Tạo mới — `TECH_HEAD`/`TECH_SPECIALIST`. Luôn ở trạng thái "Trong kho"; bỏ qua `currentUserId`/`departmentId`/`allocatedOn`/`status` trong body. `deviceCode` phải khớp `/^[A-Z]{2,4}-\d{6}$/` **và** bắt đầu bằng `prefix` của `DeviceType` đã chọn. |
+| `PATCH /devices/:id` | Sửa — `TECH_HEAD`/`TECH_SPECIALIST`; bỏ qua `currentUserId`/`departmentId`/`allocatedOn`/`status` (người giữ chỉ đổi qua đơn Cấp phát / Thu hồi hoặc lệnh Điều chuyển đã duyệt). Thiết bị "Đang chờ duyệt" → 400 "Thiết bị đang chờ duyệt, không thể sửa hoặc xoá". Gửi `accessories` sẽ thay thế toàn bộ danh sách linh kiện cũ (`deleteMany` + `create`). |
 | `DELETE /devices/:id` | Xoá **mềm** — chỉ `TECH_HEAD` (cũng 400 nếu "Đang chờ duyệt"). Chỉ đổi `Status` thành "Đã xóa", không bao giờ xoá row. |
 | `POST /devices/purge` | Body `ids` — xoá **cứng** các thiết bị "Đã xóa" trong danh sách, bỏ qua thiết bị còn được đơn/lệnh/đợt kiểm kê tham chiếu. Chỉ `TECH_HEAD`. |
 | `POST /devices/:id/found` | "Tìm thấy" — chỉ `TECH_HEAD`. Thiết bị phải "Thất lạc" (nếu không → 400); về "Đã cấp phát" nếu còn `currentUserId`, ngược lại "Trong kho". |
@@ -101,15 +101,15 @@ lệnh điều chuyển: đọc = `ADMIN`, `TECH_HEAD`, `TECH_COLLAB`; tạo = `
 | Endpoint | Ghi chú |
 |---|---|
 | `GET /users` | Lọc `search`/`status`/`roleId`/`departmentId`. Mặc định ẩn "Đã xóa". Chưa phân trang. |
-| `POST /users` | `username`, `email`, `fullName`, `password` (≥ 6), `roleId`, `departmentId` (bắt buộc với Trưởng phòng / Cộng tác viên). Trùng username/email → 409. |
+| `POST /users` | `username`, `email`, `fullName`, `password` (≥ 6), `roleId`, `departmentId` (bắt buộc với mọi role trừ Quản trị viên; Quản trị viên không được có phòng ban; role phải hợp lệ với phòng: Kỹ thuật / Kế toán có Trưởng phòng, Chuyên viên, Nhân viên; Kinh doanh / Nghiệp vụ chỉ Trưởng phòng, Nhân viên). Sai → 400 "Vui lòng chọn phòng ban" / "Quản trị viên không thuộc phòng ban" / "Phòng X không có chức vụ Y". Trùng username/email → 409. |
 | `PATCH /users/:id/status` | `status` = "Đang hoạt động" \| "Ngừng hoạt động". Không tự khoá chính mình. |
 | `DELETE /users/:id` | Xoá **mềm** (Status = "Đã xóa"). |
 | `POST /users/purge` | Body `ids` — xoá cứng user "Đã xóa" (kèm `PasswordResetToken`), bỏ qua user còn được đơn/lệnh/đợt kiểm kê tham chiếu. |
-| `GET /roles`, `GET /departments`, `GET /users/lookup` | Mọi user đã đăng nhập. `/users/lookup` chỉ trả `{ id, fullName, username }` của user chưa xoá — dùng cho dropdown chọn người. |
+| `GET /roles`, `GET /departments`, `GET /users/lookup` | Mọi user đã đăng nhập. `/users/lookup` chỉ trả `{ id, fullName, username, departmentId }` của user chưa xoá — dùng cho dropdown chọn người. |
 
 ### Đơn Cấp phát / Thu hồi (`/device-orders`) và lệnh Điều chuyển (`/device-transfers`)
 
-Đọc = `ADMIN`, `TECH_HEAD`, `TECH_COLLAB`; tạo = `TECH_COLLAB`; duyệt / từ chối = `TECH_HEAD`.
+Đọc = `ADMIN`, `TECH_HEAD`, `TECH_SPECIALIST`; tạo = `TECH_SPECIALIST`; duyệt / từ chối = `TECH_HEAD`.
 Trạng thái đơn/lệnh: "Chờ duyệt" → "Đã duyệt" \| "Từ chối" (không sửa, không huỷ, không xoá).
 
 | Endpoint | Ghi chú |
@@ -131,26 +131,29 @@ lần thắng, lần kia 400 "Đơn đã được xử lý".
 
 Hai controller trong cùng module (`audits.controller.ts`, `audit-summaries.controller.ts`); logic ma trận
 ở hàm thuần `audit-matrix.ts`, bảng trạng thái ở `audit-status.ts`. Cả hai controller chỉ cho
-`ACCT_HEAD` + `ACCT_COLLAB` (class); handler ghi chặt hơn thì `@Allow` riêng. Quản trị viên, Kỹ thuật,
+`ACCT_HEAD` + `ACCT_SPECIALIST` (class); handler ghi chặt hơn thì `@Allow` riêng. Quản trị viên, Kỹ thuật,
 Nhân viên → 403. Trạng thái đợt: "Chưa kiểm kê" → "Đang kiểm kê" → "Chờ duyệt" → "Đã duyệt" | "Đã hủy";
 mọi chuyển trạng thái dùng `updateMany` có điều kiện trạng thái nguồn (sai → 400 "Đợt kiểm kê đã được xử
 lý hoặc không ở trạng thái phù hợp").
 
 | Endpoint | Ai | Ghi chú |
 |---|---|---|
-| `GET /audits` | TP + CTV | Lọc `status`, `q`; kèm `itemCount`, `countedCount`. |
-| `GET /audits/locations` | TP + CTV | `Device.location` distinct (thiết bị chưa "Đã xóa"). |
-| `GET /audits/:id` | TP + CTV | Chi tiết + items (kèm linh kiện) + thành viên. |
-| `POST /audits` | CTV | `departmentId` (null = "Kho"), `dueDate`, `purpose`, `deviceTypeId?`, `location?`, `memberIds?`. Chụp snapshot thiết bị + linh kiện; không khớp thiết bị nào hoặc trùng đợt đang mở → 400. |
-| `POST /audits/:id/start`, `…/cancel` | CTV | Chỉ từ "Chưa kiểm kê" (cancel → "Đã hủy"). |
-| `PUT /audits/:id/members` | CTV | `userIds` thay toàn bộ; trước khi gửi duyệt. |
-| `PATCH /audits/:id/items/:itemId`, `…/accessories/:accessoryId` | CTV | `result?` (Đủ \| Thiếu \| Hỏng), `note?`; chỉ "Đang kiểm kê". |
-| `POST /audits/:id/mark-uncounted-ok` | CTV | Dòng chưa đếm → "Đủ". |
-| `POST /audits/:id/submit` | CTV | 400 nếu còn dòng chưa đếm. |
-| `POST /audits/:id/approve` | TP | Máy "Thiếu" → "Thất lạc", "Hỏng" → "Chờ thanh lý"; 400 + rollback nếu máy đã khác snapshot. |
+| `GET /audits` | TP + Chuyên viên | Lọc `status`, `q`; kèm `itemCount`, `countedCount`. Mặc định ẩn "Đã xóa"; `status=Đã xóa` = thùng rác (TP + Chuyên viên Kế toán xem, Chuyên viên chỉ đọc). |
+| `GET /audits/locations` | TP + Chuyên viên | `Device.location` distinct (thiết bị chưa "Đã xóa"). |
+| `GET /audits/:id` | TP + Chuyên viên | Chi tiết + items (kèm linh kiện) + thành viên. |
+| `POST /audits` | Chuyên viên | `departmentId` (null = "Kho"), `dueDate`, `purpose`, `deviceTypeId?`, `location?`, `memberIds?`. Chụp snapshot thiết bị + linh kiện; không khớp thiết bị nào hoặc trùng đợt đang mở → 400. |
+| `POST /audits/:id/start`, `…/cancel` | Chuyên viên | Chỉ từ "Chưa kiểm kê" (cancel → "Đã hủy"). |
+| `PUT /audits/:id/members` | Chuyên viên | `userIds` thay toàn bộ; trước khi gửi duyệt. |
+| `PATCH /audits/:id/items/:itemId`, `…/accessories/:accessoryId` | Chuyên viên | `result?` (Đủ \| Thiếu \| Hỏng), `note?`; chỉ "Đang kiểm kê". |
+| `POST /audits/:id/mark-uncounted-ok` | Chuyên viên | Dòng chưa đếm → "Đủ". |
+| `POST /audits/:id/submit` | Chuyên viên | 400 nếu còn dòng chưa đếm. |
+| `POST /audits/:id/approve` | TP | Máy "Thiếu" → "Thất lạc", "Hỏng" → "Chờ xử lý"; 400 + rollback nếu máy đã khác snapshot. |
 | `POST /audits/:id/reject` | TP | `reason` bắt buộc → về "Đang kiểm kê". |
-| `GET /audit-summaries`, `GET /audit-summaries/:id` | TP + CTV | Chi tiết kèm `matrix` đơn vị × loại thiết bị. |
-| `POST /audit-summaries` | CTV | `title`, `purpose?`, `auditIds` (≥ 1, đều "Đã duyệt"). |
+| `GET /audit-summaries`, `GET /audit-summaries/:id` | TP + Chuyên viên | Chi tiết kèm `matrix` đơn vị × loại thiết bị. |
+| `POST /audit-summaries` | Chuyên viên | `title`, `purpose?`, `auditIds` (≥ 1, đều "Đã duyệt"). |
+| `DELETE /audits/:id` | TP | Xoá mềm → "Đã xóa", từ "Chưa kiểm kê" / "Đang kiểm kê" / "Đã duyệt" / "Đã hủy"; "Chờ duyệt" → 400. |
+| `POST /audits/purge` | TP | Body `ids` — xoá cứng đợt "Đã xóa", bỏ qua đợt còn nằm trong bảng tổng hợp; trả `{ count, skipped: [{ id, unitName, reasons }] }`. |
+| `DELETE /audit-summaries/:id` | TP | Xoá cứng bảng tổng hợp. |
 
 ## Quy ước
 
@@ -182,12 +185,12 @@ Script tự sinh username theo timestamp nên chạy lại được nhiều lầ
 `User`. Tham số có thể đổi: `-BaseUrl`, `-AdminPassword`, `-PsqlPath`, `-DbPassword`.
 
 `e2e-devices.ps1` kiểm thêm phần thiết bị trên cùng backend + PostgreSQL thật: tiền tố mã theo
-loại thiết bị, trùng mã, phân quyền theo `@Allow` (Cộng tác viên / Trưởng phòng Kỹ thuật ghi được, Quản trị viên chỉ xem), thiết bị "Đang chờ duyệt", xoá mềm, và nested write
+loại thiết bị, trùng mã, phân quyền theo `@Allow` (Chuyên viên / Trưởng phòng Kỹ thuật ghi được, Quản trị viên chỉ xem), thiết bị "Đang chờ duyệt", xoá mềm, và nested write
 `PATCH` accessories (`deleteMany` + `create`) — thứ fake Prisma không mô phỏng được.
 
-`e2e-device-orders.ps1` và `e2e-device-transfers.ps1` tự tạo Trưởng phòng + Cộng tác viên Kỹ thuật
+`e2e-device-orders.ps1` và `e2e-device-transfers.ps1` tự tạo Trưởng phòng + Chuyên viên Kỹ thuật
 qua API, rồi chạy trọn vòng tạo (giữ chỗ "Đang chờ duyệt") → duyệt / từ chối → kiểm trạng thái thiết
 bị trên DB thật, kèm các ca sai quyền.
 
-`e2e-audits.ps1` tự tạo Trưởng phòng + Cộng tác viên Kế toán qua API, rồi chạy trọn vòng lập lịch → bắt đầu → nhập → gửi
-duyệt → từ chối → gửi lại → duyệt → kiểm DB (máy "Thất lạc" / "Chờ thanh lý") → "Tìm thấy" → bảng tổng hợp.
+`e2e-audits.ps1` tự tạo Trưởng phòng + Chuyên viên Kế toán qua API, rồi chạy trọn vòng lập lịch → bắt đầu → nhập → gửi
+duyệt → từ chối → gửi lại → duyệt → kiểm DB (máy "Thất lạc" / "Chờ xử lý") → "Tìm thấy" → bảng tổng hợp.

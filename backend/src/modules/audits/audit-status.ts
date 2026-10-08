@@ -5,6 +5,7 @@ export const AUDIT_STATUS = {
   PENDING: 'Chờ duyệt',
   APPROVED: 'Đã duyệt',
   CANCELLED: 'Đã hủy',
+  DELETED: 'Đã xóa',
 } as const;
 
 /** Đợt "đang mở" giữ các thiết bị của nó: thiết bị không được nằm trong 2 đợt đang mở (#10). */
@@ -12,6 +13,14 @@ export const OPEN_AUDIT_STATUSES: string[] = [
   AUDIT_STATUS.NOT_STARTED,
   AUDIT_STATUS.IN_PROGRESS,
   AUDIT_STATUS.PENDING,
+];
+
+/** Xoá mềm được ở mọi trạng thái trừ Chờ duyệt (và đã xoá). */
+export const DELETABLE_AUDIT_STATUSES: string[] = [
+  AUDIT_STATUS.NOT_STARTED,
+  AUDIT_STATUS.IN_PROGRESS,
+  AUDIT_STATUS.APPROVED,
+  AUDIT_STATUS.CANCELLED,
 ];
 
 export const AUDIT_RESULT = {

@@ -6,13 +6,15 @@
 > hoạt động từ 2026-09-11, xem mục 5). Các module còn lại (dashboard/device/user) sẽ được đồng
 > bộ dần khi tới lượt. Tài liệu này mô tả *trạng thái đang có*, không phải mục tiêu.
 >
+> Cập nhật 2026-10-08 (spec `docs/superpowers/specs/2026-10-08-phong-ban-chuc-vu-xoa-kiem-ke-design.md`): 4 phòng ban và chức vụ theo phòng, role `Cộng tác viên` đổi tên `Chuyên viên`, xoá đợt kiểm kê + thùng rác kiểm kê (TP Kế toán), nhãn `Chờ thanh lý` → `Chờ xử lý`, `Đơn vị kiểm kê` → `Đơn vị được kiểm kê`.
+>
 > Cập nhật lần cuối: 2026-10-02 — dựng module **Kiểm kê** (spec
 > `docs/superpowers/specs/2026-10-02-kiem-ke-design.md`): `/audit` (3 tab), `/audit/:id`,
-> `/audit/summaries/:id`, chỉ TP + CTV Kế toán; thêm `shared/ui/Modal`, `shared/lib/downloadCsv`,
+> `/audit/summaries/:id`, chỉ TP + Chuyên viên Kế toán; thêm `shared/ui/Modal`, `shared/lib/downloadCsv`,
 > `apiPut`, trạng thái thiết bị `Thất lạc` + nút "Tìm thấy" (TP Kỹ thuật). Không còn route nào dùng
-> `ComingSoonPage`. Trước đó 2026-10-01 — thêm role **Cộng tác viên** và đổi ma trận quyền (spec
+> `ComingSoonPage`. Trước đó 2026-10-01 — thêm role **Chuyên viên** và đổi ma trận quyền (spec
 > `docs/superpowers/specs/2026-09-30-role-cong-tac-vien-design.md`): đơn **Cấp phát - Thu hồi** và
-> lệnh **Điều chuyển** đều do **Cộng tác viên Kỹ thuật tạo, Trưởng phòng Kỹ thuật duyệt**; Quản trị
+> lệnh **Điều chuyển** đều do **Chuyên viên Kỹ thuật tạo, Trưởng phòng Kỹ thuật duyệt**; Quản trị
 > viên chỉ xem; tạo đơn/lệnh giữ chỗ thiết bị ("Đang chờ duyệt"), người giữ thiết bị chỉ đổi qua
 > đơn/lệnh được duyệt. Trước đó 2026-09-30 — đồng bộ lại với code sau 2 vòng **Cấp phát - Thu hồi**
 > (2026-09-24/25, module `allocation`, `/allocation` + `/allocation/new`) và **Điều chuyển**
@@ -155,34 +157,38 @@ dashboard, /settings (cá nhân):  Page → hook (useAsyncData / useX) → servi
   `roleName` hoặc có `departmentCode === undefined` bị bỏ khi mở app (so `undefined`, **không** kiểm
   falsy — `null` hợp lệ). Không có cookie. Xem mục 6.
 - **Quyền phía FE** (`modules/auth/domain/session.ts`, chỉ để ẩn/hiện — backend mới là chốt chặn
-  thật): `isAdmin`, `isTechHead` (role "Trưởng phòng" + phòng `KYTHUAT`), `isTechCollab` (role "Cộng
-  tác viên" + `KYTHUAT`), `canWriteDevices` (TP hoặc CTV Kỹ thuật), `canDeleteDevices` (chỉ TP Kỹ
-  thuật — xoá mềm + dọn thùng rác), `canAccessOrders` / `canAccessTransfers` (Admin, TP, CTV Kỹ
-  thuật), `canCreateOrder` / `canCreateTransfer` (chỉ CTV Kỹ thuật), `canDecideOrder` /
-  `canDecideTransfer` (chỉ TP Kỹ thuật), `isAcctHead` / `isAcctCollab` (TP / CTV + phòng `KETOAN`),
-  `canAccessAudits` (TP hoặc CTV Kế toán — Admin, Kỹ thuật, Nhân viên không thấy), `canCreateAudit`
-  (chỉ CTV Kế toán), `canDecideAudit` (chỉ TP Kế toán), `canMarkDeviceFound` (chỉ TP Kỹ thuật).
+  thật): `isAdmin`, `isTechHead` (role "Trưởng phòng" + phòng `KYTHUAT`), `isTechSpecialist` (role "Chuyên viên" + `KYTHUAT`), `canWriteDevices` (TP hoặc Chuyên viên Kỹ thuật), `canDeleteDevices` (chỉ TP Kỹ
+  thuật — xoá mềm + dọn thùng rác), `canAccessOrders` / `canAccessTransfers` (Admin, TP, Chuyên viên Kỹ
+  thuật), `canCreateOrder` / `canCreateTransfer` (chỉ Chuyên viên Kỹ thuật), `canDecideOrder` /
+  `canDecideTransfer` (chỉ TP Kỹ thuật), `isAcctHead` / `isAcctSpecialist` (TP / Chuyên viên + phòng `KETOAN`),
+  `canAccessAudits` (TP hoặc Chuyên viên Kế toán — Admin, Kỹ thuật, Nhân viên không thấy), `canCreateAudit`
+  (chỉ Chuyên viên Kế toán), `canDecideAudit` (chỉ TP Kế toán), `canMarkDeviceFound` (chỉ TP Kỹ thuật).
 - **Quyền phía backend**: `@Allow(...ACTOR)` ở `backend/src/shared/auth/actors.ts`, do `AuthGuard`
   kiểm — user phải khớp ít nhất một actor (`ADMIN`, `TECH_HEAD` = Trưởng phòng + `KYTHUAT`,
-  `TECH_COLLAB` = Cộng tác viên + `KYTHUAT`, `ACCT_HEAD` = Trưởng phòng + `KETOAN`, `ACCT_COLLAB` =
-  Cộng tác viên + `KETOAN`); `@Allow` ở handler **ghi đè** class; không có `@Allow`
+  `TECH_SPECIALIST` = Chuyên viên + `KYTHUAT`, `ACCT_HEAD` = Trưởng phòng + `KETOAN`, `ACCT_SPECIALIST` =
+  Chuyên viên + `KETOAN`); `@Allow` ở handler **ghi đè** class; không có `@Allow`
   thì mọi user đăng nhập đều qua. Sai quyền → 403 "Bạn không có quyền thực hiện thao tác này".
 
   | Endpoint | `@Allow` |
   |---|---|
   | `GET /devices`, `GET /devices/:id`, `GET /device-types`, `LookupController` (`/roles`, `/departments`, `/users/lookup`) | không có |
-  | `POST /devices`, `PATCH /devices/:id` | `TECH_HEAD, TECH_COLLAB` |
+  | `POST /devices`, `PATCH /devices/:id` | `TECH_HEAD, TECH_SPECIALIST` |
   | `DELETE /devices/:id`, `POST /devices/purge`, `POST /devices/:id/found` | `TECH_HEAD` |
-  | `DeviceOrdersController`, `DeviceTransfersController` (class) | `ADMIN, TECH_HEAD, TECH_COLLAB` |
-  | `POST /device-orders`, `POST /device-transfers` | `TECH_COLLAB` |
+  | `DeviceOrdersController`, `DeviceTransfersController` (class) | `ADMIN, TECH_HEAD, TECH_SPECIALIST` |
+  | `POST /device-orders`, `POST /device-transfers` | `TECH_SPECIALIST` |
   | `PATCH …/approve`, `…/reject` (cả hai) | `TECH_HEAD` |
   | `UsersController` (class, gồm `/users/purge`) | `ADMIN` |
-  | `AuditsController`, `AuditSummariesController` (class) — đọc | `ACCT_HEAD, ACCT_COLLAB` |
-  | `POST /audits`, `…/start`, `…/cancel`, `PUT …/members`, `PATCH …/items/:itemId`, `PATCH …/accessories/:accessoryId`, `…/mark-uncounted-ok`, `…/submit`, `POST /audit-summaries` | `ACCT_COLLAB` |
+  | `AuditsController`, `AuditSummariesController` (class) — đọc | `ACCT_HEAD, ACCT_SPECIALIST` |
+  | `POST /audits`, `…/start`, `…/cancel`, `PUT …/members`, `PATCH …/items/:itemId`, `PATCH …/accessories/:accessoryId`, `…/mark-uncounted-ok`, `…/submit`, `POST /audit-summaries` | `ACCT_SPECIALIST` |
   | `POST /audits/:id/approve`, `…/reject` | `ACCT_HEAD` |
+  | `DELETE /audits/:id`, `POST /audits/purge`, `DELETE /audit-summaries/:id` (xoá đợt / dọn thùng rác / xoá bảng tổng hợp kiểm kê) | `ACCT_HEAD` |
+  | `GET /audits?status=Đã xóa` (thùng rác) | `ACCT_HEAD, ACCT_SPECIALIST` (Chuyên viên chỉ xem); `GET /audits` mặc định ẩn "Đã xóa" |
+
+- **Phòng ban và chức vụ** (seed 4 phòng): `KYTHUAT` (Phòng Kỹ thuật), `KETOAN` (Phòng Kế toán), `KINHDOANH` (Phòng Kinh doanh), `NGHIEPVU` (Phòng Nghiệp vụ). Chức vụ hợp lệ theo phòng: KYTHUAT / KETOAN → Trưởng phòng, Chuyên viên, Nhân viên; KINHDOANH / NGHIEPVU → Trưởng phòng, Nhân viên; không phòng ban → chỉ Quản trị viên. `POST /users`: mọi role trừ Quản trị viên bắt buộc `departmentId` ("Vui lòng chọn phòng ban"); Quản trị viên không được có phòng ban ("Quản trị viên không thuộc phòng ban"); sai cặp → "Phòng X không có chức vụ Y". `GET /users/lookup` trả thêm `departmentId` (picker thành viên kiểm kê lọc theo phòng).
+- **Xoá đợt kiểm kê / thùng rác**: TP Kế toán xoá mềm đợt ở trạng thái Chưa kiểm kê / Đang kiểm kê / Đã duyệt / Đã hủy → `Đã xóa` (Chờ duyệt → 400). Bộ lọc "Đã xóa" ở tab Kiểm kê chi tiết: TP + Chuyên viên Kế toán đều xem, chỉ TP có **Dọn thùng rác** (`POST /audits/purge { ids }`, xoá cứng mọi đợt đang hiện, bỏ qua đợt còn nằm trong bảng tổng hợp và trả `skipped` kèm lý do). Bảng tổng hợp xoá cứng qua `DELETE /audit-summaries/:id`.
 
 - **Trạng thái thiết bị** (`DEVICE_STATUS`): `Trong kho`, `Đã cấp phát`, **`Đang chờ duyệt`**,
-  `Thất lạc`, `Chờ thanh lý`, `Đã xóa`. Người giữ thiết bị chỉ đổi qua đơn/lệnh; API/form thiết bị không nhận
+  `Thất lạc`, `Chờ xử lý`, `Đã xóa`. Người giữ thiết bị chỉ đổi qua đơn/lệnh; API/form thiết bị không nhận
   người sở hữu / trạng thái / ngày cấp phát, thiết bị mới luôn "Trong kho". Vòng đời:
 
   | Bước | Cấp phát | Thu hồi | Điều chuyển |
@@ -193,10 +199,10 @@ dashboard, /settings (cá nhân):  Page → hook (useAsyncData / useX) → servi
   | Duyệt — ghi | `Đã cấp phát`, người giữ = người nhận, ngày cấp = hôm nay | `Trong kho`, bỏ người giữ, bỏ ngày cấp | `Đã cấp phát`, người giữ = người nhận, ngày cấp = hôm nay |
   | Từ chối — ghi | → `Trong kho` | → `Đã cấp phát` | → `Đã cấp phát` |
 
-  Duyệt kiểm kê đổi máy `Thiếu` → `Thất lạc`, máy `Hỏng` → `Chờ thanh lý` (giữ người sở hữu). Ở `/devices`,
+  Duyệt kiểm kê đổi máy `Thiếu` → `Thất lạc`, máy `Hỏng` → `Chờ xử lý` (giữ người sở hữu). Ở `/devices`,
   dòng `Thất lạc` có nút **"Tìm thấy"** (`canMarkDeviceFound`, `window.confirm` → `POST /devices/:id/found`):
   về `Đã cấp phát` nếu còn người sở hữu, ngược lại `Trong kho`. Đơn/lệnh tự loại máy `Thất lạc` /
-  `Chờ thanh lý` vì chỉ nhận `Trong kho` / `Đã cấp phát`.
+  `Chờ xử lý` vì chỉ nhận `Trong kho` / `Đã cấp phát`.
 
   Thiết bị `Đang chờ duyệt` bị khoá (không vào đơn/lệnh khác, không sửa, không xoá). `Device` không
   còn `DepartmentId`.
@@ -242,7 +248,7 @@ Cài thêm package cho frontend: `npm install <pkg> -w frontend`.
 | `Sidebar` | `layout/Sidebar.tsx` | — (đọc `useSession`) | Logo "IDSM" + `PRIMARY_NAV` + `SETTINGS_NAV`, dùng `NavLink` (active = nền `surface-sunken`). Cuối cùng là nút **"Đăng xuất"** (icon `LogOut`, cùng style item): `signOut()` rồi `navigate('/login', { replace: true })`. Có test `Sidebar.test.tsx`. |
 | `PageHeader` | `layout/PageHeader.tsx` | `breadcrumb?: Crumb[]` (`Crumb = {label, to?}`), `title: ReactNode`, `actions?: ReactNode` | Breadcrumb + H2 + actions phải. Crumb cuối (không `to`) tô màu brand. |
 | `ComingSoonPage` | `layout/ComingSoonPage.tsx` | `title: string` | Placeholder "đang được phát triển" (icon Construction + 2 dòng chữ). **Hiện không route nào dùng** (`/audit` đã dựng thật, 2026-10-02); giữ lại làm khuôn cho module chưa dựng. |
-| `navItems` | `layout/navItems.ts` | — | `PRIMARY_NAV: NavItem[]` (6 mục) + `SETTINGS_NAV: NavItem`. `NavItem = { label, to, icon, adminOnly?, orderAccessOnly?, transferAccessOnly?, auditAccessOnly? }` — `Sidebar` lọc mục theo cờ quyền (`orderAccessOnly`/`transferAccessOnly` = Admin, TP, CTV Kỹ thuật; `auditAccessOnly` = TP, CTV Kế toán). |
+| `navItems` | `layout/navItems.ts` | — | `PRIMARY_NAV: NavItem[]` (6 mục) + `SETTINGS_NAV: NavItem`. `NavItem = { label, to, icon, adminOnly?, orderAccessOnly?, transferAccessOnly?, auditAccessOnly? }` — `Sidebar` lọc mục theo cờ quyền (`orderAccessOnly`/`transferAccessOnly` = Admin, TP, Chuyên viên Kỹ thuật; `auditAccessOnly` = TP, Chuyên viên Kế toán). |
 
 `PRIMARY_NAV`: Tổng quan `/dashboard` · Người dùng `/users` (`adminOnly`) · Tài sản `/devices` · Điều chuyển `/transfers` (`transferAccessOnly`) · Cấp phát - Thu hồi `/allocation` (`orderAccessOnly`) · Kiểm kê `/audit` (`auditAccessOnly`).
 `SETTINGS_NAV`: Cài đặt `/settings`. Nút Đăng xuất không nằm trong `navItems` (là hành động, không phải route).
@@ -305,17 +311,17 @@ Route khai báo trong `src/app/router.tsx`.
 |---|---|---|---|
 | `/` | → `<Navigate to="/dashboard">` | — | Redirect. |
 | `/dashboard` | `modules/dashboard/presentation/DashboardPage.tsx` | `dashboardService.getStats` → **hardcode** 4 số: 128 / 86 / 34 / 8 + hint cứng. | Chỉ hiển thị. Có skeleton. Không refresh/lọc/drill-down. |
-| `/devices` | `modules/device/presentation/DeviceCatalogPage.tsx` | `deviceService.list(query)` → `GET /devices` (BE thật qua `HttpDeviceRepository`; tìm kiếm + lọc trạng thái gửi lên BE, lọc server-side). | Bảng **hoạt động**. 👁 dẫn sang `/devices/:id/edit`; ⋮ xoá mềm (`window.confirm` rồi `DELETE /devices/:id`). 👁 và "Thêm thiết bị" chỉ hiện khi `canWriteDevices(session)` (TP hoặc CTV Kỹ thuật); ⋮ xoá mềm chỉ hiện khi `canDeleteDevices` (TP Kỹ thuật). Dòng `Thất lạc` + `canMarkDeviceFound` → nút **"Tìm thấy"**. Lọc trạng thái "Đã xóa" + `canDeleteDevices` → nút **"Dọn thùng rác"**: xoá cứng mọi thiết bị đang hiện (`POST /devices/purge { ids }`); backend chỉ xoá thiết bị ở trạng thái "Đã xóa" và bỏ qua thiết bị còn được đơn cấp phát/lệnh điều chuyển/đợt kiểm kê tham chiếu. Xem mục 4 cho nút vẫn chết. |
+| `/devices` | `modules/device/presentation/DeviceCatalogPage.tsx` | `deviceService.list(query)` → `GET /devices` (BE thật qua `HttpDeviceRepository`; tìm kiếm + lọc trạng thái gửi lên BE, lọc server-side). | Bảng **hoạt động**. 👁 dẫn sang `/devices/:id/edit`; ⋮ xoá mềm (`window.confirm` rồi `DELETE /devices/:id`). 👁 và "Thêm thiết bị" chỉ hiện khi `canWriteDevices(session)` (TP hoặc Chuyên viên Kỹ thuật); ⋮ xoá mềm chỉ hiện khi `canDeleteDevices` (TP Kỹ thuật). Dòng `Thất lạc` + `canMarkDeviceFound` → nút **"Tìm thấy"**. Lọc trạng thái "Đã xóa" + `canDeleteDevices` → nút **"Dọn thùng rác"**: xoá cứng mọi thiết bị đang hiện (`POST /devices/purge { ids }`); backend chỉ xoá thiết bị ở trạng thái "Đã xóa" và bỏ qua thiết bị còn được đơn cấp phát/lệnh điều chuyển/đợt kiểm kê tham chiếu. Xem mục 4 cho nút vẫn chết. |
 | `/devices/new` | `modules/device/presentation/AssetFormPage.tsx` | Tạo mới qua `deviceService.create` → `POST /devices`. | Form nhiều section, validate **hoạt động** (kể cả định dạng mã thiết bị `PREFIX-NNNNNN`). Lưu xong → `/devices`. **Không còn** ô Phòng ban / Người sở hữu, mục Đã cấp phát (thiết bị mới luôn "Trong kho"). Bọc `RequireCan(canWriteDevices)` → `/devices`. |
 | `/devices/:id/edit` | `modules/device/presentation/AssetFormPage.tsx` (cùng file với `/devices/new`, đọc `useParams<{id}>`) | Nạp thiết bị qua `deviceService.get(id)` → `GET /devices/:id`; lưu qua `deviceService.update` → `PATCH /devices/:id`. | Cùng form tạo mới, nạp sẵn dữ liệu (`toDraft`). Chỉ vào được từ nút 👁; bọc `RequireCan(canWriteDevices)` → `/devices`. |
-| `/allocation` | `modules/allocation/presentation/DeviceOrderListPage.tsx` | `deviceOrderService.list({ type, status })` → `GET /device-orders` (BE thật). Bọc `RequireCan(canAccessOrders)` (Admin, TP, CTV Kỹ thuật). | Bảng đơn Cấp phát / Thu hồi, lọc theo Loại + Trạng thái ("Chờ duyệt" / "Đã duyệt" / "Từ chối") gửi lên BE. "Tạo đơn" chỉ hiện với `canCreateOrder` (CTV Kỹ thuật); Admin chỉ xem. Đơn "Chờ duyệt": **Duyệt** (`window.confirm` → `PATCH /device-orders/:id/approve`, BE đổi trạng thái thiết bị) / **Từ chối** (`window.prompt` lý do → `PATCH .../reject`) — chỉ `canDecideOrder` (TP Kỹ thuật); từ chối trả thiết bị về trạng thái cũ. Đơn "Đã duyệt": **In biên bản** (`GET /device-orders/:id` → PDF). |
+| `/allocation` | `modules/allocation/presentation/DeviceOrderListPage.tsx` | `deviceOrderService.list({ type, status })` → `GET /device-orders` (BE thật). Bọc `RequireCan(canAccessOrders)` (Admin, TP, Chuyên viên Kỹ thuật). | Bảng đơn Cấp phát / Thu hồi, lọc theo Loại + Trạng thái ("Chờ duyệt" / "Đã duyệt" / "Từ chối") gửi lên BE. "Tạo đơn" chỉ hiện với `canCreateOrder` (Chuyên viên Kỹ thuật); Admin chỉ xem. Đơn "Chờ duyệt": **Duyệt** (`window.confirm` → `PATCH /device-orders/:id/approve`, BE đổi trạng thái thiết bị) / **Từ chối** (`window.prompt` lý do → `PATCH .../reject`) — chỉ `canDecideOrder` (TP Kỹ thuật); từ chối trả thiết bị về trạng thái cũ. Đơn "Đã duyệt": **In biên bản** (`GET /device-orders/:id` → PDF). |
 | `/allocation/new` | `modules/allocation/presentation/CreateOrderPage.tsx` | Người liên quan từ `GET /users/lookup`; thiết bị hợp lệ từ `deviceService.list`: Cấp phát → thiết bị "Trong kho", Thu hồi → thiết bị "Đã cấp phát" của đúng người đang giữ. Lưu `POST /device-orders`. | Chọn loại (radio) → người → tick thiết bị (đổi loại/người thì xoá danh sách đã tick) → ghi chú. `validateOrderDraft` (domain): loại, người, ≥ 1 thiết bị; sai → 1 dòng lỗi chung (không lỗi theo từng ô). Xong → `/allocation`. Bọc `RequireCan(canCreateOrder)` → `/allocation`. Tạo đơn chuyển thiết bị sang "Đang chờ duyệt". |
 | `/users` | `modules/user/presentation/UserListPage.tsx` | `userAdminService.list(query)` → `GET /users` (BE thật). Bọc `RequireCan(isAdmin)` — chỉ Quản trị viên vào được, role khác bị chuyển về `/dashboard`. | Bảng người dùng: tìm kiếm + lọc trạng thái/vai trò/phòng ban (query gửi lên BE, không lọc client), khoá/mở khoá (`PATCH /users/:id/status`), xoá mềm (`DELETE /users/:id`) — confirm bằng `window.confirm` (native, chưa có Modal). Không tự thao tác trên chính mình hay user đã xoá. Lọc "Đã xóa" → nút **"Dọn thùng rác"** xoá cứng các user đang hiện (`POST /users/purge { ids }`; backend xoá kèm `PasswordResetToken` của họ và giữ lại user còn được đơn/lệnh điều chuyển/đợt kiểm kê/bảng tổng hợp tham chiếu, trả về `{ count, skipped: [{ id, username, fullName, reasons }] }`; trang hiện số đã xoá + danh sách bị giữ lại kèm lý do). Không phân trang, không sửa thông tin user. |
-| `/users/new` | `modules/user/presentation/CreateUserPage.tsx` | `userAdminService.create(dto)` → `POST /users` (BE thật). Dropdown vai trò/phòng ban đọc `GET /roles`, `GET /departments`. | Bọc `RequireCan(isAdmin)`. Validate ở `domain` + BE (trùng username/email → lỗi); **bắt buộc chọn phòng ban** khi vai trò là Trưởng phòng / Cộng tác viên ("Vui lòng chọn phòng ban"). Tạo xong → `/users`. |
-| `/transfers` | `modules/transfer/presentation/DeviceTransferListPage.tsx` | `deviceTransferService.list({ status })` → `GET /device-transfers` (BE thật). Bọc `RequireCan(canAccessTransfers)` (Admin, TP, CTV Kỹ thuật). | Bảng lệnh điều chuyển (Người giao → Người nhận), lọc Trạng thái. Cùng quyền với `/allocation`: "Tạo lệnh" chỉ `canCreateTransfer` (CTV Kỹ thuật); **Duyệt** / **Từ chối** (`window.confirm` / `window.prompt`, `PATCH /device-transfers/:id/approve\|reject`) chỉ `canDecideTransfer` (TP Kỹ thuật); Admin chỉ xem. Lệnh "Đã duyệt": **In biên bản** PDF. Tạo lệnh → thiết bị "Đang chờ duyệt"; duyệt → "Đã cấp phát" cho người nhận; từ chối → về "Đã cấp phát" của người giao. |
+| `/users/new` | `modules/user/presentation/CreateUserPage.tsx` | `userAdminService.create(dto)` → `POST /users` (BE thật). Dropdown vai trò/phòng ban đọc `GET /roles`, `GET /departments`. | Bọc `RequireCan(isAdmin)`. Validate ở `domain` + BE (trùng username/email → lỗi); **chọn phòng ban trước**, chức vụ lọc theo phòng; mọi vai trò trừ Quản trị viên bắt buộc phòng ban ("Vui lòng chọn phòng ban"), ô "— Không (Quản trị viên) —" chỉ cho Quản trị viên. Tạo xong → `/users`. |
+| `/transfers` | `modules/transfer/presentation/DeviceTransferListPage.tsx` | `deviceTransferService.list({ status })` → `GET /device-transfers` (BE thật). Bọc `RequireCan(canAccessTransfers)` (Admin, TP, Chuyên viên Kỹ thuật). | Bảng lệnh điều chuyển (Người giao → Người nhận), lọc Trạng thái. Cùng quyền với `/allocation`: "Tạo lệnh" chỉ `canCreateTransfer` (Chuyên viên Kỹ thuật); **Duyệt** / **Từ chối** (`window.confirm` / `window.prompt`, `PATCH /device-transfers/:id/approve\|reject`) chỉ `canDecideTransfer` (TP Kỹ thuật); Admin chỉ xem. Lệnh "Đã duyệt": **In biên bản** PDF. Tạo lệnh → thiết bị "Đang chờ duyệt"; duyệt → "Đã cấp phát" cho người nhận; từ chối → về "Đã cấp phát" của người giao. |
 | `/transfers/new` | `modules/transfer/presentation/CreateTransferPage.tsx` | Người từ `GET /users/lookup`; thiết bị = "Đã cấp phát" của người giao (`deviceService.list({ status, currentUserId: fromUserId })`). Lưu `POST /device-transfers`. | Chọn người giao → người nhận → tick thiết bị → ghi chú. Bọc `RequireCan(canCreateTransfer)` → `/transfers`. `validateTransferDraft`: 2 người bắt buộc và phải khác nhau, ≥ 1 thiết bị. Xong → `/transfers`. |
-| `/audit` | `modules/audit/presentation/AuditHomePage.tsx` | `auditService.list` → `GET /audits`; tab Tổng hợp: `GET /audit-summaries`. Bọc `RequireCan(canAccessAudits)` (TP + CTV Kế toán). | 3 tab qua `?tab=detail\|quantity\|summary` (mặc định `detail`): **Kiểm kê chi tiết** (bảng đợt + tìm kiếm + lọc trạng thái + nhãn "Quá hạn" + tiến độ; **+ Lập lịch kiểm kê** mở `ScheduleAuditModal`, chỉ `canCreateAudit`), **Kiểm kê số lượng** (chỉ một dòng chữ "đang được phát triển"), **Tổng hợp kiểm kê chi tiết** (bảng tổng hợp + **+ Lập bảng tổng hợp** → `CreateSummaryModal`, chỉ `canCreateAudit`). |
-| `/audit/:id` | `modules/audit/presentation/AuditDetailPage.tsx` | `GET /audits/:id`; ghi từng dòng `PATCH …/items/:itemId` / `…/accessories/:accessoryId`, thành viên `PUT …/members`, chuyển trạng thái `POST …/start\|cancel\|mark-uncounted-ok\|submit\|approve\|reject`. | 2 tab **Thiết bị kiểm kê** (kết quả Đủ/Thiếu/Hỏng + ghi chú cho máy và linh kiện, nhóm theo loại, dòng Tổng cộng) và **Thành viên tham gia**. Nút theo vai + trạng thái: Bắt đầu / Huỷ đợt (`window.confirm`) / Ghi Đủ cho dòng chưa đếm / Gửi duyệt (tắt khi chưa đủ 100%) — CTV Kế toán; Duyệt (`window.confirm`) / Từ chối (`window.prompt` lý do, hiện thành banner) — TP Kế toán; Xuất PDF / CSV — cả hai. Lưu từng dòng; chỉ áp dụng phản hồi lưu mới nhất. |
+| `/audit` | `modules/audit/presentation/AuditHomePage.tsx` | `auditService.list` → `GET /audits`; tab Tổng hợp: `GET /audit-summaries`. Bọc `RequireCan(canAccessAudits)` (TP + Chuyên viên Kế toán). | 3 tab qua `?tab=detail\|quantity\|summary` (mặc định `detail`): **Kiểm kê chi tiết** (bảng đợt + tìm kiếm + lọc trạng thái + nhãn "Quá hạn" + tiến độ; **+ Lập lịch kiểm kê** mở `ScheduleAuditModal`, chỉ `canCreateAudit`), **Kiểm kê số lượng** (chỉ một dòng chữ "đang được phát triển"), **Tổng hợp kiểm kê chi tiết** (bảng tổng hợp + **+ Lập bảng tổng hợp** → `CreateSummaryModal`, chỉ `canCreateAudit`). Bộ lọc "Đã xóa" = thùng rác kiểm kê (TP Kế toán: Xoá đợt, **Dọn thùng rác**, xoá bảng tổng hợp; Chuyên viên chỉ xem). |
+| `/audit/:id` | `modules/audit/presentation/AuditDetailPage.tsx` | `GET /audits/:id`; ghi từng dòng `PATCH …/items/:itemId` / `…/accessories/:accessoryId`, thành viên `PUT …/members`, chuyển trạng thái `POST …/start\|cancel\|mark-uncounted-ok\|submit\|approve\|reject`. | 2 tab **Thiết bị kiểm kê** (kết quả Đủ/Thiếu/Hỏng + ghi chú cho máy và linh kiện, nhóm theo loại, dòng Tổng cộng) và **Thành viên tham gia**. Nút theo vai + trạng thái: Bắt đầu / Huỷ đợt (`window.confirm`) / Ghi Đủ cho dòng chưa đếm / Gửi duyệt (tắt khi chưa đủ 100%) — Chuyên viên Kế toán; Duyệt (`window.confirm`) / Từ chối (`window.prompt` lý do, hiện thành banner) — TP Kế toán; Xuất PDF / CSV — cả hai. Lưu từng dòng; chỉ áp dụng phản hồi lưu mới nhất. |
 | `/audit/summaries/:id` | `modules/audit/presentation/AuditSummaryPage.tsx` | `GET /audit-summaries/:id`. | Các đợt thành phần + ma trận đơn vị × loại thiết bị (Tổng / Đủ / Thiếu / Hỏng, chỉ đếm thiết bị) + dòng tổng; Xuất PDF / CSV. Khai báo **trước** `/audit/:id` trong router. |
 | `/settings` | `modules/user/presentation/UserSettingsPage.tsx` | `userSettingsService.get/save` → **seed 1 hồ sơ** (Hàn Nguyễn, SGB-IT-0142), mock. | Hồ sơ cá nhân — rail dọc + 3 tab, 1 cặp nút Hủy/Lưu, gating theo `dirty`. Lưu chỉ vào in-memory (mất khi F5). Tab 2/3 tự thiết kế. |
 | `*` | `app/NotFoundPage.tsx` | — | 404. |
@@ -443,7 +449,7 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 
 4. ~~**Luồng "Cấp phát - Thu hồi" đúng ra phải làm gì**~~ — **Đã giải quyết 2026-09-25**: dựng
    thành module `allocation` theo spec `2026-09-24-cap-phat-thu-hoi-design.md` (đơn Cấp phát / Thu
-   hồi, in biên bản). Từ 2026-10-01 (spec `2026-09-30-role-cong-tac-vien-design.md`): Cộng tác viên
+   hồi, in biên bản). Từ 2026-10-01 (spec `2026-09-30-role-cong-tac-vien-design.md`): Chuyên viên
    Kỹ thuật tạo, Trưởng phòng Kỹ thuật duyệt, Quản trị viên chỉ xem; tạo đơn giữ chỗ thiết bị
    ("Đang chờ duyệt"), duyệt xong mới đổi người giữ. Điều chuyển làm cùng mẫu (module `transfer`). Giao diện chưa đối chiếu với Figma mới.
 
@@ -452,7 +458,7 @@ bằng mắt với screenshot mà `get_design_context` trả về.
    không có top bar". Chưa biết Figma mới theo hướng nào.
 
 6. **Nguồn số liệu Dashboard** — 4 thẻ lấy từ đâu khi có backend? Tính gộp từ danh sách thiết
-   bị, hay endpoint thống kê riêng? Nhãn/ngưỡng ("Chờ thanh lý", hint "+12 trong tháng") có
+   bị, hay endpoint thống kê riêng? Nhãn/ngưỡng ("Chờ xử lý", hint "+12 trong tháng") có
    phải chốt không?
 
 7. ~~**Đổi mật khẩu có chủ đích bỏ qua mật khẩu mới không?**~~ — **Đã giải quyết 2026-09-18**:
@@ -468,7 +474,7 @@ bằng mắt với screenshot mà `get_design_context` trả về.
    `DeviceCatalogPage`, `UserListPage`, `DeviceOrderListPage`, `DeviceTransferListPage`, `AuditHomePage`, `AuditDetailPage`, `AuditSummaryPage` (+ 2 `generateAuditReport` / `generateSummaryReport`). Các page
    auth và 2 trang tạo đơn/lệnh chưa có test component.
 
-10. **Các module chưa dựng**: Kiểm kê số lượng (tab placeholder ở `/audit`), QR thiết bị; ngoài phạm vi Kiểm kê: máy thừa, ghi `DeviceAccessory` từ kết quả, luồng thanh lý cho `Chờ thanh lý`, thông báo nhắc lịch. Approvals Center (Figma cũ Group 13)
+10. **Các module chưa dựng**: Kiểm kê số lượng (tab placeholder ở `/audit`), QR thiết bị; ngoài phạm vi Kiểm kê: máy thừa, ghi `DeviceAccessory` từ kết quả, luồng thanh lý cho `Chờ xử lý`, thông báo nhắc lịch. Approvals Center (Figma cũ Group 13)
     không làm riêng — duyệt nằm trên bảng `/allocation`, `/transfers`. Chưa rõ mức độ thay đổi ở
     bản Figma mới.
 
@@ -506,7 +512,7 @@ xuất (chưa có Modal).
 
 **Tài khoản dev** (tạo bởi `npx prisma db seed`, hoặc `pnpm db:setup` = migrate deploy + seed,
 trong `backend/`; seed **từ chối chạy khi `NODE_ENV=production`**): `admin` / `Admin@123`;
-`truongphong.kt` / `Head@1234` (Trưởng phòng, `KYTHUAT`); `ctv.kt` / `Collab@1234` (Cộng tác viên,
+`truongphong.kt` / `Head@1234` (Trưởng phòng, `KYTHUAT`); `ctv.kt` / `Collab@1234` (Chuyên viên,
 `KYTHUAT`); `truongphong.ketoan` / `Head@1234` (Trưởng phòng, `KETOAN`); `ctv.ketoan` / `Collab@1234`
-(Cộng tác viên, `KETOAN`); thêm user `dev` nếu `.env` có `DEV_USER_EMAIL` (mật khẩu seed `Dev@1234`) — dùng để test luồng quên
+(Chuyên viên, `KETOAN`); thêm user `dev` nếu `.env` có `DEV_USER_EMAIL` (mật khẩu seed `Dev@1234`) — dùng để test luồng quên
 mật khẩu, vì Resend `onboarding@resend.dev` chỉ gửi được tới email chủ tài khoản Resend.

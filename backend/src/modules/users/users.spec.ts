@@ -141,6 +141,8 @@ describe('Users: /users, /roles, /departments', () => {
       expect(deps.body.data).toEqual([
         { id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' },
         { id: 2, departmentCode: 'KETOAN', departmentName: 'Phòng Kế toán' },
+        { id: 3, departmentCode: 'KINHDOANH', departmentName: 'Phòng Kinh doanh' },
+        { id: 4, departmentCode: 'NGHIEPVU', departmentName: 'Phòng Nghiệp vụ' },
       ]);
     });
   });
@@ -267,17 +269,18 @@ describe('Users: /users, /roles, /departments', () => {
       expect(saved.password).toMatch(/^\$2[aby]\$/);
     });
 
-    it('không có departmentId: department null', async () => {
+    it('201 Quản trị viên không có phòng ban', async () => {
       const res = await http()
         .post('/users')
         .set('Authorization', tokenOf(admin))
-        .send({ ...body, roleId: 3, departmentId: undefined })
+        .send({ ...body, roleId: 1, departmentId: undefined })
         .expect(201);
       expect(res.body.data.department).toBeNull();
     });
 
     it.each([
       ['Trưởng phòng thiếu phòng ban', 2, undefined],
+      ['Nhân viên thiếu phòng ban', 3, undefined],
       ['Chuyên viên thiếu phòng ban', 4, undefined],
       ['Chuyên viên gửi departmentId: null', 4, null],
     ])('400 %s', async (_label, roleId, departmentId) => {
@@ -288,6 +291,44 @@ describe('Users: /users, /roles, /departments', () => {
         .expect(400);
       expect(res.body.message).toBe('Vui lòng chọn phòng ban');
       expect(prisma.users.some((u) => u.username === 'tp.ketoan')).toBe(false);
+    });
+
+    it('400 Quản trị viên có phòng ban', async () => {
+      const res = await http()
+        .post('/users')
+        .set('Authorization', tokenOf(admin))
+        .send({ ...body, roleId: 1, departmentId: 2 })
+        .expect(400);
+      expect(res.body.message).toBe('Quản trị viên không thuộc phòng ban');
+    });
+
+    it.each([
+      [3, 'Phòng Kinh doanh'],
+      [4, 'Phòng Nghiệp vụ'],
+    ])('400 Chuyên viên ở phòng %i', async (departmentId, name) => {
+      const res = await http()
+        .post('/users')
+        .set('Authorization', tokenOf(admin))
+        .send({ ...body, roleId: 4, departmentId })
+        .expect(400);
+      expect(res.body.message).toBe(
+        `Phòng ${name.replace('Phòng ', '')} không có chức vụ Chuyên viên`,
+      );
+    });
+
+    it.each([
+      [2, 3],
+      [3, 3],
+      [2, 4],
+      [3, 4],
+      [3, 1],
+      [3, 2],
+    ])('201 roleId %i ở phòng %i', async (roleId, departmentId) => {
+      await http()
+        .post('/users')
+        .set('Authorization', tokenOf(admin))
+        .send({ ...body, roleId, departmentId })
+        .expect(201);
     });
 
     it('201 Chuyên viên có phòng ban', async () => {

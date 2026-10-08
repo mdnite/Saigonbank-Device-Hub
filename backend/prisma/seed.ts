@@ -28,6 +28,8 @@ async function main() {
   const departments = [
     { departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' },
     { departmentCode: 'KETOAN', departmentName: 'Phòng Kế toán' },
+    { departmentCode: 'KINHDOANH', departmentName: 'Phòng Kinh doanh' },
+    { departmentCode: 'NGHIEPVU', departmentName: 'Phòng Nghiệp vụ' },
   ];
   const departmentIds: Record<string, number> = {};
   for (const d of departments) {

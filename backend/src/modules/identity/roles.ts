@@ -7,8 +7,18 @@ export const ROLE = {
   SPECIALIST: 'Chuyên viên',
 } as const;
 
-/** Role vô nghĩa nếu thiếu phòng ban — bắt buộc chọn phòng ban khi tạo user. (Task 2 thay bằng ROLES_BY_DEPARTMENT.) */
-export const DEPARTMENT_REQUIRED_ROLES: readonly string[] = [
-  ROLE.HEAD,
-  ROLE.SPECIALIST,
-];
+/** Chức vụ hợp lệ theo DepartmentCode. Không phòng ban → chỉ Quản trị viên. */
+export const ROLES_BY_DEPARTMENT: Record<string, readonly string[]> = {
+  KYTHUAT: [ROLE.HEAD, ROLE.SPECIALIST, ROLE.STAFF],
+  KETOAN: [ROLE.HEAD, ROLE.SPECIALIST, ROLE.STAFF],
+  KINHDOANH: [ROLE.HEAD, ROLE.STAFF],
+  NGHIEPVU: [ROLE.HEAD, ROLE.STAFF],
+};
+
+export function roleAllowedFor(
+  roleName: string,
+  departmentCode: string | null,
+): boolean {
+  if (departmentCode === null) return roleName === ROLE.ADMIN;
+  return (ROLES_BY_DEPARTMENT[departmentCode] ?? []).includes(roleName);
+}

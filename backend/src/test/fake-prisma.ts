@@ -180,6 +180,8 @@ export function createFakePrisma() {
   const departments: Department[] = [
     { id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' },
     { id: 2, departmentCode: 'KETOAN', departmentName: 'Phòng Kế toán' },
+    { id: 3, departmentCode: 'KINHDOANH', departmentName: 'Phòng Kinh doanh' },
+    { id: 4, departmentCode: 'NGHIEPVU', departmentName: 'Phòng Nghiệp vụ' },
   ];
   const users: User[] = [];
   const tokens: PasswordResetToken[] = [];

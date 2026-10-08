@@ -88,7 +88,7 @@
 - `GET /audits`: mặc định loại `Đã xóa`; trả `Đã xóa` khi lọc `status=Đã xóa` — cho mọi người có quyền Kiểm kê
   (TP và Chuyên viên Kế toán). `GET /audits/:id` của đợt `Đã xóa` cũng xem được, mọi thao tác ghi trả 400.
 - `POST /audits/purge { ids }` (TP Kế toán): xoá cứng đợt `Đã xóa`; bỏ qua đợt có dòng trong `AuditSummaryAudit`.
-  Trả `{ purged: number, skipped: [{ id, reason }] }`, reason vd. `"Đợt #12 đang nằm trong bảng tổng hợp #3"`.
+  Trả `{ count: number, skipped: [{ id, unitName, reasons: string[] }] }`, reasons vd. `"bảng tổng hợp #3"`.
   `AuditItem` / `AuditItemAccessory` / `AuditMember` đi theo cascade sẵn có.
 - `DELETE /audit-summaries/:id` (TP Kế toán): xoá cứng; `AuditSummaryAudit` cascade; 404 nếu không tồn tại.
 - Mọi endpoint mới khai `@Allow(acctHead)`.

@@ -43,7 +43,9 @@ function readInitial(): SessionState {
   // Phiên lưu từ bản cũ (chưa có roleName / departmentCode) — bỏ, bắt đăng nhập lại.
   // departmentCode so với `undefined` chứ KHÔNG kiểm falsy: null là giá trị hợp lệ
   // (user không thuộc phòng ban nào, vd. Quản trị viên) — kiểm falsy sẽ đá văng họ mỗi lần mở app.
-  if (!stored.roleName || stored.departmentCode === undefined) {
+  // Vai trò 'Cộng tác viên' đã đổi thành 'Chuyên viên' (migration 20261008090000_rename_collab_role):
+  // phiên cũ mang tên cũ sẽ mất quyền/menu — bắt đăng nhập lại để phiên mang 'Chuyên viên'.
+  if (!stored.roleName || stored.roleName === 'Cộng tác viên' || stored.departmentCode === undefined) {
     return { session: null, notice: null };
   }
   if (isTokenExpired(stored.token)) return { session: null, notice: SESSION_EXPIRED_NOTICE };

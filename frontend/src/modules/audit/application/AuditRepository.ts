@@ -1,4 +1,4 @@
-import type { DeviceTypeRef, UserRef } from '@/modules/device/domain/device';
+import type { DeviceTypeRef } from '@/modules/device/domain/device';
 import type {
   Audit,
   AuditDetail,
@@ -6,6 +6,7 @@ import type {
   AuditSummary,
   AuditSummaryDetail,
   DepartmentRef,
+  MemberOption,
 } from '../domain/audit';
 import {
   hasErrors,
@@ -42,7 +43,7 @@ export interface AuditRepository {
   locations(): Promise<string[]>;
   departments(): Promise<DepartmentRef[]>;
   deviceTypes(): Promise<DeviceTypeRef[]>;
-  users(): Promise<UserRef[]>;
+  users(): Promise<MemberOption[]>;
   summaries(): Promise<AuditSummary[]>;
   summary(id: number): Promise<AuditSummaryDetail>;
   createSummary(draft: SummaryDraft): Promise<AuditSummaryDetail>;

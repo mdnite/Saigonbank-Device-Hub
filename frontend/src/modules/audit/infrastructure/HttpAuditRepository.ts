@@ -1,5 +1,5 @@
 import { apiGet, apiPatch, apiPost, apiPut } from '@/shared/lib/apiClient';
-import type { DeviceTypeRef, UserRef } from '@/modules/device/domain/device';
+import type { DeviceTypeRef } from '@/modules/device/domain/device';
 import {
   WAREHOUSE_UNIT,
   type Audit,
@@ -7,6 +7,7 @@ import {
   type AuditSummary,
   type AuditSummaryDetail,
   type DepartmentRef,
+  type MemberOption,
 } from '../domain/audit';
 import type { AuditDraft, SummaryDraft } from '../domain/validateAuditDraft';
 import type { AuditQuery, AuditRepository, LinePatch } from '../application/AuditRepository';
@@ -70,8 +71,8 @@ export class HttpAuditRepository implements AuditRepository {
   deviceTypes(): Promise<DeviceTypeRef[]> {
     return apiGet<DeviceTypeRef[]>('/device-types');
   }
-  users(): Promise<UserRef[]> {
-    return apiGet<UserRef[]>('/users/lookup', { active: 'true' });
+  users(): Promise<MemberOption[]> {
+    return apiGet<MemberOption[]>('/users/lookup', { active: 'true' });
   }
   summaries(): Promise<AuditSummary[]> {
     return apiGet<AuditSummary[]>('/audit-summaries');

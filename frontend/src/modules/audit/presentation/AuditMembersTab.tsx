@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Button } from '@/shared/ui/Button';
-import { Checkbox } from '@/shared/ui/inputs';
 import { DataTable } from '@/shared/ui/DataTable';
 import { useAsyncData } from '@/shared/lib/useAsyncData';
 import type { UserRef } from '@/modules/device/domain/device';
+import { AuditMemberPicker } from './AuditMemberPicker';
 import { auditService } from '../infrastructure/container';
 
 export function AuditMembersTab({
@@ -17,10 +17,11 @@ export function AuditMembersTab({
 }) {
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
-  const { data: users } = useAsyncData(
-    () => (editing ? auditService.users() : Promise.resolve(null)),
+  const { data: lookups } = useAsyncData(
+    () => (editing ? Promise.all([auditService.users(), auditService.departments()]) : Promise.resolve(null)),
     [editing],
   );
+  const [users, departments] = lookups ?? [null, []];
 
   const [saving, setSaving] = useState(false);
   // Thành viên hiện tại không còn trong danh sách đang hoạt động vẫn hiện (đã tick) để Chuyên viên bỏ chọn được.
@@ -31,27 +32,17 @@ export function AuditMembersTab({
     setSelected(members.map((m) => m.id));
     setEditing(true);
   };
-  const toggle = (id: number) =>
-    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   if (editing) {
     return (
       <div className="space-y-3">
-        <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-line p-3">
-          {[
-            ...stale.map((u) => ({ ...u, label: `${u.fullName} (${u.username}) — ngừng hoạt động` })),
-            ...(users ?? []).map((u) => ({ ...u, label: `${u.fullName} (${u.username})` })),
-          ].map((u) => (
-            <div key={u.id}>
-              <Checkbox
-                id={`member-${u.id}`}
-                label={u.label}
-                checked={selected.includes(u.id)}
-                onChange={() => toggle(u.id)}
-              />
-            </div>
-          ))}
-        </div>
+        <AuditMemberPicker
+          users={users ?? []}
+          departments={departments}
+          selected={selected}
+          onChange={setSelected}
+          stale={stale}
+        />
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setEditing(false)}>
             Hủy

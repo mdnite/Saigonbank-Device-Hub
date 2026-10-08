@@ -174,3 +174,15 @@ export function matrixTotal(rows: MatrixRow[]) {
     { total: 0, ok: 0, missing: 0, broken: 0 },
   );
 }
+
+/** 1 dòng của GET /users/lookup — có phòng ban để lọc thành viên kiểm kê. */
+export interface MemberOption {
+  id: number;
+  fullName: string;
+  username: string;
+  departmentId: number | null;
+}
+
+export function membersOfDepartment(users: MemberOption[], departmentId: number): MemberOption[] {
+  return users.filter((u) => u.departmentId === departmentId);
+}

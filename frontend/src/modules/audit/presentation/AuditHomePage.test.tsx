@@ -59,7 +59,7 @@ function renderPage(roleName: string, url = '/audit') {
     if (u.includes('/audits')) return envelope([audit(1)]);
     if (u.includes('/departments')) return envelope([{ id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' }]);
     if (u.includes('/device-types')) return envelope([{ id: 1, typeName: 'Laptop', prefix: 'LT' }]);
-    if (u.includes('/users/lookup')) return envelope([{ id: 7, fullName: 'Nguyễn Văn A', username: 'a' }]);
+    if (u.includes('/users/lookup')) return envelope([{ id: 7, fullName: 'Nguyễn Văn A', username: 'a', departmentId: 1 }]);
     return envelope([]);
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -100,10 +100,11 @@ it('Lập lịch: bỏ trống → báo lỗi; điền đủ (Kho) → POST đú
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch' }));
   expect(await screen.findByText('Vui lòng chọn đơn vị kiểm kê')).toBeInTheDocument();
 
-  await screen.findByRole('option', { name: 'Phòng Kỹ thuật' });
+  await screen.findAllByRole('option', { name: 'Phòng Kỹ thuật' });
   fireEvent.change(screen.getByLabelText(/Đơn vị kiểm kê/), { target: { value: 'KHO' } });
   fireEvent.change(screen.getByLabelText(/Đến ngày/), { target: { value: '2026-10-31' } });
   fireEvent.change(screen.getByLabelText(/Mục đích/), { target: { value: 'Định kỳ' } });
+  fireEvent.change(screen.getByLabelText('Phòng ban'), { target: { value: '1' } });
   fireEvent.click(screen.getByLabelText('Nguyễn Văn A (a)'));
   fireEvent.click(screen.getByRole('button', { name: 'Lập lịch' }));
 
@@ -123,7 +124,7 @@ it('Lập lịch: lỗi gửi hiện ra, đóng rồi mở lại thì mất', as
   failPost = true;
   renderPage('Chuyên viên');
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch kiểm kê' }));
-  await screen.findByRole('option', { name: 'Phòng Kỹ thuật' });
+  await screen.findAllByRole('option', { name: 'Phòng Kỹ thuật' });
   fireEvent.change(screen.getByLabelText(/Đơn vị kiểm kê/), { target: { value: 'KHO' } });
   fireEvent.change(screen.getByLabelText(/Đến ngày/), { target: { value: '2026-10-31' } });
   fireEvent.change(screen.getByLabelText(/Mục đích/), { target: { value: 'Định kỳ' } });
@@ -131,7 +132,7 @@ it('Lập lịch: lỗi gửi hiện ra, đóng rồi mở lại thì mất', as
   expect(await screen.findByText('Lỗi máy chủ')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Hủy' }));
   fireEvent.click(screen.getByRole('button', { name: 'Lập lịch kiểm kê' }));
-  await screen.findByRole('option', { name: 'Phòng Kỹ thuật' });
+  await screen.findAllByRole('option', { name: 'Phòng Kỹ thuật' });
   expect(screen.queryByText('Lỗi máy chủ')).toBeNull();
 });
 

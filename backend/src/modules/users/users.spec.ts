@@ -149,15 +149,30 @@ describe('Users: /users, /roles, /departments', () => {
 
   describe('GET /users/lookup', () => {
     // 200 (không phải 403) cho Nhân viên cũng chứng minh route không bị UsersController nuốt.
-    it('chỉ trả id/fullName/username, bỏ user "Đã xóa"', async () => {
+    it('chỉ trả id/fullName/username/departmentId, bỏ user "Đã xóa"', async () => {
       const res = await http()
         .get('/users/lookup')
         .set('Authorization', tokenOf(staff))
         .expect(200);
       expect(res.body.data).toEqual([
-        { id: admin.id, fullName: admin.fullName, username: 'admin' },
-        { id: staff.id, fullName: staff.fullName, username: 'staff' },
-        { id: locked.id, fullName: locked.fullName, username: 'locked' },
+        {
+          id: admin.id,
+          fullName: admin.fullName,
+          username: 'admin',
+          departmentId: admin.departmentId,
+        },
+        {
+          id: staff.id,
+          fullName: staff.fullName,
+          username: 'staff',
+          departmentId: staff.departmentId,
+        },
+        {
+          id: locked.id,
+          fullName: locked.fullName,
+          username: 'locked',
+          departmentId: locked.departmentId,
+        },
       ]);
       expect(
         res.body.data.some(
@@ -174,6 +189,19 @@ describe('Users: /users, /roles, /departments', () => {
       expect(
         res.body.data.map((u: { username: string }) => u.username),
       ).toEqual(['admin', 'staff']);
+    });
+
+    it('trả departmentId để FE lọc theo phòng ban', async () => {
+      const res = await http()
+        .get('/users/lookup?active=true')
+        .set('Authorization', tokenOf(admin))
+        .expect(200);
+      expect(res.body.data[0]).toEqual(
+        expect.objectContaining({
+          id: expect.any(Number),
+          departmentId: admin.departmentId,
+        }),
+      );
     });
   });
 

@@ -166,11 +166,13 @@ it('lưu thành viên lỗi: form vẫn mở, giữ lựa chọn và hiện lỗ
     vi.fn().mockImplementation((u: string, init?: RequestInit) => {
       if (init?.method === 'PUT')
         return Promise.resolve(new Response(JSON.stringify({ success: false, data: null, error: 'X', message: 'Thành viên không hợp lệ' }), { status: 400 }));
-      return envelope(u.includes('/users/lookup') ? [{ id: 7, fullName: 'Nguyễn Văn A', username: 'a' }] : detail());
+      if (u.includes('/departments')) return envelope([{ id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' }]);
+      return envelope(u.includes('/users/lookup') ? [{ id: 7, fullName: 'Nguyễn Văn A', username: 'a', departmentId: 1 }] : detail());
     }),
   );
   fireEvent.click(screen.getByText('Thành viên tham gia'));
   fireEvent.click(screen.getByRole('button', { name: 'Sửa thành viên' }));
+  fireEvent.change(await screen.findByLabelText('Phòng ban'), { target: { value: '1' } });
   const box = await screen.findByLabelText('Nguyễn Văn A (a)');
   expect(box).toBeChecked();
   fireEvent.click(box);
@@ -190,14 +192,14 @@ it('thành viên ngừng hoạt động vẫn hiện, bỏ chọn rồi lưu th�
         put(JSON.parse(String(init.body)));
         return envelope(detail({ members: [] }));
       }
-      return envelope(u.includes('/users/lookup') ? [{ id: 8, fullName: 'Lê C', username: 'c' }] : detail());
+      if (u.includes('/departments')) return envelope([{ id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' }]);
+      return envelope(u.includes('/users/lookup') ? [{ id: 8, fullName: 'Lê C', username: 'c', departmentId: 1 }] : detail());
     }),
   );
   fireEvent.click(screen.getByText('Thành viên tham gia'));
   fireEvent.click(screen.getByRole('button', { name: 'Sửa thành viên' }));
-  const stale = await screen.findByLabelText('Nguyễn Văn A (a) — ngừng hoạt động');
-  expect(stale).toBeChecked();
-  fireEvent.click(stale);
+  await screen.findByText(/Nguyễn Văn A — ngừng hoạt động/);
+  fireEvent.click(screen.getByRole('button', { name: 'Bỏ Nguyễn Văn A' }));
   fireEvent.click(screen.getByRole('button', { name: 'Lưu thành viên' }));
   await waitFor(() => expect(put).toHaveBeenCalledWith({ userIds: [] }));
 });

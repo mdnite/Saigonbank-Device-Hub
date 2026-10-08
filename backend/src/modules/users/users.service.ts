@@ -266,7 +266,7 @@ export class UsersService {
       where: {
         status: activeOnly ? USER_STATUS.ACTIVE : { not: USER_STATUS.DELETED },
       },
-      select: { id: true, fullName: true, username: true },
+      select: { id: true, fullName: true, username: true, departmentId: true },
       orderBy: { id: 'asc' },
     });
   }

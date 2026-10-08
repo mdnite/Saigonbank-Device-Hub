@@ -7,6 +7,7 @@ import type {
   AuditSummaryDetail,
   DepartmentRef,
   MemberOption,
+  PurgeResult,
 } from '../domain/audit';
 import {
   hasErrors,
@@ -47,6 +48,9 @@ export interface AuditRepository {
   summaries(): Promise<AuditSummary[]>;
   summary(id: number): Promise<AuditSummaryDetail>;
   createSummary(draft: SummaryDraft): Promise<AuditSummaryDetail>;
+  remove(id: number): Promise<AuditDetail>;
+  purge(ids: number[]): Promise<PurgeResult>;
+  removeSummary(id: number): Promise<void>;
 }
 
 export class AuditValidationError extends Error {
@@ -84,6 +88,9 @@ export function makeAuditService(repo: AuditRepository) {
     users: () => repo.users(),
     summaries: () => repo.summaries(),
     summary: (id: number) => repo.summary(id),
+    remove: (id: number) => repo.remove(id),
+    purge: (ids: number[]) => repo.purge(ids),
+    removeSummary: (id: number) => repo.removeSummary(id),
     createSummary: (draft: SummaryDraft) => {
       assertValid(validateSummaryDraft(draft));
       return repo.createSummary(draft);

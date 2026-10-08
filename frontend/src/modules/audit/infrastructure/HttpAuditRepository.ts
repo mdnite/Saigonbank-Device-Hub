@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost, apiPut } from '@/shared/lib/apiClient';
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/shared/lib/apiClient';
 import type { DeviceTypeRef } from '@/modules/device/domain/device';
 import {
   WAREHOUSE_UNIT,
@@ -8,6 +8,7 @@ import {
   type AuditSummaryDetail,
   type DepartmentRef,
   type MemberOption,
+  type PurgeResult,
 } from '../domain/audit';
 import type { AuditDraft, SummaryDraft } from '../domain/validateAuditDraft';
 import type { AuditQuery, AuditRepository, LinePatch } from '../application/AuditRepository';
@@ -86,5 +87,14 @@ export class HttpAuditRepository implements AuditRepository {
       purpose: draft.purpose || undefined,
       auditIds: draft.auditIds,
     });
+  }
+  remove(id: number): Promise<AuditDetail> {
+    return apiDelete<AuditDetail>(`/audits/${id}`);
+  }
+  purge(ids: number[]): Promise<PurgeResult> {
+    return apiPost<PurgeResult>('/audits/purge', { ids });
+  }
+  async removeSummary(id: number): Promise<void> {
+    await apiDelete<unknown>(`/audit-summaries/${id}`);
   }
 }

@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useSession } from '@/app/session/SessionContext';
-import { canCreateAudit } from '@/modules/auth/domain/session';
+import { canCreateAudit, canDeleteAudits } from '@/modules/auth/domain/session';
 import { Button } from '@/shared/ui/Button';
 import { DataTable, type Column } from '@/shared/ui/DataTable';
+import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { useAsyncData } from '@/shared/lib/useAsyncData';
 import { formatDateTimeLocal, type AuditSummary } from '../domain/audit';
 import { auditService } from '../infrastructure/container';
@@ -15,7 +16,14 @@ export function SummaryListTab() {
   const navigate = useNavigate();
   const { session } = useSession();
   const [creating, setCreating] = useState(false);
-  const { data, loading, error } = useAsyncData(() => auditService.summaries(), []);
+  const canDelete = canDeleteAudits(session);
+  const [reloadKey, setReloadKey] = useState(0);
+  const { data, loading, error } = useAsyncData(() => auditService.summaries(), [reloadKey]);
+  const del = useAsyncAction(async (s: AuditSummary) => {
+    if (!window.confirm(`Xoá bảng tổng hợp "${s.title}"? Không thể hoàn tác.`)) return;
+    await auditService.removeSummary(s.id);
+    setReloadKey((k) => k + 1);
+  });
 
   const columns: Array<Column<AuditSummary>> = [
     { key: 'createdAt', header: 'Ngày lập', cell: (s) => formatDateTimeLocal(s.createdAt) },
@@ -28,9 +36,16 @@ export function SummaryListTab() {
       header: '',
       align: 'right',
       cell: (s) => (
-        <Button size="sm" variant="outline" onClick={() => navigate(`/audit/summaries/${s.id}`)}>
-          Xem
-        </Button>
+        <div className="flex justify-end gap-2">
+          {canDelete && (
+            <Button size="sm" variant="outline" disabled={del.pending} onClick={() => void del.run(s)}>
+              Xoá
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={() => navigate(`/audit/summaries/${s.id}`)}>
+            Xem
+          </Button>
+        </div>
       ),
     },
   ];
@@ -44,7 +59,7 @@ export function SummaryListTab() {
           </Button>
         </div>
       )}
-      {error && <p className="mb-3 text-sm text-status-dangerFg">{error}</p>}
+      {(del.error ?? error) && <p className="mb-3 text-sm text-status-dangerFg">{del.error ?? error}</p>}
       <DataTable
         columns={columns}
         rows={data ?? []}

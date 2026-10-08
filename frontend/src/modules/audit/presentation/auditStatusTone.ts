@@ -7,4 +7,5 @@ export const AUDIT_STATUS_TONE: Record<AuditStatus, BadgeTone> = {
   [AUDIT_STATUS.PENDING]: 'warn',
   [AUDIT_STATUS.APPROVED]: 'ok',
   [AUDIT_STATUS.CANCELLED]: 'danger',
+  [AUDIT_STATUS.DELETED]: 'neutral',
 };

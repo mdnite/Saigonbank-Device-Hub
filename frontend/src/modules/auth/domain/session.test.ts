@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { fakeJwt } from '@/test/fakeJwt';
-import { canWriteDevices, canDeleteDevices, canAccessOrders, canCreateOrder, canDecideOrder, canAccessTransfers, canCreateTransfer, canDecideTransfer, isAdmin, isTokenExpired, canAccessAudits, canCreateAudit, canDecideAudit, canMarkDeviceFound, type AuthSession } from './session';
+import { canWriteDevices, canDeleteDevices, canAccessOrders, canCreateOrder, canDecideOrder, canAccessTransfers, canCreateTransfer, canDecideTransfer, isAdmin, isTokenExpired, canAccessAudits, canCreateAudit, canDecideAudit, canDeleteAudits, canMarkDeviceFound, type AuthSession } from './session';
 
 const base: AuthSession = {
   userId: '1',
@@ -67,6 +67,11 @@ it.each([
   expect(can(acctHead)).toBe(forHead);
   expect(can(acctCollab)).toBe(forCollab);
   for (const s of notAccounting) expect(can(s)).toBe(false);
+});
+
+it('canDeleteAudits: chỉ Trưởng phòng Kế toán', () => {
+  expect(canDeleteAudits(acctHead)).toBe(true);
+  for (const s of [acctCollab, techHead, admin, null]) expect(canDeleteAudits(s)).toBe(false);
 });
 
 it('canMarkDeviceFound: chỉ Trưởng phòng Kỹ thuật', () => {

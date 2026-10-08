@@ -99,4 +99,20 @@ describe('HttpAuditRepository', () => {
     await repo.users();
     expect(call(fetchMock).url).toBe('http://localhost:3000/users/lookup?active=true');
   });
+
+  it('remove → DELETE /audits/:id; purge → POST /audits/purge {ids}; removeSummary → DELETE /audit-summaries/:id', async () => {
+    await repo.remove(3);
+    await repo.purge([3, 4]);
+    await repo.removeSummary(5);
+    const calls = fetchMock.mock.calls.map(([u, init]) => [
+      String(u).replace(/^https?:\/\/[^/]+/, ''),
+      (init as RequestInit).method,
+      (init as RequestInit).body ?? null,
+    ]);
+    expect(calls).toEqual([
+      ['/audits/3', 'DELETE', null],
+      ['/audits/purge', 'POST', JSON.stringify({ ids: [3, 4] })],
+      ['/audit-summaries/5', 'DELETE', null],
+    ]);
+  });
 });

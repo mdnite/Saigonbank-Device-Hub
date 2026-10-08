@@ -1,4 +1,6 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useSession } from '@/app/session/SessionContext';
+import { canDeleteAudits } from '@/modules/auth/domain/session';
 import { PageHeader } from '@/shared/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
@@ -14,10 +16,18 @@ type Row = MatrixRow & { key: string };
 
 export function AuditSummaryPage() {
   const id = Number(useParams().id);
+  const navigate = useNavigate();
+  const { session } = useSession();
   const { data: s, loading, error } = useAsyncData(() => auditService.summary(id), [id]);
   const pdf = useAsyncAction(async (summary: AuditSummaryDetail) => {
     const { downloadSummaryReport } = await import('./print/generateSummaryReport');
     downloadSummaryReport(summary);
+  });
+
+  const del = useAsyncAction(async (x: AuditSummaryDetail) => {
+    if (!window.confirm(`Xoá bảng tổng hợp "${x.title}"? Không thể hoàn tác.`)) return;
+    await auditService.removeSummary(x.id);
+    navigate('/audit?tab=summary');
   });
 
   if (!s) return <p className="text-sm text-ink-muted">{loading ? 'Đang tải…' : error}</p>;
@@ -53,6 +63,11 @@ export function AuditSummaryPage() {
             <Button variant="outline" size="sm" disabled={pdf.pending} onClick={() => void pdf.run(s)}>
               Xuất PDF
             </Button>
+            {canDeleteAudits(session) && (
+              <Button variant="outline" size="sm" disabled={del.pending} onClick={() => void del.run(s)}>
+                Xoá
+              </Button>
+            )}
           </>
         }
       />
@@ -72,7 +87,7 @@ export function AuditSummaryPage() {
         </ul>
       </Card>
       <Card className="p-5">
-        {pdf.error && <p className="mb-3 text-sm text-status-dangerFg">{pdf.error}</p>}
+        {(pdf.error ?? del.error) && <p className="mb-3 text-sm text-status-dangerFg">{pdf.error ?? del.error}</p>}
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.key} />
       </Card>
     </>

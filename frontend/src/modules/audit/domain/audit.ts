@@ -7,6 +7,7 @@ export const AUDIT_STATUS = {
   PENDING: 'Chờ duyệt',
   APPROVED: 'Đã duyệt',
   CANCELLED: 'Đã hủy',
+  DELETED: 'Đã xóa',
 } as const;
 export type AuditStatus = (typeof AUDIT_STATUS)[keyof typeof AUDIT_STATUS];
 
@@ -15,6 +16,19 @@ export const OPEN_AUDIT_STATUSES: AuditStatus[] = [
   AUDIT_STATUS.IN_PROGRESS,
   AUDIT_STATUS.PENDING,
 ];
+
+/** Trạng thái được phép xoá mềm (Chờ duyệt thì phải duyệt/từ chối trước). */
+export const DELETABLE_AUDIT_STATUSES: AuditStatus[] = [
+  AUDIT_STATUS.NOT_STARTED,
+  AUDIT_STATUS.IN_PROGRESS,
+  AUDIT_STATUS.APPROVED,
+  AUDIT_STATUS.CANCELLED,
+];
+
+export interface PurgeResult {
+  count: number;
+  skipped: { id: number; unitName: string; reasons: string[] }[];
+}
 
 export const AUDIT_RESULT = { OK: 'Đủ', MISSING: 'Thiếu', BROKEN: 'Hỏng' } as const;
 export type AuditResult = (typeof AUDIT_RESULT)[keyof typeof AUDIT_RESULT];

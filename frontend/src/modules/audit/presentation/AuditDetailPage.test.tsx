@@ -117,6 +117,28 @@ it('TP Kế toán + Chờ duyệt: Duyệt / Từ chối, không ô nhập', asy
   expect(screen.queryByRole('button', { name: 'Gửi duyệt' })).toBeNull();
 });
 
+it('TP Kế toán + Đã duyệt: "Xoá đợt" → confirm → badge Đã xóa, nút biến mất', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  renderPage('Trưởng phòng', detail({ status: 'Đã duyệt', countedLines: 2 }), detail({ status: 'Đã xóa', countedLines: 2 }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Xoá đợt' }));
+  expect(await screen.findByText('Đã xóa')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Xoá đợt' })).toBeNull();
+});
+
+it('TP Kế toán + Chờ duyệt: không có "Xoá đợt"', async () => {
+  renderPage('Trưởng phòng', detail({ status: 'Chờ duyệt', countedLines: 2 }));
+  await screen.findByRole('button', { name: 'Duyệt' });
+  expect(screen.queryByRole('button', { name: 'Xoá đợt' })).toBeNull();
+});
+
+it('Chuyên viên + Đã xóa: chỉ còn Xuất CSV / PDF', async () => {
+  renderPage('Chuyên viên', detail({ status: 'Đã xóa' }));
+  await screen.findByRole('button', { name: 'Xuất CSV' });
+  for (const name of ['Bắt đầu kiểm kê', 'Sửa thành viên', 'Xoá đợt']) {
+    expect(screen.queryByRole('button', { name })).toBeNull();
+  }
+});
+
 it('bị từ chối: banner lý do', async () => {
   renderPage('Chuyên viên', detail({ rejectReason: 'Đếm lại tầng 3' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Bị từ chối: Đếm lại tầng 3');

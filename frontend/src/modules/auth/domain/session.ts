@@ -68,6 +68,8 @@ export const canCreateAudit = isAcctSpecialist;
 
 /** Duyệt / từ chối kết quả kiểm kê: CHỈ Trưởng phòng Kế toán. */
 export const canDecideAudit = isAcctHead;
+/** Xoá đợt, dọn thùng rác, xoá bảng tổng hợp: CHỈ Trưởng phòng Kế toán. */
+export const canDeleteAudits = isAcctHead;
 
 /** "Tìm thấy" thiết bị Thất lạc: CHỈ Trưởng phòng Kỹ thuật. */
 export const canMarkDeviceFound = isTechHead;

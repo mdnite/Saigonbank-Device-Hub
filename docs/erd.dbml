@@ -9,7 +9,7 @@ Project IDSM {
 
 Table Role {
   Id int [pk, increment]
-  RoleName varchar(100) [not null]
+  RoleName varchar(100) [not null, note: 'Quản trị viên | Trưởng phòng | Nhân viên | Chuyên viên']
 }
 
 Table Department {
@@ -64,7 +64,7 @@ Table Device {
   WarrantyMonths int
   WarrantyCondition varchar(255)
   WarrantyExpiresOn date
-  Status varchar(50) [not null, note: 'Trong kho | Đã cấp phát | Đang chờ duyệt | Thất lạc | Chờ thanh lý | Đã xóa']
+  Status varchar(50) [not null, note: 'Trong kho | Đã cấp phát | Đang chờ duyệt | Thất lạc | Chờ xử lý | Đã xóa']
   AllocatedOn date
   DeviceTypeId int [not null]
   CurrentUserId int [note: 'Người đang giữ']
@@ -121,7 +121,7 @@ Table DeviceTransferItem {
 
 Table Audit {
   Id int [pk, increment]
-  Status varchar(20) [not null, default: 'Chưa kiểm kê', note: 'Chưa kiểm kê | Đang kiểm kê | Chờ duyệt | Đã duyệt | Đã hủy']
+  Status varchar(20) [not null, default: 'Chưa kiểm kê', note: 'Chưa kiểm kê | Đang kiểm kê | Chờ duyệt | Đã duyệt | Đã hủy | Đã xóa']
   DepartmentId int [note: 'null = đơn vị "Kho"']
   UnitName varchar(150) [not null, note: 'Snapshot tên đơn vị']
   DueDate date [not null]

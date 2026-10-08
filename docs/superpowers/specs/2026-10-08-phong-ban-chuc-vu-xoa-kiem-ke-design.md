@@ -95,7 +95,7 @@
 
 ### Frontend
 - Tab Đợt kiểm kê: nút **Xoá** từng dòng (ẩn với `Chờ duyệt` / `Đã xóa`), hộp xác nhận. Bộ lọc trạng thái có
-  "Đã xóa" (TP và Chuyên viên Kế toán đều thấy). Chỉ TP Kế toán có ô tick chọn + **Dọn thùng rác**, hiện danh
+  "Đã xóa" (TP và Chuyên viên Kế toán đều thấy). Chỉ TP Kế toán có **Dọn thùng rác** xoá toàn bộ đợt đang hiện trong bộ lọc `Đã xóa` (giống màn thiết bị), hiện danh
   sách bị bỏ qua kèm lý do; Chuyên viên chỉ xem.
 - Trang chi tiết đợt: nút **Xoá** (cùng điều kiện); đợt `Đã xóa` chỉ xem, ẩn mọi thao tác.
 - Tab Bảng tổng hợp + trang xem bảng tổng hợp: nút **Xoá**, xác nhận "Không thể hoàn tác".

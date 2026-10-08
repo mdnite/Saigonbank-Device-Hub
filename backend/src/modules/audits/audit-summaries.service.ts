@@ -93,4 +93,15 @@ export class AuditSummariesService {
     });
     return toDetail(summary);
   }
+
+  /** Xoá cứng (không thùng rác). Liên kết đợt đi theo cascade; các đợt giữ nguyên. */
+  async remove(id: number) {
+    if (Math.abs(id) > MAX_INT32)
+      throw new NotFoundException(SUMMARY_NOT_FOUND);
+    const { count } = await this.prisma.auditSummary.deleteMany({
+      where: { id },
+    });
+    if (count === 0) throw new NotFoundException(SUMMARY_NOT_FOUND);
+    return { id };
+  }
 }

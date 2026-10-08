@@ -907,4 +907,129 @@ describe('Kiểm kê: /audits', () => {
       expect(prisma.users.some((u) => u.id === member.id)).toBe(true);
     });
   });
+
+  describe('Xoá / thùng rác', () => {
+    const del = (id: number, user: User) =>
+      http().delete(`/audits/${id}`).set(as(user));
+    const purge = (ids: number[], user: User = acctHead) =>
+      post('/audits/purge', user, { ids });
+
+    it('TP Kế toán xoá đợt Chưa kiểm kê → Đã xóa; Chuyên viên bị 403', async () => {
+      const a = await newAudit();
+      await del(a.id, acctCollab).expect(403);
+      const res = await del(a.id, acctHead).expect(200);
+      expect(res.body.data.status).toBe('Đã xóa');
+    });
+
+    it('không xoá được đợt Chờ duyệt (400)', async () => {
+      const a = await newAudit(false);
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/mark-uncounted-ok`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/submit`, acctCollab).expect(201);
+      await del(a.id, acctHead).expect(400);
+    });
+
+    it('xoá đợt Đang kiểm kê nhả thiết bị — lập đợt mới cho cùng máy được', async () => {
+      const a = await newAudit(false);
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await del(a.id, acctHead).expect(200);
+      const again = await schedule().expect(201);
+      expect(
+        again.body.data.items.map((i: { deviceId: number }) => i.deviceId),
+      ).toContain(a.items[0].deviceId);
+    });
+
+    it('đợt Đã xóa: mọi thao tác ghi trả 400', async () => {
+      const a = await newAudit(false);
+      await del(a.id, acctHead).expect(200);
+      await post(`/audits/${a.id}/start`, acctCollab).expect(400);
+      await http()
+        .put(`/audits/${a.id}/members`)
+        .set(as(acctCollab))
+        .send({ userIds: [] })
+        .expect(400);
+    });
+
+    it('GET /audits mặc định ẩn Đã xóa; lọc status=Đã xóa thì Chuyên viên vẫn xem được', async () => {
+      const a = await newAudit(false);
+      await del(a.id, acctHead).expect(200);
+      const all = await http().get('/audits').set(as(acctCollab)).expect(200);
+      expect(all.body.data.map((x: { id: number }) => x.id)).not.toContain(
+        a.id,
+      );
+      const trash = await http()
+        .get('/audits')
+        .query({ status: 'Đã xóa' })
+        .set(as(acctCollab))
+        .expect(200);
+      expect(trash.body.data.map((x: { id: number }) => x.id)).toEqual([a.id]);
+      await http().get(`/audits/${a.id}`).set(as(acctCollab)).expect(200);
+    });
+
+    it('purge: xoá cứng đợt Đã xóa, bỏ qua lặng lẽ đợt chưa xoá mềm; Chuyên viên 403', async () => {
+      const deleted = await newAudit(false);
+      await del(deleted.id, acctHead).expect(200); // nhả máy trước, đợt sau mới lập được
+      const alive = await newAudit(false);
+      await purge([deleted.id, alive.id], acctCollab).expect(403);
+      const res = await purge([deleted.id, alive.id]).expect(201);
+      expect(res.body.data).toEqual({ count: 1, skipped: [] });
+      expect(prisma.audits.map((x) => x.id)).toEqual([alive.id]);
+      expect(prisma.auditItems.some((i) => i.auditId === deleted.id)).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('Xoá bảng tổng hợp', () => {
+    async function approvedAudit() {
+      const a = await newAudit(false);
+      await post(`/audits/${a.id}/start`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/mark-uncounted-ok`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/submit`, acctCollab).expect(201);
+      await post(`/audits/${a.id}/approve`, acctHead).expect(201);
+      return a;
+    }
+
+    it('đợt nằm trong bảng tổng hợp: purge bỏ qua kèm lý do; xoá bảng rồi purge được', async () => {
+      const a = await approvedAudit();
+      const s = await post('/audit-summaries', acctCollab, {
+        title: 'Q3',
+        auditIds: [a.id],
+      }).expect(201);
+      await http().delete(`/audits/${a.id}`).set(as(acctHead)).expect(200);
+      const first = await post('/audits/purge', acctHead, {
+        ids: [a.id],
+      }).expect(201);
+      expect(first.body.data).toEqual({
+        count: 0,
+        skipped: [
+          {
+            id: a.id,
+            unitName: 'Phòng Kỹ thuật',
+            reasons: [`bảng tổng hợp #${s.body.data.id}`],
+          },
+        ],
+      });
+      await http()
+        .delete(`/audit-summaries/${s.body.data.id}`)
+        .set(as(acctCollab))
+        .expect(403);
+      await http()
+        .delete(`/audit-summaries/${s.body.data.id}`)
+        .set(as(acctHead))
+        .expect(200);
+      await http()
+        .get(`/audit-summaries/${s.body.data.id}`)
+        .set(as(acctHead))
+        .expect(404);
+      const second = await post('/audits/purge', acctHead, {
+        ids: [a.id],
+      }).expect(201);
+      expect(second.body.data.count).toBe(1);
+    });
+
+    it('xoá bảng tổng hợp không tồn tại: 404', async () => {
+      await http().delete('/audit-summaries/999').set(as(acctHead)).expect(404);
+    });
+  });
 });

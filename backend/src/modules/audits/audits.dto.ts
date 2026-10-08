@@ -128,3 +128,13 @@ export class CreateAuditSummaryDto {
   @Max(MAX_INT32, { each: true, message: 'Đợt kiểm kê không hợp lệ' })
   auditIds!: number[];
 }
+
+export class PurgeAuditsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @Type(() => Number)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @Max(MAX_INT32, { each: true })
+  ids!: number[];
+}

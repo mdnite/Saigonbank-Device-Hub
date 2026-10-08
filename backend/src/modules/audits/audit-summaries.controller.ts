@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
@@ -45,5 +46,12 @@ export class AuditSummariesController {
   @ResponseMessage('Đã lập bảng tổng hợp')
   create(@Body() dto: CreateAuditSummaryDto, @Req() req: AuthedRequest) {
     return this.summaries.create(dto, req.user.id);
+  }
+
+  @Delete(':id')
+  @Allow(ACTOR.ACCT_HEAD)
+  @ResponseMessage('Đã xoá bảng tổng hợp')
+  remove(@SummaryId() id: number) {
+    return this.summaries.remove(id);
   }
 }

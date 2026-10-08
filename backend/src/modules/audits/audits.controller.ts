@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
@@ -19,6 +20,7 @@ import { AUDIT_NOT_FOUND, LINE_NOT_FOUND } from './audit-status';
 import {
   CreateAuditDto,
   ListAuditsQuery,
+  PurgeAuditsDto,
   RejectAuditDto,
   SetAuditMembersDto,
   UpdateAuditLineDto,
@@ -142,5 +144,20 @@ export class AuditsController {
   @ResponseMessage('Đã duyệt kết quả kiểm kê')
   approve(@AuditId() id: number, @Req() req: AuthedRequest) {
     return this.audits.approve(id, req.user.id);
+  }
+
+  /** Dọn thùng rác (xoá cứng) — chỉ TP Kế toán. */
+  @Post('purge')
+  @Allow(ACTOR.ACCT_HEAD)
+  @ResponseMessage('Đã dọn thùng rác')
+  purge(@Body() dto: PurgeAuditsDto) {
+    return this.audits.purge(dto.ids);
+  }
+
+  @Delete(':id')
+  @Allow(ACTOR.ACCT_HEAD)
+  @ResponseMessage('Đã xoá đợt kiểm kê')
+  remove(@AuditId() id: number) {
+    return this.audits.remove(id);
   }
 }

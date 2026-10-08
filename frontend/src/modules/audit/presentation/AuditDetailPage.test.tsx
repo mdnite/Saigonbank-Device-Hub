@@ -80,7 +80,7 @@ function renderPage(roleName: string, first: ReturnType<typeof detail>, after?: 
 }
 
 it('tiêu đề theo Figma, có dòng linh kiện và dòng Tổng cộng', async () => {
-  renderPage('Cộng tác viên', detail());
+  renderPage('Chuyên viên', detail());
   expect(await screen.findByText(/Kiểm kê thiết bị tại Phòng Kỹ thuật đến ngày 31\/10\/2099/)).toBeInTheDocument();
   expect(screen.getByText('↳ Sạc 65W')).toBeInTheDocument();
   expect(screen.getByText(/1 thiết bị · Đủ 0 · Thiếu 0 · Hỏng 0 · Chưa đếm 1/)).toBeInTheDocument();
@@ -91,7 +91,7 @@ it('CTV + Đang kiểm kê: đổi kết quả gửi PATCH và cập nhật theo
     countedLines: 1,
     items: [{ ...detail().items[0], result: 'Thiếu' }],
   });
-  const fetchMock = renderPage('Cộng tác viên', detail(), counted);
+  const fetchMock = renderPage('Chuyên viên', detail(), counted);
   const select = await screen.findByLabelText('Kết quả LT-000001');
   expect(screen.getByRole('button', { name: 'Gửi duyệt' })).toBeDisabled();
 
@@ -103,7 +103,7 @@ it('CTV + Đang kiểm kê: đổi kết quả gửi PATCH và cập nhật theo
 });
 
 it('CTV + Chưa kiểm kê: có "Bắt đầu kiểm kê" và "Huỷ đợt", chưa nhập được', async () => {
-  renderPage('Cộng tác viên', detail({ status: 'Chưa kiểm kê' }));
+  renderPage('Chuyên viên', detail({ status: 'Chưa kiểm kê' }));
   expect(await screen.findByRole('button', { name: 'Bắt đầu kiểm kê' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Huỷ đợt' })).toBeInTheDocument();
   expect(screen.queryByLabelText('Kết quả LT-000001')).toBeNull();
@@ -118,7 +118,7 @@ it('TP Kế toán + Chờ duyệt: Duyệt / Từ chối, không ô nhập', asy
 });
 
 it('bị từ chối: banner lý do', async () => {
-  renderPage('Cộng tác viên', detail({ rejectReason: 'Đếm lại tầng 3' }));
+  renderPage('Chuyên viên', detail({ rejectReason: 'Đếm lại tầng 3' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Bị từ chối: Đếm lại tầng 3');
 });
 
@@ -127,7 +127,7 @@ it('hai lần lưu chồng nhau: phản hồi của lần gửi sau thắng dù 
   const res = (d: unknown) => new Response(JSON.stringify({ success: true, data: d, error: null, message: 'OK' }), { status: 200 });
   localStorage.setItem(
     'idsm.session',
-    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName: 'Cộng tác viên', departmentCode: 'KETOAN' }),
+    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName: 'Chuyên viên', departmentCode: 'KETOAN' }),
   );
   vi.stubGlobal(
     'fetch',
@@ -159,7 +159,7 @@ it('hai lần lưu chồng nhau: phản hồi của lần gửi sau thắng dù 
 });
 
 it('lưu thành viên lỗi: form vẫn mở, giữ lựa chọn và hiện lỗi', async () => {
-  renderPage('Cộng tác viên', detail());
+  renderPage('Chuyên viên', detail());
   await screen.findByText(/Kiểm kê thiết bị tại/);
   vi.stubGlobal(
     'fetch',
@@ -180,7 +180,7 @@ it('lưu thành viên lỗi: form vẫn mở, giữ lựa chọn và hiện lỗ
 });
 
 it('thành viên ngừng hoạt động vẫn hiện, bỏ chọn rồi lưu thì PUT không còn id đó', async () => {
-  renderPage('Cộng tác viên', detail());
+  renderPage('Chuyên viên', detail());
   await screen.findByText(/Kiểm kê thiết bị tại/);
   const put = vi.fn();
   vi.stubGlobal(

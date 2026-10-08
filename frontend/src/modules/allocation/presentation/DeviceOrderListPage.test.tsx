@@ -52,8 +52,8 @@ function renderPage(roleName: string, departmentCode: string | null, orders = [o
   );
 }
 
-it('Cộng tác viên Kỹ thuật: thấy nút "Tạo đơn", không thấy Duyệt/Từ chối', async () => {
-  renderPage('Cộng tác viên', 'KYTHUAT');
+it('Chuyên viên Kỹ thuật: thấy nút "Tạo đơn", không thấy Duyệt/Từ chối', async () => {
+  renderPage('Chuyên viên', 'KYTHUAT');
   await waitFor(() => expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'Tạo đơn' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Duyệt' })).toBeNull();

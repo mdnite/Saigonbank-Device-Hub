@@ -86,8 +86,8 @@ async function main() {
     {
       username: 'ctv.kt',
       password: 'Collab@1234',
-      fullName: 'Cộng tác viên Kỹ thuật (dev)',
-      roleName: ROLE.COLLAB,
+      fullName: 'Chuyên viên Kỹ thuật (dev)',
+      roleName: ROLE.SPECIALIST,
       departmentCode: 'KYTHUAT',
     },
     {
@@ -100,8 +100,8 @@ async function main() {
     {
       username: 'ctv.ketoan',
       password: 'Collab@1234',
-      fullName: 'Cộng tác viên Kế toán (dev)',
-      roleName: ROLE.COLLAB,
+      fullName: 'Chuyên viên Kế toán (dev)',
+      roleName: ROLE.SPECIALIST,
       departmentCode: 'KETOAN',
     },
   ];

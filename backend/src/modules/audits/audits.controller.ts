@@ -41,10 +41,10 @@ const LineId = (name: string) =>
     }),
   );
 
-/** Kiểm kê: CHỈ TP Kế toán + CTV Kế toán (#3). Handler chặt hơn thì @Allow riêng (ghi đè class). */
+/** Kiểm kê: CHỈ TP Kế toán + Chuyên viên Kế toán (#3). Handler chặt hơn thì @Allow riêng (ghi đè class). */
 @Controller('audits')
 @UseGuards(AuthGuard)
-@Allow(ACTOR.ACCT_HEAD, ACTOR.ACCT_COLLAB)
+@Allow(ACTOR.ACCT_HEAD, ACTOR.ACCT_SPECIALIST)
 export class AuditsController {
   constructor(private readonly audits: AuditsService) {}
 
@@ -65,35 +65,35 @@ export class AuditsController {
   }
 
   @Post()
-  @Allow(ACTOR.ACCT_COLLAB)
+  @Allow(ACTOR.ACCT_SPECIALIST)
   @ResponseMessage('Đã lập lịch kiểm kê')
   create(@Body() dto: CreateAuditDto, @Req() req: AuthedRequest) {
     return this.audits.create(dto, req.user.id);
   }
 
   @Post(':id/start')
-  @Allow(ACTOR.ACCT_COLLAB)
+  @Allow(ACTOR.ACCT_SPECIALIST)
   @ResponseMessage('Đã bắt đầu kiểm kê')
   start(@AuditId() id: number) {
     return this.audits.start(id);
   }
 
   @Post(':id/cancel')
-  @Allow(ACTOR.ACCT_COLLAB)
+  @Allow(ACTOR.ACCT_SPECIALIST)
   @ResponseMessage('Đã huỷ đợt kiểm kê')
   cancel(@AuditId() id: number) {
     return this.audits.cancel(id);
   }
 
   @Put(':id/members')
-  @Allow(ACTOR.ACCT_COLLAB)
+  @Allow(ACTOR.ACCT_SPECIALIST)
   @ResponseMessage('Đã cập nhật thành viên tham gia')
   setMembers(@AuditId() id: number, @Body() dto: SetAuditMembersDto) {
     return this.audits.setMembers(id, dto.userIds);
   }
 
   @Patch(':id/items/:itemId')
-  @Allow(ACTOR.ACCT_COLLAB)
+  @Allow(ACTOR.ACCT_SPECIALIST)
   updateItem(
     @AuditId() id: number,
     @LineId('itemId') itemId: number,
@@ -103,7 +103,7 @@ export class AuditsController {
   }
 
   @Patch(':id/accessories/:accessoryId')
-  @Allow(ACTOR.ACCT_COLLAB)
+  @Allow(ACTOR.ACCT_SPECIALIST)
   updateAccessory(
     @AuditId() id: number,
     @LineId('accessoryId') accessoryId: number,
@@ -113,14 +113,14 @@ export class AuditsController {
   }
 
   @Post(':id/mark-uncounted-ok')
-  @Allow(ACTOR.ACCT_COLLAB)
+  @Allow(ACTOR.ACCT_SPECIALIST)
   @ResponseMessage('Đã ghi Đủ cho các dòng chưa đếm')
   markUncountedOk(@AuditId() id: number) {
     return this.audits.markUncountedOk(id);
   }
 
   @Post(':id/submit')
-  @Allow(ACTOR.ACCT_COLLAB)
+  @Allow(ACTOR.ACCT_SPECIALIST)
   @ResponseMessage('Đã gửi duyệt')
   submit(@AuditId() id: number) {
     return this.audits.submit(id);

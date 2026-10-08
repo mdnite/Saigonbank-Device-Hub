@@ -175,7 +175,7 @@ export function createFakePrisma() {
     { id: 1, roleName: 'Quản trị viên' },
     { id: 2, roleName: 'Trưởng phòng' },
     { id: 3, roleName: 'Nhân viên' },
-    { id: 4, roleName: 'Cộng tác viên' },
+    { id: 4, roleName: 'Chuyên viên' },
   ];
   const departments: Department[] = [
     { id: 1, departmentCode: 'KYTHUAT', departmentName: 'Phòng Kỹ thuật' },

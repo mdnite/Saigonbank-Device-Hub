@@ -11,7 +11,7 @@ import { hashPassword } from '../../shared/security/password';
 import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { USER_STATUS } from '../identity/user-status';
 
-// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Cộng tác viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
+// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Chuyên viên. Phòng ban: 1 KYTHUAT, 2 KETOAN.
 
 describe('Users: /users, /roles, /departments', () => {
   let app: INestApplication;
@@ -132,7 +132,7 @@ describe('Users: /users, /roles, /departments', () => {
         { id: 1, roleName: 'Quản trị viên' },
         { id: 2, roleName: 'Trưởng phòng' },
         { id: 3, roleName: 'Nhân viên' },
-        { id: 4, roleName: 'Cộng tác viên' },
+        { id: 4, roleName: 'Chuyên viên' },
       ]);
       const deps = await http()
         .get('/departments')
@@ -278,8 +278,8 @@ describe('Users: /users, /roles, /departments', () => {
 
     it.each([
       ['Trưởng phòng thiếu phòng ban', 2, undefined],
-      ['Cộng tác viên thiếu phòng ban', 4, undefined],
-      ['Cộng tác viên gửi departmentId: null', 4, null],
+      ['Chuyên viên thiếu phòng ban', 4, undefined],
+      ['Chuyên viên gửi departmentId: null', 4, null],
     ])('400 %s', async (_label, roleId, departmentId) => {
       const res = await http()
         .post('/users')
@@ -290,13 +290,13 @@ describe('Users: /users, /roles, /departments', () => {
       expect(prisma.users.some((u) => u.username === 'tp.ketoan')).toBe(false);
     });
 
-    it('201 Cộng tác viên có phòng ban', async () => {
+    it('201 Chuyên viên có phòng ban', async () => {
       const res = await http()
         .post('/users')
         .set('Authorization', tokenOf(admin))
         .send({ ...body, roleId: 4, departmentId: 1 })
         .expect(201);
-      expect(res.body.data.role).toEqual({ id: 4, roleName: 'Cộng tác viên' });
+      expect(res.body.data.role).toEqual({ id: 4, roleName: 'Chuyên viên' });
       expect(res.body.data.department.departmentCode).toBe('KYTHUAT');
     });
 

@@ -74,7 +74,7 @@ function renderPage(roleName: string, url = '/audit') {
 }
 
 it('CTV Kế toán: thấy "Lập lịch kiểm kê"; danh sách có tiến độ và nhãn Quá hạn', async () => {
-  renderPage('Cộng tác viên');
+  renderPage('Chuyên viên');
   await waitFor(() => expect(screen.getByText('Phòng Kỹ thuật')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'Lập lịch kiểm kê' })).toBeInTheDocument();
   expect(screen.getByText('1/3')).toBeInTheDocument();
@@ -89,13 +89,13 @@ it('TP Kế toán: không có nút lập lịch', async () => {
 });
 
 it('tab Tổng hợp qua ?tab=summary: danh sách bảng + nút lập bảng (CTV)', async () => {
-  renderPage('Cộng tác viên', '/audit?tab=summary');
+  renderPage('Chuyên viên', '/audit?tab=summary');
   await waitFor(() => expect(screen.getByText('Quý 3')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'Lập bảng tổng hợp' })).toBeInTheDocument();
 });
 
 it('Lập lịch: bỏ trống → báo lỗi; điền đủ (Kho) → POST đúng body', async () => {
-  const fetchMock = renderPage('Cộng tác viên');
+  const fetchMock = renderPage('Chuyên viên');
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch kiểm kê' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch' }));
   expect(await screen.findByText('Vui lòng chọn đơn vị kiểm kê')).toBeInTheDocument();
@@ -121,7 +121,7 @@ it('Lập lịch: bỏ trống → báo lỗi; điền đủ (Kho) → POST đú
 
 it('Lập lịch: lỗi gửi hiện ra, đóng rồi mở lại thì mất', async () => {
   failPost = true;
-  renderPage('Cộng tác viên');
+  renderPage('Chuyên viên');
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch kiểm kê' }));
   await screen.findByRole('option', { name: 'Phòng Kỹ thuật' });
   fireEvent.change(screen.getByLabelText(/Đơn vị kiểm kê/), { target: { value: 'KHO' } });
@@ -137,7 +137,7 @@ it('Lập lịch: lỗi gửi hiện ra, đóng rồi mở lại thì mất', as
 
 it('Lập bảng tổng hợp: nhãn đợt có #id; lỗi gửi mất sau khi đóng và mở lại', async () => {
   failPost = true;
-  renderPage('Cộng tác viên', '/audit?tab=summary');
+  renderPage('Chuyên viên', '/audit?tab=summary');
   fireEvent.click(await screen.findByRole('button', { name: 'Lập bảng tổng hợp' }));
   fireEvent.change(screen.getByLabelText(/Tiêu đề/), { target: { value: 'Quý 4' } });
   fireEvent.click(await screen.findByLabelText('#1 · Phòng Kỹ thuật · Định kỳ · đến 31/01/2020'));

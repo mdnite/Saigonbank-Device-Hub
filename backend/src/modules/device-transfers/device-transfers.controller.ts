@@ -34,7 +34,7 @@ const TransferId = () =>
 
 @Controller('device-transfers')
 @UseGuards(AuthGuard)
-@Allow(ACTOR.ADMIN, ACTOR.TECH_HEAD, ACTOR.TECH_COLLAB)
+@Allow(ACTOR.ADMIN, ACTOR.TECH_HEAD, ACTOR.TECH_SPECIALIST)
 export class DeviceTransfersController {
   constructor(private readonly transfers: DeviceTransfersService) {}
 
@@ -49,7 +49,7 @@ export class DeviceTransfersController {
   }
 
   @Post()
-  @Allow(ACTOR.TECH_COLLAB)
+  @Allow(ACTOR.TECH_SPECIALIST)
   @ResponseMessage('Đã tạo lệnh điều chuyển')
   create(@Body() dto: CreateDeviceTransferDto, @Req() req: AuthedRequest) {
     return this.transfers.create(dto, req.user.id);

@@ -23,7 +23,7 @@ export function AuditMembersTab({
   );
 
   const [saving, setSaving] = useState(false);
-  // Thành viên hiện tại không còn trong danh sách đang hoạt động vẫn hiện (đã tick) để CTV bỏ chọn được.
+  // Thành viên hiện tại không còn trong danh sách đang hoạt động vẫn hiện (đã tick) để Chuyên viên bỏ chọn được.
   const lookupIds = new Set((users ?? []).map((u) => u.id));
   const stale = users ? members.filter((m) => !lookupIds.has(m.id)) : [];
 

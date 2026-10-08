@@ -12,12 +12,12 @@ export const ACTOR = {
   ADMIN: (u) => u.roleName === ROLE.ADMIN,
   TECH_HEAD: (u) =>
     u.roleName === ROLE.HEAD && u.departmentCode === TECH_DEPARTMENT_CODE,
-  TECH_COLLAB: (u) =>
-    u.roleName === ROLE.COLLAB && u.departmentCode === TECH_DEPARTMENT_CODE,
+  TECH_SPECIALIST: (u) =>
+    u.roleName === ROLE.SPECIALIST && u.departmentCode === TECH_DEPARTMENT_CODE,
   ACCT_HEAD: (u) =>
     u.roleName === ROLE.HEAD && u.departmentCode === ACCT_DEPARTMENT_CODE,
-  ACCT_COLLAB: (u) =>
-    u.roleName === ROLE.COLLAB && u.departmentCode === ACCT_DEPARTMENT_CODE,
+  ACCT_SPECIALIST: (u) =>
+    u.roleName === ROLE.SPECIALIST && u.departmentCode === ACCT_DEPARTMENT_CODE,
 } satisfies Record<string, Actor>;
 
 export const ALLOW_KEY = 'allow';

@@ -174,7 +174,7 @@ export class AuditsService {
     await this.requireActiveUsers(memberIds);
 
     // ponytail: kiểm tra trùng đợt rồi mới tạo (2 câu lệnh) — 2 người lập lịch trùng máy đúng cùng
-    // lúc có thể lọt cả hai. Thêm khoá (SELECT … FOR UPDATE) nếu có nhiều CTV lập lịch song song.
+    // lúc có thể lọt cả hai. Thêm khoá (SELECT … FOR UPDATE) nếu có nhiều Chuyên viên lập lịch song song.
     const audit = await this.prisma.audit.create({
       data: {
         departmentId: department?.id ?? null,
@@ -333,7 +333,7 @@ export class AuditsService {
     return this.getById(id);
   }
 
-  /** Từ chối KHÔNG kết thúc đợt: trả về Đang kiểm kê để CTV sửa rồi gửi lại (#13). */
+  /** Từ chối KHÔNG kết thúc đợt: trả về Đang kiểm kê để Chuyên viên sửa rồi gửi lại (#13). */
   async reject(id: number, decidedById: number, reason: string) {
     await this.findAudit(id);
     await this.transition(this.prisma, id, AUDIT_STATUS.PENDING, {

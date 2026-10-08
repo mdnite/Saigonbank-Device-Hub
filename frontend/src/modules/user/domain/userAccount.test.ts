@@ -22,11 +22,11 @@ describe('validateNewUser', () => {
     expect(validateNewUser(valid, 'Nhân viên')).toEqual({});
   });
 
-  it.each(['Trưởng phòng', 'Cộng tác viên'])('%s thiếu phòng ban: báo lỗi', (roleName) => {
+  it.each(['Trưởng phòng', 'Chuyên viên'])('%s thiếu phòng ban: báo lỗi', (roleName) => {
     expect(validateNewUser(valid, roleName)).toEqual({ departmentId: 'Vui lòng chọn phòng ban' });
   });
 
-  it.each(['Trưởng phòng', 'Cộng tác viên'])('%s có phòng ban: hợp lệ', (roleName) => {
+  it.each(['Trưởng phòng', 'Chuyên viên'])('%s có phòng ban: hợp lệ', (roleName) => {
     expect(validateNewUser({ ...valid, departmentId: '1' }, roleName)).toEqual({});
   });
 

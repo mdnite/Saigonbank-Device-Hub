@@ -82,8 +82,8 @@ it('Trưởng phòng Kỹ thuật chưa lọc "Đã xóa": không thấy "Dọn 
   expect(screen.getByRole('button', { name: 'Xem chi tiết' })).toBeInTheDocument();
 });
 
-it('Cộng tác viên Kỹ thuật: thêm/sửa được, không thấy Xoá và "Dọn thùng rác"', async () => {
-  renderPage('Cộng tác viên', 'KYTHUAT');
+it('Chuyên viên Kỹ thuật: thêm/sửa được, không thấy Xoá và "Dọn thùng rác"', async () => {
+  renderPage('Chuyên viên', 'KYTHUAT');
   await waitFor(() => expect(screen.getByText('LT-000001')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'Thêm thiết bị' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Xem chi tiết' })).toBeInTheDocument();
@@ -133,10 +133,10 @@ it('Trưởng phòng Kỹ thuật: máy "Thất lạc" có nút "Tìm thấy" �
   expect(fetchMock.mock.calls.some((c) => (c[0] as string).endsWith('/devices/3/found'))).toBe(true);
 });
 
-it('Cộng tác viên Kỹ thuật: không thấy "Tìm thấy" trên máy Thất lạc', async () => {
+it('Chuyên viên Kỹ thuật: không thấy "Tìm thấy" trên máy Thất lạc', async () => {
   localStorage.setItem(
     'idsm.session',
-    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName: 'Cộng tác viên', departmentCode: 'KYTHUAT' }),
+    JSON.stringify({ userId: '1', displayName: 'A', email: 'a@b.vn', token: fakeJwt(inOneHour()), roleName: 'Chuyên viên', departmentCode: 'KYTHUAT' }),
   );
   vi.stubGlobal('fetch', vi.fn().mockImplementation(() => envelope([{ ...device(3, 'LT-000003'), status: 'Thất lạc' }])));
   render(

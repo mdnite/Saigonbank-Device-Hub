@@ -1,4 +1,4 @@
-import { COLLAB_ROLE, HEAD_ROLE } from '@/modules/auth/domain/session';
+import { SPECIALIST_ROLE, HEAD_ROLE } from '@/modules/auth/domain/session';
 import { Email, PASSWORD_MIN_LENGTH } from '@/modules/auth/domain/credentials';
 
 /** Giá trị User.Status đã chốt ở backend (backend/src/modules/identity/user-status.ts). */
@@ -59,7 +59,7 @@ export type NewUserErrors = Partial<Record<keyof NewUserDraft, string>>;
 const REQUIRED = 'Bắt buộc';
 
 /** Role vô nghĩa nếu thiếu phòng ban — khớp DEPARTMENT_REQUIRED_ROLES ở backend. */
-const DEPARTMENT_REQUIRED_ROLES: readonly string[] = [HEAD_ROLE, COLLAB_ROLE];
+const DEPARTMENT_REQUIRED_ROLES: readonly string[] = [HEAD_ROLE, SPECIALIST_ROLE];
 
 /** `roleName`: tên role đang chọn (tra từ danh mục theo `d.roleId`) — quyết định phòng ban có bắt buộc không. */
 export function validateNewUser(d: NewUserDraft, roleName?: string): NewUserErrors {

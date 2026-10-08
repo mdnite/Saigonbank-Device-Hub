@@ -19,7 +19,7 @@ import { AuditMembersTab } from './AuditMembersTab';
 export function AuditDetailPage() {
   const auditId = Number(useParams().id);
   const { session } = useSession();
-  const isCollab = canCreateAudit(session);
+  const isSpecialist = canCreateAudit(session);
   const isHead = canDecideAudit(session);
   const [detail, setDetail] = useState<AuditDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -53,9 +53,9 @@ export function AuditDetailPage() {
   }
 
   const { status } = detail;
-  const editable = isCollab && status === AUDIT_STATUS.IN_PROGRESS;
+  const editable = isSpecialist && status === AUDIT_STATUS.IN_PROGRESS;
   const membersEditable =
-    isCollab && (status === AUDIT_STATUS.NOT_STARTED || status === AUDIT_STATUS.IN_PROGRESS);
+    isSpecialist && (status === AUDIT_STATUS.NOT_STARTED || status === AUDIT_STATUS.IN_PROGRESS);
   const allCounted = detail.countedLines === detail.totalLines;
 
   const cancel = () => {
@@ -150,7 +150,7 @@ export function AuditDetailPage() {
           >
             Xuất PDF
           </Button>
-          {isCollab && status === AUDIT_STATUS.NOT_STARTED && (
+          {isSpecialist && status === AUDIT_STATUS.NOT_STARTED && (
             <>
               <Button variant="outline" disabled={act.pending} onClick={cancel}>
                 Huỷ đợt

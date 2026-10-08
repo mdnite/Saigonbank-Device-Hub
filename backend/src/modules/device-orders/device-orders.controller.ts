@@ -31,7 +31,7 @@ const OrderId = () =>
 
 @Controller('device-orders')
 @UseGuards(AuthGuard)
-@Allow(ACTOR.ADMIN, ACTOR.TECH_HEAD, ACTOR.TECH_COLLAB)
+@Allow(ACTOR.ADMIN, ACTOR.TECH_HEAD, ACTOR.TECH_SPECIALIST)
 export class DeviceOrdersController {
   constructor(private readonly orders: DeviceOrdersService) {}
 
@@ -46,7 +46,7 @@ export class DeviceOrdersController {
   }
 
   @Post()
-  @Allow(ACTOR.TECH_COLLAB)
+  @Allow(ACTOR.TECH_SPECIALIST)
   @ResponseMessage('Đã tạo đơn')
   create(@Body() dto: CreateDeviceOrderDto, @Req() req: AuthedRequest) {
     return this.orders.create(dto, req.user.id);

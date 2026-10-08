@@ -99,10 +99,10 @@ Api -Method Post -Path '/users' -Token $adminToken -Body @{
 $techToken = (Api -Method Post -Path '/auth/login' -Body @{ identifier = $techUname; password = $techPass }).data.accessToken
 if ($techToken) { Ok "$techUname dang nhap duoc" } else { Fail "$techUname khong dang nhap duoc"; exit 1 }
 
-# Role id của 'Cộng tác viên' tra theo tên: role thêm sau nên id trên DB thật không cố định.
+# Role id của 'Chuyên viên' tra theo tên: role thêm sau nên id trên DB thật không cố định.
 $collabRole = (Api -Method Get -Path '/roles' -Token $adminToken).data |
-  Where-Object { $_.roleName -eq 'Cộng tác viên' } | Select-Object -First 1
-if (-not $collabRole) { Fail "chưa có role 'Cộng tác viên' — chạy lại seed (npm run db:setup)"; exit 1 }
+  Where-Object { $_.roleName -eq 'Chuyên viên' } | Select-Object -First 1
+if (-not $collabRole) { Fail "chưa có role 'Chuyên viên' — chạy lại seed (npm run db:setup)"; exit 1 }
 
 $collabUname = "e2ectv$stamp"
 $collabPass = 'E2e@1234'

@@ -11,7 +11,7 @@ import { hashPassword } from '../../shared/security/password';
 import { createFakePrisma, type FakePrisma } from '../../test/fake-prisma';
 import { USER_STATUS } from '../identity/user-status';
 
-// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Cộng tác viên.
+// Role id trong fake: 1 Quản trị viên, 2 Trưởng phòng, 3 Nhân viên, 4 Chuyên viên.
 // Phòng ban: 1 KYTHUAT "Phòng Kỹ thuật", 2 KETOAN "Phòng Kế toán". DeviceType: 1 Laptop, 2 Máy tính để bàn.
 
 describe('Kiểm kê: /audits', () => {
@@ -325,10 +325,10 @@ describe('Kiểm kê: /audits', () => {
     it.each([
       ['Quản trị viên', () => admin, 403],
       ['TP Kỹ thuật', () => techHead, 403],
-      ['CTV Kỹ thuật', () => techCollab, 403],
+      ['Chuyên viên Kỹ thuật', () => techCollab, 403],
       ['Nhân viên', () => acctStaff, 403],
       ['TP Kế toán', () => acctHead, 200],
-      ['CTV Kế toán', () => acctCollab, 200],
+      ['Chuyên viên Kế toán', () => acctCollab, 200],
     ])('GET /audits — %s → %i', async (_label, who, status) => {
       await http()
         .get('/audits')
@@ -711,7 +711,7 @@ describe('Kiểm kê: /audits', () => {
       expect(deviceById(a.id).status).toBe('Đang chờ duyệt');
     });
 
-    it('duyệt 2 lần: 400; chưa gửi duyệt: 400; CTV Kế toán / TP Kỹ thuật: 403', async () => {
+    it('duyệt 2 lần: 400; chưa gửi duyệt: 400; Chuyên viên Kế toán / TP Kỹ thuật: 403', async () => {
       const a = allocatedTo(techStaff);
       const id = await submittedAudit([a], ['Đủ']);
       await post(`/audits/${id}/approve`, acctCollab).expect(403);
@@ -753,7 +753,7 @@ describe('Kiểm kê: /audits', () => {
       expect(deviceById(stock.id).status).toBe('Trong kho');
     });
 
-    it('máy không Thất lạc: 400; CTV Kỹ thuật / Kế toán: 403; không tồn tại: 404', async () => {
+    it('máy không Thất lạc: 400; Chuyên viên Kỹ thuật / Kế toán: 403; không tồn tại: 404', async () => {
       const d = allocatedTo(techStaff);
       const res = await post(`/devices/${d.id}/found`, techHead).expect(400);
       expect(res.body.message).toBe('Thiết bị không ở trạng thái Thất lạc');
@@ -775,7 +775,7 @@ describe('Kiểm kê: /audits', () => {
       return [first, second];
     }
 
-    it('CTV Kế toán lập bảng từ các đợt Đã duyệt; chi tiết có ma trận', async () => {
+    it('Chuyên viên Kế toán lập bảng từ các đợt Đã duyệt; chi tiết có ma trận', async () => {
       const ids = await twoApprovedAudits();
       const res = await post('/audit-summaries', acctCollab, {
         title: '  Kiểm kê quý 3  ',

@@ -91,7 +91,7 @@ export function CreateUserPage() {
               <Field
                 label="Phòng ban"
                 htmlFor="departmentId"
-                hint="Trưởng phòng / Cộng tác viên được phân biệt theo phòng ban"
+                hint="Trưởng phòng / Chuyên viên được phân biệt theo phòng ban"
                 error={errors.departmentId}
               >
                 <Select

@@ -26,7 +26,7 @@ const SummaryId = () =>
 
 @Controller('audit-summaries')
 @UseGuards(AuthGuard)
-@Allow(ACTOR.ACCT_HEAD, ACTOR.ACCT_COLLAB)
+@Allow(ACTOR.ACCT_HEAD, ACTOR.ACCT_SPECIALIST)
 export class AuditSummariesController {
   constructor(private readonly summaries: AuditSummariesService) {}
 
@@ -41,7 +41,7 @@ export class AuditSummariesController {
   }
 
   @Post()
-  @Allow(ACTOR.ACCT_COLLAB)
+  @Allow(ACTOR.ACCT_SPECIALIST)
   @ResponseMessage('Đã lập bảng tổng hợp')
   create(@Body() dto: CreateAuditSummaryDto, @Req() req: AuthedRequest) {
     return this.summaries.create(dto, req.user.id);

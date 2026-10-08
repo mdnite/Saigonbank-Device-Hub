@@ -27,13 +27,13 @@ it('isAdmin chỉ đúng với role Quản trị viên', () => {
 const as = (roleName: string, departmentCode: string | null): AuthSession => ({ ...base, roleName, departmentCode });
 const admin = as('Quản trị viên', null);
 const techHead = as('Trưởng phòng', 'KYTHUAT');
-const techCollab = as('Cộng tác viên', 'KYTHUAT');
+const techCollab = as('Chuyên viên', 'KYTHUAT');
 // Không khớp vai nào: Kế toán, không phòng ban (dữ liệu cũ), Nhân viên, chưa đăng nhập.
 const outsiders = [
   as('Trưởng phòng', 'KETOAN'),
-  as('Cộng tác viên', 'KETOAN'),
+  as('Chuyên viên', 'KETOAN'),
   as('Trưởng phòng', null),
-  as('Cộng tác viên', null),
+  as('Chuyên viên', null),
   as('Nhân viên', 'KYTHUAT'),
   null,
 ];
@@ -55,7 +55,7 @@ it.each([
 });
 
 const acctHead = as('Trưởng phòng', 'KETOAN');
-const acctCollab = as('Cộng tác viên', 'KETOAN');
+const acctCollab = as('Chuyên viên', 'KETOAN');
 // Kiểm kê chỉ cho Kế toán: Admin, cả 2 vai Kỹ thuật, Nhân viên Kế toán, không phòng ban, chưa đăng nhập đều không.
 const notAccounting = [admin, techHead, techCollab, as('Nhân viên', 'KETOAN'), as('Trưởng phòng', null), null];
 

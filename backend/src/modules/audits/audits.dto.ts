@@ -39,10 +39,10 @@ export class ListAuditsQuery {
 export class CreateAuditDto {
   /** null = đơn vị "Kho". Bắt buộc gửi: thiếu (undefined) → 400. */
   @ValidateIf((o: CreateAuditDto) => o.departmentId !== null)
-  @IsDefined({ message: 'Vui lòng chọn đơn vị kiểm kê' })
-  @IsInt({ message: 'Đơn vị kiểm kê không hợp lệ' })
-  @Min(1, { message: 'Đơn vị kiểm kê không hợp lệ' })
-  @Max(MAX_INT32, { message: 'Đơn vị kiểm kê không hợp lệ' })
+  @IsDefined({ message: 'Vui lòng chọn đơn vị được kiểm kê' })
+  @IsInt({ message: 'Đơn vị được kiểm kê không hợp lệ' })
+  @Min(1, { message: 'Đơn vị được kiểm kê không hợp lệ' })
+  @Max(MAX_INT32, { message: 'Đơn vị được kiểm kê không hợp lệ' })
   departmentId!: number | null;
 
   @IsDateString({}, { message: 'Ngày kiểm kê không hợp lệ' })

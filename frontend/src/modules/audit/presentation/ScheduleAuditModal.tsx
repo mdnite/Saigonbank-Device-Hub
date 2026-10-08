@@ -75,7 +75,7 @@ export function ScheduleAuditModal({
       }
     >
       <div className="grid gap-4">
-        <Field label="Đơn vị kiểm kê" htmlFor="audit-unit" required error={errors.unit}>
+        <Field label="Đơn vị được kiểm kê" htmlFor="audit-unit" required error={errors.unit}>
           <Select
             id="audit-unit"
             placeholder="Chọn đơn vị"

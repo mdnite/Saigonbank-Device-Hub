@@ -8,7 +8,7 @@ export function buildAuditReportContent(a: AuditDetail): string[] {
   const t = tally(a.items);
   return [
     'BIÊN BẢN KIỂM KÊ THIẾT BỊ',
-    `Đơn vị kiểm kê: ${a.unitName}`,
+    `Đơn vị được kiểm kê: ${a.unitName}`,
     `Đến ngày: ${formatDate(a.dueDate)}`,
     `Mục đích: ${a.purpose}`,
     ...(a.deviceTypeName ? [`Loại thiết bị: ${a.deviceTypeName}`] : []),

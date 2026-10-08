@@ -240,11 +240,11 @@ describe('Kiểm kê: /audits', () => {
       expect(res.body.data.location).toBe('Tầng 3');
     });
 
-    it('bỏ qua máy Đang chờ duyệt / Chờ thanh lý / Thất lạc / Đã xóa', async () => {
+    it('bỏ qua máy Đang chờ duyệt / Chờ xử lý / Thất lạc / Đã xóa', async () => {
       const ok = allocatedTo(techStaff);
       for (const status of [
         'Đang chờ duyệt',
-        'Chờ thanh lý',
+        'Chờ xử lý',
         'Thất lạc',
         'Đã xóa',
       ]) {
@@ -275,7 +275,7 @@ describe('Kiểm kê: /audits', () => {
     });
 
     it.each([
-      [{ departmentId: undefined }, 'Vui lòng chọn đơn vị kiểm kê'],
+      [{ departmentId: undefined }, 'Vui lòng chọn đơn vị được kiểm kê'],
       [{ purpose: 'Bất chợt' }, 'Mục đích không hợp lệ'],
       [{ dueDate: 'không phải ngày' }, 'Ngày kiểm kê không hợp lệ'],
     ])('body sai %j: 400 "%s"', async (body, message) => {
@@ -286,7 +286,7 @@ describe('Kiểm kê: /audits', () => {
 
     it('phòng ban không tồn tại: 400', async () => {
       const res = await schedule({ departmentId: 99 }).expect(400);
-      expect(res.body.message).toBe('Đơn vị kiểm kê không tồn tại');
+      expect(res.body.message).toBe('Đơn vị được kiểm kê không tồn tại');
     });
 
     it('thành viên đã ngừng hoạt động: 400', async () => {
@@ -650,7 +650,7 @@ describe('Kiểm kê: /audits', () => {
   const deviceById = (id: number) => prisma.devices.find((d) => d.id === id)!;
 
   describe('POST /audits/:id/approve', () => {
-    it('Thiếu → Thất lạc, Hỏng → Chờ thanh lý, giữ người sở hữu; Đủ không đổi', async () => {
+    it('Thiếu → Thất lạc, Hỏng → Chờ xử lý, giữ người sở hữu; Đủ không đổi', async () => {
       const ok = allocatedTo(techStaff);
       const missing = allocatedTo(techStaff);
       const broken = allocatedTo(techStaff);
@@ -669,7 +669,7 @@ describe('Kiểm kê: /audits', () => {
         currentUserId: techStaff.id,
       });
       expect(deviceById(broken.id)).toMatchObject({
-        status: 'Chờ thanh lý',
+        status: 'Chờ xử lý',
         currentUserId: techStaff.id,
       });
     });

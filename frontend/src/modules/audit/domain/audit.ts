@@ -36,7 +36,7 @@ export const AUDIT_RESULTS: AuditResult[] = [AUDIT_RESULT.OK, AUDIT_RESULT.MISSI
 
 export const AUDIT_PURPOSES = ['Định kỳ', 'Đột xuất', 'Cuối năm'] as const;
 
-/** Giá trị ô "Đơn vị kiểm kê" cho đơn vị giả Kho — backend nhận departmentId = null. */
+/** Giá trị ô "Đơn vị được kiểm kê" cho đơn vị giả Kho — backend nhận departmentId = null. */
 export const WAREHOUSE_UNIT = 'KHO';
 export const WAREHOUSE_LABEL = 'Kho';
 

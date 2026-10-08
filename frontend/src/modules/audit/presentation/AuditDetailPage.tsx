@@ -72,7 +72,7 @@ export function AuditDetailPage() {
   const approve = () => {
     if (
       window.confirm(
-        'Duyệt kết quả kiểm kê? Thiết bị "Thiếu" sẽ chuyển Thất lạc, "Hỏng" sẽ chuyển Chờ thanh lý.',
+        'Duyệt kết quả kiểm kê? Thiết bị "Thiếu" sẽ chuyển Thất lạc, "Hỏng" sẽ chuyển Chờ xử lý.',
       )
     ) {
       void act.run(() => auditService.approve(auditId));

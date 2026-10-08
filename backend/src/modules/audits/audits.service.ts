@@ -445,7 +445,7 @@ export class AuditsService {
       where: { id },
     });
     if (!department) {
-      throw new BadRequestException('Đơn vị kiểm kê không tồn tại');
+      throw new BadRequestException('Đơn vị được kiểm kê không tồn tại');
     }
     return department;
   }
@@ -517,7 +517,7 @@ export class AuditsService {
             status:
               item.result === AUDIT_RESULT.MISSING
                 ? DEVICE_STATUS.LOST
-                : DEVICE_STATUS.PENDING_DISPOSAL,
+                : DEVICE_STATUS.PENDING_PROCESSING,
           },
         });
         if (count === 0) {

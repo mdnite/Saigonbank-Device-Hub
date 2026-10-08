@@ -9,7 +9,7 @@ export class InMemoryDashboardRepository implements DashboardRepository {
       { key: 'total', label: 'Tổng thiết bị', value: 128, hint: '+12 trong tháng', tone: 'blue' },
       { key: 'allocated', label: 'Đã cấp phát', value: 86, hint: '67% tổng số', tone: 'green' },
       { key: 'in-stock', label: 'Trong kho', value: 34, hint: 'Sẵn sàng cấp phát', tone: 'purple' },
-      { key: 'disposal', label: 'Chờ thanh lý', value: 8, hint: 'Cần xử lý', tone: 'orange' },
+      { key: 'disposal', label: 'Chờ xử lý', value: 8, hint: 'Cần xử lý', tone: 'orange' },
     ];
   }
 }

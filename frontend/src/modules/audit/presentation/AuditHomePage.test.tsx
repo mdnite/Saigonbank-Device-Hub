@@ -102,10 +102,10 @@ it('Lập lịch: bỏ trống → báo lỗi; điền đủ (Kho) → POST đú
   const fetchMock = renderPage('Chuyên viên');
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch kiểm kê' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch' }));
-  expect(await screen.findByText('Vui lòng chọn đơn vị kiểm kê')).toBeInTheDocument();
+  expect(await screen.findByText('Vui lòng chọn đơn vị được kiểm kê')).toBeInTheDocument();
 
   await screen.findAllByRole('option', { name: 'Phòng Kỹ thuật' });
-  fireEvent.change(screen.getByLabelText(/Đơn vị kiểm kê/), { target: { value: 'KHO' } });
+  fireEvent.change(screen.getByLabelText(/Đơn vị được kiểm kê/), { target: { value: 'KHO' } });
   fireEvent.change(screen.getByLabelText(/Đến ngày/), { target: { value: '2026-10-31' } });
   fireEvent.change(screen.getByLabelText(/Mục đích/), { target: { value: 'Định kỳ' } });
   fireEvent.change(screen.getByLabelText('Phòng ban'), { target: { value: '1' } });
@@ -129,7 +129,7 @@ it('Lập lịch: lỗi gửi hiện ra, đóng rồi mở lại thì mất', as
   renderPage('Chuyên viên');
   fireEvent.click(await screen.findByRole('button', { name: 'Lập lịch kiểm kê' }));
   await screen.findAllByRole('option', { name: 'Phòng Kỹ thuật' });
-  fireEvent.change(screen.getByLabelText(/Đơn vị kiểm kê/), { target: { value: 'KHO' } });
+  fireEvent.change(screen.getByLabelText(/Đơn vị được kiểm kê/), { target: { value: 'KHO' } });
   fireEvent.change(screen.getByLabelText(/Đến ngày/), { target: { value: '2026-10-31' } });
   fireEvent.change(screen.getByLabelText(/Mục đích/), { target: { value: 'Định kỳ' } });
   fireEvent.click(screen.getByRole('button', { name: 'Lập lịch' }));

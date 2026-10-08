@@ -54,7 +54,7 @@ export function AuditListTab() {
 
   const columns: Array<Column<Audit>> = [
     { key: 'createdAt', header: 'Ngày tạo lịch', cell: (a) => formatDateTimeLocal(a.createdAt) },
-    { key: 'unit', header: 'Đơn vị kiểm kê', cell: (a) => a.unitName },
+    { key: 'unit', header: 'Đơn vị được kiểm kê', cell: (a) => a.unitName },
     { key: 'purpose', header: 'Mục đích', cell: (a) => a.purpose },
     { key: 'dueDate', header: 'Đến ngày', cell: (a) => formatDate(a.dueDate) },
     {

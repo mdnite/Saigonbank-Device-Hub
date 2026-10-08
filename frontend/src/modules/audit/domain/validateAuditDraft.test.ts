@@ -10,7 +10,7 @@ import {
 describe('validateAuditDraft', () => {
   it('draft rỗng: báo đơn vị, ngày, mục đích', () => {
     expect(validateAuditDraft(emptyAuditDraft())).toEqual({
-      unit: 'Vui lòng chọn đơn vị kiểm kê',
+      unit: 'Vui lòng chọn đơn vị được kiểm kê',
       dueDate: 'Vui lòng chọn ngày',
       purpose: 'Vui lòng chọn mục đích',
     });

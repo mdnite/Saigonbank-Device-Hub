@@ -1,6 +1,6 @@
-# IDSM — Quản lý thiết bị (SaigonBank Device Hub)
+# IDMS — Quản lý thiết bị (SaigonBank Device Hub)
 
-React + TypeScript + Tailwind front-end for the IDSM asset-management app, ported from the
+React + TypeScript + Tailwind front-end for the IDMS asset-management app, ported from the
 Figma file `OuDy5KuU8mWCWiFvdrU0jZ`.
 
 ## Run

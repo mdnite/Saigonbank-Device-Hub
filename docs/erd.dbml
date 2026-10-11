@@ -1,8 +1,8 @@
-// IDSM — ERD (DBML cho dbdiagram.io)
-// Sinh từ backend/prisma/schema.prisma + 8 migration (đến 20261002051508_add_audit), ngày 2026-10-05.
+// IDMS — ERD (DBML cho dbdiagram.io)
+// Sinh từ backend/prisma/schema.prisma + 10 migration (đến 20261008100000_rename_pending_disposal), cập nhật 2026-10-11.
 // Dán toàn bộ file vào https://dbdiagram.io/d (khung bên trái).
 
-Project IDSM {
+Project IDMS {
   database_type: 'PostgreSQL'
   Note: 'Internal Device Management — Saigonbank'
 }

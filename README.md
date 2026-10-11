@@ -1,4 +1,4 @@
-# IDSM — SaigonBank Device Hub
+# IDMS — SaigonBank Device Hub
 
 Internal IT device / asset management app for SaigonBank. Two top-level apps:
 

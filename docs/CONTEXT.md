@@ -1,10 +1,14 @@
-# IDSM — Context & Conventions
+# IDMS — Context & Conventions
 
-> Bản đồ codebase + quy ước làm việc cho **IDSM** (phần mềm quản lý thiết bị nội bộ SaigonBank).
+> Bản đồ codebase + quy ước làm việc cho **IDMS** (phần mềm quản lý thiết bị nội bộ SaigonBank).
 > Phần lớn frontend vẫn được dựng từ bộ ảnh Figma **cũ** (15 PNG export, xem mục 3); module
 > **auth đã được đồng bộ lại từ Figma mới** (đọc trực tiếp qua node-id — quyền đọc Figma đã
 > hoạt động từ 2026-09-11, xem mục 5). Các module còn lại (dashboard/device/user) sẽ được đồng
 > bộ dần khi tới lượt. Tài liệu này mô tả *trạng thái đang có*, không phải mục tiêu.
+>
+> Cập nhật 2026-10-10: đổi tên hệ thống **IDSM → IDMS** (Internal Device Management System) ở
+> README, Sidebar, `<title>`, email OTP, ERD, tài liệu. Key `localStorage["idsm.session"]` giữ nguyên
+> để không đăng xuất phiên đang có; plan/spec cũ trong `docs/superpowers/` giữ nguyên làm lịch sử.
 >
 > Cập nhật 2026-10-08 (spec `docs/superpowers/specs/2026-10-08-phong-ban-chuc-vu-xoa-kiem-ke-design.md`): 4 phòng ban và chức vụ theo phòng, role `Cộng tác viên` đổi tên `Chuyên viên`, xoá đợt kiểm kê + thùng rác kiểm kê (TP Kế toán), nhãn `Chờ thanh lý` → `Chờ xử lý`, `Đơn vị kiểm kê` → `Đơn vị được kiểm kê`.
 >
@@ -245,7 +249,7 @@ Cài thêm package cho frontend: `npm install <pkg> -w frontend`.
 |---|---|---|---|
 | `AppShell` | `layout/AppShell.tsx` | — (đọc `useSession`) | Khung sau đăng nhập: `Sidebar` + thanh "Chào mừng, {tên}!" + chuông + avatar chữ cái. `<Outlet/>` cho page. |
 | `AuthLayout` | `layout/AuthLayout.tsx` | `children` | Khung 2 cột màn hình auth: form trái + blob SVG/ảnh 3D phải. |
-| `Sidebar` | `layout/Sidebar.tsx` | — (đọc `useSession`) | Logo "IDSM" + `PRIMARY_NAV` + `SETTINGS_NAV`, dùng `NavLink` (active = nền `surface-sunken`). Cuối cùng là nút **"Đăng xuất"** (icon `LogOut`, cùng style item): `signOut()` rồi `navigate('/login', { replace: true })`. Có test `Sidebar.test.tsx`. |
+| `Sidebar` | `layout/Sidebar.tsx` | — (đọc `useSession`) | Logo "IDMS" + `PRIMARY_NAV` + `SETTINGS_NAV`, dùng `NavLink` (active = nền `surface-sunken`). Cuối cùng là nút **"Đăng xuất"** (icon `LogOut`, cùng style item): `signOut()` rồi `navigate('/login', { replace: true })`. Có test `Sidebar.test.tsx`. |
 | `PageHeader` | `layout/PageHeader.tsx` | `breadcrumb?: Crumb[]` (`Crumb = {label, to?}`), `title: ReactNode`, `actions?: ReactNode` | Breadcrumb + H2 + actions phải. Crumb cuối (không `to`) tô màu brand. |
 | `ComingSoonPage` | `layout/ComingSoonPage.tsx` | `title: string` | Placeholder "đang được phát triển" (icon Construction + 2 dòng chữ). **Hiện không route nào dùng** (`/audit` đã dựng thật, 2026-10-02); giữ lại làm khuôn cho module chưa dựng. |
 | `navItems` | `layout/navItems.ts` | — | `PRIMARY_NAV: NavItem[]` (6 mục) + `SETTINGS_NAV: NavItem`. `NavItem = { label, to, icon, adminOnly?, orderAccessOnly?, transferAccessOnly?, auditAccessOnly? }` — `Sidebar` lọc mục theo cờ quyền (`orderAccessOnly`/`transferAccessOnly` = Admin, TP, Chuyên viên Kỹ thuật; `auditAccessOnly` = TP, Chuyên viên Kế toán). |
@@ -352,11 +356,11 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 
 | Nơi | Phần tử | File |
 |---|---|---|
-| AppShell (thanh trên cùng, mọi màn app) | Nút **chuông thông báo** (`aria-label="Thông báo"`) | `shared/layout/AppShell.tsx:21` |
+| AppShell (thanh trên cùng, mọi màn app) | Nút **chuông thông báo** (`aria-label="Thông báo"`) | `shared/layout/AppShell.tsx:23` |
 | AppShell | **Avatar** (span chữ cái) — không phải nút, không có menu (Đăng xuất nằm ở cuối sidebar) | `shared/layout/AppShell.tsx:28` |
-| Danh mục thiết bị — header | Nút **"Xuất dữ liệu"** (icon Upload) | `modules/device/presentation/DeviceCatalogPage.tsx:104` |
-| Thêm tài sản — section "Tệp đính kèm" | Nút **"Thêm tài liệu"** — không có `<input type=file>` | `modules/device/presentation/AssetFormPage.tsx:174` |
-| Thêm tài sản — section "Thông tin khác" | Nút **"Thêm thông tin tùy chỉnh"** | `AssetFormPage.tsx:182` |
+| Danh mục thiết bị — header | Nút **"Xuất dữ liệu"** (icon Upload) | `modules/device/presentation/DeviceCatalogPage.tsx:119` |
+| Thêm tài sản — section "Tệp đính kèm" | Nút **"Thêm tài liệu"** — không có `<input type=file>` | `modules/device/presentation/AssetFormPage.tsx:145` |
+| Thêm tài sản — section "Thông tin khác" | Nút **"Thêm thông tin tùy chỉnh"** | `AssetFormPage.tsx:153` |
 
 ### 4.2 Không có / thiếu tương tác
 
@@ -467,7 +471,7 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 8. **Đăng nhập có cần validate/hiển thị lỗi theo từng ô không?** — hiện chỉ 1 dòng lỗi chung,
    không có yêu cầu định dạng username, không "nhớ đăng nhập", không khoá sau N lần sai.
 
-9. **Độ phủ test** (2026-10-02: **149 test / 33 file**, `npm test` xanh) — `domain` (7 file:
+9. **Độ phủ test** (2026-10-11: **180 test / 35 file**, `npm test` xanh; backend `pnpm test` 216 test / 8 suite) — `domain` (7 file:
    `credentials`, `session`, `deviceDraft`, `userAccount`, `userSettings`, `validateOrderDraft`,
    `validateTransferDraft`, cùng domain `audit`: `validateAuditDraft`, `isOverdue`, `auditCsv`), 6 `Http*Repository` (fetch giả lập), `apiClient`, `useCountdown`,
    `SessionContext`, 2 `generateBienBan` (nội dung biên bản), test guard `RequireCan`, và test component `Sidebar`,

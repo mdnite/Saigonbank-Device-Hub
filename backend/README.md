@@ -1,4 +1,4 @@
-# IDSM Backend
+# IDMS Backend
 
 NestJS 11 + Prisma 7 + PostgreSQL (17 qua Docker, hoặc bản cài sẵn trên máy). Các module: `identity`
 (đăng nhập, quên mật khẩu), `users` (quản lý người dùng), `devices` (CRUD thiết bị, xoá mềm),
@@ -22,10 +22,9 @@ Cần role `idms` / `idms_dev` và database `internal_device_management` (khớp
 
   `CREATEDB` là bắt buộc — `prisma migrate dev` cần tạo shadow database.
 
-> **Lưu ý tên gọi:** hệ thống tên là **IDSM**. Riêng role PostgreSQL `idms` và database
-> `internal_device_management` giữ nguyên tên cũ — đổi tên role/database phải tạo lại cả hai và
-> chạy lại migration, không đáng so với lợi ích. Chuỗi `idms` trong `DATABASE_URL` là tên role,
-> không phải tên hệ thống.
+> **Lưu ý tên gọi:** hệ thống tên là **IDMS** (Internal Device Management System, đổi từ IDSM ngày
+> 2026-10-10), khớp với role PostgreSQL `idms` và database `internal_device_management`. Riêng key
+> `localStorage["idsm.session"]` ở frontend giữ tên cũ để không đăng xuất phiên đang có.
 
 ### 2. App
 

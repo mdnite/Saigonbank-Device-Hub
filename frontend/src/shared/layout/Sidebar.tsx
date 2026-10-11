@@ -39,7 +39,7 @@ export function Sidebar() {
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-sm font-bold text-white">
           ID
         </span>
-        <span className="font-display text-lg font-semibold tracking-tight text-ink">IDSM</span>
+        <span className="font-display text-lg font-semibold tracking-tight text-ink">IDMS</span>
       </div>
       <div className="mx-5 border-b border-line" />
 

@@ -1,7 +1,7 @@
 # Thay đổi cần cập nhật vào báo cáo BCTT-HKTT
 
 > Tổng hợp những điểm code thật (backend `identity` + `users` + `devices` + `device-orders` + `device-transfers` + `audits`, schema Prisma) đã khác
-> hoặc bổ sung so với bản báo cáo hiện tại. Cập nhật lần cuối: 2026-10-02.
+> hoặc bổ sung so với bản báo cáo hiện tại. Cập nhật lần cuối: 2026-10-11.
 
 ## 1. UC-01 — Đăng nhập
 - Đăng nhập bằng **tên đăng nhập hoặc email** + mật khẩu.
@@ -25,7 +25,7 @@
 | Chức năng | Luật |
 |---|---|
 | Xem danh sách | Tìm theo tên đăng nhập / họ tên / email; lọc theo trạng thái, vai trò, phòng ban. Mặc định ẩn tài khoản "Đã xóa". |
-| Tạo tài khoản | Quản trị viên nhập tên đăng nhập, họ tên, email, vai trò, phòng ban (**bắt buộc** với Trưởng phòng và Cộng tác viên; thiếu → 400 "Vui lòng chọn phòng ban"), mật khẩu ban đầu (≥ 6 ký tự). Tài khoản mới **"Đang hoạt động"**, **`IsVerified = false`**. Trùng tên đăng nhập / email → 409. |
+| Tạo tài khoản | Quản trị viên nhập tên đăng nhập, họ tên, email, vai trò, phòng ban (**bắt buộc** với mọi vai trò trừ Quản trị viên; thiếu → 400 "Vui lòng chọn phòng ban"; Quản trị viên không thuộc phòng ban; chức vụ phải hợp lệ theo phòng, xem mục 4), mật khẩu ban đầu (≥ 6 ký tự). Tài khoản mới **"Đang hoạt động"**, **`IsVerified = false`**. Trùng tên đăng nhập / email → 409. |
 | Khoá / mở khoá | Đổi Status giữa "Đang hoạt động" và "Ngừng hoạt động". Có hiệu lực ngay với phiên đang mở. |
 | Xoá | **Xoá mềm**: Status = "Đã xóa", không xoá bản ghi. Tên đăng nhập/email của tài khoản đã xoá vẫn bị giữ (không tạo lại được). |
 | Ràng buộc | Quản trị viên không tự khoá / tự xoá tài khoản của mình. Chưa có chức năng sửa thông tin tài khoản. |
@@ -35,14 +35,18 @@
 |---|---|
 | Quản trị viên | Quản lý người dùng. **Chỉ xem** thiết bị, đơn Cấp phát - Thu hồi, lệnh Điều chuyển (không thêm/sửa/xoá thiết bị, không tạo, không duyệt). |
 | Trưởng phòng **Kỹ thuật** | Thêm/sửa/xoá thiết bị, dọn thùng rác thiết bị; **duyệt/từ chối** đơn Cấp phát - Thu hồi và lệnh Điều chuyển; **"Tìm thấy"** thiết bị đang "Thất lạc". Không tạo đơn/lệnh. |
-| Cộng tác viên **Kỹ thuật** | Thêm/sửa thông tin thiết bị (không xoá, không dọn thùng rác); **tạo** đơn Cấp phát - Thu hồi và lệnh Điều chuyển; xem tất cả đơn/lệnh. Không duyệt. |
-| Cộng tác viên **Kế toán** | **Lập lịch** kiểm kê, bắt đầu, **nhập** kết quả, sửa thành viên, **gửi duyệt**, **huỷ đợt chưa bắt đầu**, **lập bảng tổng hợp**; xem mọi đợt và bảng tổng hợp. Không duyệt. |
+| Chuyên viên **Kỹ thuật** | Thêm/sửa thông tin thiết bị (không xoá, không dọn thùng rác); **tạo** đơn Cấp phát - Thu hồi và lệnh Điều chuyển; xem tất cả đơn/lệnh. Không duyệt. |
+| Chuyên viên **Kế toán** | **Lập lịch** kiểm kê, bắt đầu, **nhập** kết quả, sửa thành viên, **gửi duyệt**, **huỷ đợt chưa bắt đầu**, **lập bảng tổng hợp**; xem mọi đợt và bảng tổng hợp. Không duyệt. |
 | Trưởng phòng **Kế toán** | **Duyệt / từ chối** kiểm kê; xem mọi đợt và bảng tổng hợp. Không lập lịch, không nhập. |
 | Nhân viên | Người dùng thường: xem thiết bị. |
 
-Trưởng phòng và Cộng tác viên phân biệt Kỹ thuật / Kế toán bằng phòng ban của tài khoản.
+Trưởng phòng và Chuyên viên phân biệt Kỹ thuật / Kế toán bằng phòng ban của tài khoản.
 
-Phòng ban: **KYTHUAT — Phòng Kỹ thuật**, **KETOAN — Phòng Kế toán**.
+Phòng ban (từ 2026-10-08): **KYTHUAT — Phòng Kỹ thuật**, **KETOAN — Phòng Kế toán**, **KINHDOANH — Phòng
+Kinh doanh**, **NGHIEPVU — Phòng Nghiệp vụ**. Chức vụ hợp lệ theo phòng: Kỹ thuật / Kế toán → Trưởng phòng,
+Chuyên viên, Nhân viên; Kinh doanh / Nghiệp vụ → Trưởng phòng, Nhân viên; không phòng ban → chỉ Quản trị
+viên. Sai cặp → 400 "Phòng X không có chức vụ Y". Role **Cộng tác viên** đổi tên thành **Chuyên viên**
+(migration `20261008090000_rename_collab_role`, giữ nguyên Id).
 
 ## 5. ERD 3.2.1 — cần vẽ lại
 - Thêm bảng **PasswordResetToken** (chưa có trên ERD gốc).
@@ -98,7 +102,7 @@ Table PasswordResetToken {
   `Prefix = "LT"` thì mã phải bắt đầu bằng `LT-`).
 - Thiết bị **không bao giờ xoá cứng** — xoá = đổi `Status` thành "Đã xóa", giữ nguyên bản ghi
   (cùng nguyên tắc đã áp dụng cho `User`, xem mục 3).
-- Phân quyền **ghi** thiết bị: thêm/sửa — Trưởng phòng hoặc Cộng tác viên thuộc phòng Kỹ thuật
+- Phân quyền **ghi** thiết bị: thêm/sửa — Trưởng phòng hoặc Chuyên viên thuộc phòng Kỹ thuật
   (`Department.DepartmentCode = 'KYTHUAT'`); xoá — chỉ Trưởng phòng Kỹ thuật (xem mục 4). Đọc thì mọi
   vai trò đã đăng nhập đều xem được.
 - **Người giữ thiết bị chỉ đổi qua đơn/lệnh được duyệt** (2026-10-01): API và form thiết bị không còn
@@ -131,7 +135,7 @@ Table Device {
   WarrantyMonths int
   WarrantyCondition varchar(255)
   WarrantyExpiresOn date
-  Status varchar(50) [not null, note: 'Trong kho | Đã cấp phát | Đang chờ duyệt | Thất lạc | Chờ thanh lý | Đã xóa']
+  Status varchar(50) [not null, note: 'Trong kho | Đã cấp phát | Đang chờ duyệt | Thất lạc | Chờ xử lý | Đã xóa']
   AllocatedOn date
   CreatedAt timestamp [not null, default: `now()`]
   UpdatedAt timestamp [not null]
@@ -152,7 +156,7 @@ Table DeviceAccessory {
   `DeviceTransferItem`. Một đơn/lệnh gồm 1 hoặc nhiều thiết bị (bảng `*Item`).
 - `DeviceOrder.Type` = "Cấp phát" | "Thu hồi"; `Status` của cả hai loại = "Chờ duyệt" | "Đã duyệt" |
   "Từ chối". Đơn/lệnh **không bao giờ bị xoá** — là hồ sơ lịch sử; không sửa, không huỷ sau khi tạo.
-- Quyền: Cộng tác viên Kỹ thuật tạo, Trưởng phòng Kỹ thuật duyệt / từ chối, Quản trị viên chỉ xem
+- Quyền: Chuyên viên Kỹ thuật tạo, Trưởng phòng Kỹ thuật duyệt / từ chối, Quản trị viên chỉ xem
   (xem mục 4). Vòng đời thiết bị khi tạo / duyệt / từ chối: xem mục 6.
 - Điều chuyển chuyển thiết bị "Đã cấp phát" thẳng từ người giao (`FromUserId`) sang người nhận
   (`ToUserId`), không qua "Trong kho".
@@ -212,7 +216,7 @@ Table DeviceTransferItem {
 ```dbml
 Table Audit {
   Id int [pk, increment]
-  Status varchar(20) [not null, default: 'Chưa kiểm kê', note: 'Chưa kiểm kê | Đang kiểm kê | Chờ duyệt | Đã duyệt | Đã hủy']
+  Status varchar(20) [not null, default: 'Chưa kiểm kê', note: 'Chưa kiểm kê | Đang kiểm kê | Chờ duyệt | Đã duyệt | Đã hủy | Đã xóa']
   DepartmentId int [ref: > Department.Id, note: 'null = đơn vị "Kho"']
   UnitName varchar(150) [not null, note: 'snapshot tên đơn vị']
   DueDate date [not null]
@@ -292,10 +296,10 @@ Table AuditSummaryAudit {
 Báo cáo không có AD/SD cho Kiểm kê — luồng dưới đây do người dùng chốt (spec
 `docs/superpowers/specs/2026-10-02-kiem-ke-design.md`, 24 quyết định). Vòng này làm **Kiểm kê chi
 tiết** + **Bảng tổng hợp**; Kiểm kê số lượng chưa làm.
-- **Quyền:** menu và API Kiểm kê **chỉ** cho Trưởng phòng + Cộng tác viên Kế toán (Quản trị viên,
-  Kỹ thuật, Nhân viên không thấy). CTV Kế toán lập lịch, bắt đầu, huỷ, nhập kết quả, sửa thành
+- **Quyền:** menu và API Kiểm kê **chỉ** cho Trưởng phòng + Chuyên viên Kế toán (Quản trị viên,
+  Kỹ thuật, Nhân viên không thấy). Chuyên viên Kế toán lập lịch, bắt đầu, huỷ, nhập kết quả, sửa thành
   viên, gửi duyệt, lập bảng tổng hợp; TP Kế toán duyệt / từ chối.
-- **Đơn vị kiểm kê** = một phòng ban (thiết bị đang cấp cho người thuộc phòng đó) hoặc đơn vị "Kho"
+- **Đơn vị được kiểm kê** = một phòng ban (thiết bị đang cấp cho người thuộc phòng đó) hoặc đơn vị "Kho"
   (thiết bị "Trong kho"). Bộ lọc tuỳ chọn: loại thiết bị, vị trí. Chỉ lấy thiết bị "Trong kho" +
   "Đã cấp phát". Mục đích: Định kỳ | Đột xuất | Cuối năm. Thành viên tham gia chỉ để ghi nhận /
   in biên bản, không cấp quyền.
@@ -310,20 +314,31 @@ tiết** + **Bảng tổng hợp**; Kiểm kê số lượng chưa làm.
   nhãn "Quá hạn" tính lúc hiển thị, không chặn gì.
 - **Đếm:** mỗi thiết bị **và mỗi linh kiện** có kết quả Đủ / Thiếu / Hỏng + ghi chú, lưu từng dòng. Gửi
   duyệt chỉ khi 100% dòng đã đếm; có nút "Ghi Đủ cho dòng chưa đếm".
-- **Duyệt:** máy "Thiếu" → **"Thất lạc"**, máy "Hỏng" → **"Chờ thanh lý"**, giữ người sở hữu; máy
+- **Duyệt:** máy "Thiếu" → **"Thất lạc"**, máy "Hỏng" → **"Chờ xử lý"**, giữ người sở hữu; máy
   "Đủ" không đổi; linh kiện chỉ ghi nhận, không ghi ngược vào `DeviceAccessory`.
 - **Chặn duyệt khi máy đã đổi:** dòng "Thiếu"/"Hỏng" mà thiết bị đã khác snapshot (trạng thái hoặc
   người sở hữu) → 400 liệt kê mã, rollback cả đợt; dòng "Đủ" không bao giờ chặn. Gỡ kẹt: TP từ chối →
-  CTV đổi kết quả dòng đó → gửi lại.
+  Chuyên viên đổi kết quả dòng đó → gửi lại.
 - **Tìm thấy:** Trưởng phòng Kỹ thuật bấm "Tìm thấy" trên máy "Thất lạc" → "Đã cấp phát" nếu còn người
-  sở hữu, ngược lại "Trong kho". Máy "Thất lạc" / "Chờ thanh lý" không vào được đơn/lệnh mới.
-- **Bảng tổng hợp:** CTV Kế toán chọn nhiều đợt "Đã duyệt" + tiêu đề; không trạng thái, không duyệt;
+  sở hữu, ngược lại "Trong kho". Máy "Thất lạc" / "Chờ xử lý" không vào được đơn/lệnh mới.
+- **Bảng tổng hợp:** Chuyên viên Kế toán chọn nhiều đợt "Đã duyệt" + tiêu đề; không trạng thái, không duyệt;
   một đợt vào được nhiều bảng. Nội dung = ma trận đơn vị × loại thiết bị (Tổng / Đủ / Thiếu / Hỏng,
   chỉ đếm thiết bị), tính lúc đọc từ snapshot.
 - **Xuất:** PDF và CSV (UTF-8 có BOM) cho cả đợt và bảng tổng hợp.
 - **Dọn thùng rác** người dùng / thiết bị bỏ qua row còn được đợt kiểm kê tham chiếu.
 - **Ngoài phạm vi:** Kiểm kê số lượng, máy thừa, QR, nhắc lịch, phân trang, sửa bộ lọc sau khi lập,
   huỷ đợt đã bắt đầu, luồng thanh lý.
+
+## 6e. Xoá đợt kiểm kê, thùng rác, đổi nhãn (2026-10-08)
+Spec `docs/superpowers/specs/2026-10-08-phong-ban-chuc-vu-xoa-kiem-ke-design.md`.
+- **Xoá đợt kiểm kê (xoá mềm):** Trưởng phòng Kế toán xoá đợt ở trạng thái Chưa kiểm kê / Đang kiểm kê /
+  Đã duyệt / Đã hủy → **"Đã xóa"** (đợt "Chờ duyệt" → 400). `GET /audits` mặc định ẩn "Đã xóa".
+- **Thùng rác kiểm kê:** lọc "Đã xóa" — Trưởng phòng + Chuyên viên Kế toán đều xem, chỉ Trưởng phòng có
+  **Dọn thùng rác** (xoá cứng; bỏ qua đợt còn nằm trong bảng tổng hợp, trả danh sách bị giữ kèm lý do).
+- **Xoá bảng tổng hợp:** Trưởng phòng Kế toán xoá cứng.
+- **Chọn thành viên kiểm kê** lọc theo phòng ban, giữ lựa chọn khi đổi qua nhiều phòng.
+- **Đổi nhãn:** trạng thái thiết bị "Chờ thanh lý" → **"Chờ xử lý"** (migration
+  `20261008100000_rename_pending_disposal`); "Đơn vị kiểm kê" → **"Đơn vị được kiểm kê"**.
 
 ## 7. Còn treo
 - `Department.DepartmentCode`: **chốt giữ unique** (2026-09-21). Schema `backend/prisma/schema.prisma`

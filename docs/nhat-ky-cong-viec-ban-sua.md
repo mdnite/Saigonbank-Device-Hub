@@ -17,7 +17,7 @@ thể dán từng mục dưới đây thẳng vào Word mà không cần chỉnh
 ## Mục B — Nhật ký tuần 04 → 08, bản viết lại
 
 **Tuần 04 (24/08 – 28/08) — thiết kế và chuẩn bị**
-1. Chốt đề cương IDSM, phạm vi và mốc triển khai.
+1. Chốt đề cương IDMS, phạm vi và mốc triển khai.
 2. Chốt stack: NestJS 11 + Prisma 7 + PostgreSQL (backend), React 18 + Vite 5 + Tailwind 3 (frontend).
 3. Thiết kế kiến trúc: frontend DDD-lite 4 tầng cho mỗi module, backend NestJS chuẩn (`modules/` + `shared/`).
 4. Chốt phương án triển khai Neon + Render + Vercel (chưa deploy).
@@ -67,11 +67,10 @@ thể dán từng mục dưới đây thẳng vào Word mà không cần chỉnh
 
 ## Mục D — Hai điểm cần thống nhất trước khi nộp
 
-Tên hệ thống đã được chốt là **IDSM** vào ngày 22/09/2026. Mọi chỗ trong báo cáo đang ghi IDMS cần đổi
-thành IDSM cho nhất quán với repo và tài liệu kỹ thuật. Ngoại lệ duy nhất, đã ghi rõ trong
-`backend/README.md`, là role PostgreSQL `idms` và database `internal_device_management`: hai tên này
-giữ nguyên vì đổi tên đòi hỏi tạo lại cả role lẫn database và chạy lại migration, không đáng so với lợi
-ích. Chuỗi `idms` xuất hiện trong `DATABASE_URL` là tên role kỹ thuật, không phải tên hệ thống.
+Tên hệ thống chốt lại là **IDMS** (Internal Device Management System) vào ngày 10/10/2026, thay cho
+IDSM đã chốt ngày 22/09/2026. Mọi chỗ trong báo cáo đang ghi IDSM cần đổi thành IDMS cho nhất quán với
+repo, role PostgreSQL `idms` và database `internal_device_management`. Ngoại lệ duy nhất là key
+`localStorage["idsm.session"]` ở frontend: giữ tên cũ để không đăng xuất phiên đang có.
 
 Package Diagram của backend trong báo cáo hiện vẽ theo kiến trúc DDD 4 tầng. Backend thật là NestJS
 thuần, không chia theo 4 tầng đó: cấu trúc thực tế là `src/modules/{identity,users}` (mỗi module gồm

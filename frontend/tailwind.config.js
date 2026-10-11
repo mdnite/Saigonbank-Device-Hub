@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Palette approximated from the IDSM Figma exports. Tune here.
+        // Palette approximated from the IDMS Figma exports. Tune here.
         brand: {
           DEFAULT: '#4F46E5', // primary indigo — buttons, links, active accents
           soft: '#7C7DE8', // lighter periwinkle — login CTA

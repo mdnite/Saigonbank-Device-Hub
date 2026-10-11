@@ -57,9 +57,9 @@ export function DeviceOrderListPage() {
     setReloadKey((k) => k + 1);
   });
 
-  const canPurge = canDelete && status === ORDER_STATUS.DELETED && (orders?.length ?? 0) > 0;
+  const canPurge = canDelete && !loading && status === ORDER_STATUS.DELETED && (orders?.length ?? 0) > 0;
   const purge = useAsyncAction(async () => {
-    const ids = (orders ?? []).map((o) => o.id);
+    const ids = (orders ?? []).filter((o) => o.status === ORDER_STATUS.DELETED).map((o) => o.id);
     if (!window.confirm(`Xoá vĩnh viễn ${ids.length} đơn? Không thể khôi phục.`)) return;
     const { count } = await deviceOrderService.purge(ids);
     setPurgedCount(count);

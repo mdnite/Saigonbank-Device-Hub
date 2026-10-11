@@ -129,3 +129,23 @@ it('TP Kỹ thuật lọc "Đã xóa": Dọn thùng rác gửi ids đang hiện,
   const call = fetchMock.mock.calls.find((c) => (c[0] as string).endsWith('/device-orders/purge'))!;
   expect(JSON.parse((call[1] as RequestInit).body as string)).toEqual({ ids: [9] });
 });
+
+it('Dọn thùng rác không hiện khi danh sách "Đã xóa" chưa tải xong (còn dòng của bộ lọc cũ)', async () => {
+  renderPage('Trưởng phòng', 'KYTHUAT');
+  await waitFor(() => expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument());
+  let resolve!: () => void;
+  const gate = new Promise<void>((r) => (resolve = r));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation(async () => {
+      await gate;
+      return envelope([order(9, 'Đã xóa')]);
+    }),
+  );
+  fireEvent.change(screen.getByLabelText('Lọc trạng thái'), { target: { value: 'Đã xóa' } });
+  // dòng cũ vẫn hiện trong lúc chờ → không được cho dọn bằng id cũ
+  expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Dọn thùng rác' })).toBeNull();
+  resolve();
+  expect(await screen.findByRole('button', { name: 'Dọn thùng rác' })).toBeInTheDocument();
+});

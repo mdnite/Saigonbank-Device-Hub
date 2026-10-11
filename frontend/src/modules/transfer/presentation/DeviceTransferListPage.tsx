@@ -54,9 +54,9 @@ export function DeviceTransferListPage() {
     setReloadKey((k) => k + 1);
   });
 
-  const canPurge = canDelete && status === TRANSFER_STATUS.DELETED && (transfers?.length ?? 0) > 0;
+  const canPurge = canDelete && !loading && status === TRANSFER_STATUS.DELETED && (transfers?.length ?? 0) > 0;
   const purge = useAsyncAction(async () => {
-    const ids = (transfers ?? []).map((t) => t.id);
+    const ids = (transfers ?? []).filter((t) => t.status === TRANSFER_STATUS.DELETED).map((t) => t.id);
     if (!window.confirm(`Xoá vĩnh viễn ${ids.length} lệnh? Không thể khôi phục.`)) return;
     const { count } = await deviceTransferService.purge(ids);
     setPurgedCount(count);

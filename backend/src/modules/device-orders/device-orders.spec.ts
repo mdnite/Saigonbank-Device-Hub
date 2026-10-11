@@ -301,6 +301,26 @@ describe('Device orders: /device-orders', () => {
         .expect(403);
     });
 
+    it('Cấp phát cho người không thuộc phòng ban (Quản trị viên): 400', async () => {
+      const deviceId = await createDevice();
+      const res = await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(collab))
+        .send({ type: 'Cấp phát', targetUserId: admin.id, deviceIds: [deviceId] })
+        .expect(400);
+      expect(res.body.message).toBe('Người nhận phải thuộc một phòng ban');
+      expect(prisma.devices.find((d) => d.id === deviceId)!.status).toBe('Trong kho');
+    });
+
+    it('Thu hồi từ người không thuộc phòng ban vẫn được', async () => {
+      const deviceId = allocate(await createDevice(), admin);
+      await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(collab))
+        .send({ type: 'Thu hồi', targetUserId: admin.id, deviceIds: [deviceId] })
+        .expect(201);
+    });
+
     it('Admin không được tạo đơn: 403', async () => {
       const deviceId = await createDevice();
       const res = await http()

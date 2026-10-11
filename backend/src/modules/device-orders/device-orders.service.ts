@@ -26,6 +26,7 @@ export const ORDER_NOT_FOUND = 'Đơn không tồn tại';
 const ORDER_ALREADY_DECIDED = 'Đơn đã được xử lý';
 const ORDER_PENDING_DELETE = 'Không thể xoá đơn đang chờ duyệt';
 const ORDER_ALREADY_DELETED = 'Đơn đã bị xoá';
+const RECIPIENT_NEEDS_DEPARTMENT = 'Người nhận phải thuộc một phòng ban';
 
 // Cùng cách devices.service.ts làm với DEVICE_WITH_RELATIONS: include lồng nhau tới tận Device
 // dùng lại đúng hằng số đó, nên Prisma.DeviceOrderGetPayload ở dưới suy ra field `device` khớp
@@ -92,6 +93,10 @@ export class DeviceOrdersService {
 
   async create(dto: CreateDeviceOrderDto, createdById: number) {
     const targetUser = await this.requireUser(dto.targetUserId);
+    // Chỉ chặn người NHẬN; Thu hồi từ tài khoản không phòng ban (máy cũ) vẫn phải làm được.
+    if (dto.type === ORDER_TYPE.ALLOCATE && targetUser.departmentId === null) {
+      throw new BadRequestException(RECIPIENT_NEEDS_DEPARTMENT);
+    }
     const devicesById = await this.requireEligibleDevices(
       dto.type,
       dto.deviceIds,

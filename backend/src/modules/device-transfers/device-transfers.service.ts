@@ -26,6 +26,7 @@ export const TRANSFER_NOT_FOUND = 'Đơn không tồn tại';
 const TRANSFER_ALREADY_DECIDED = 'Đơn đã được xử lý';
 const TRANSFER_PENDING_DELETE = 'Không thể xoá lệnh đang chờ duyệt';
 const TRANSFER_ALREADY_DELETED = 'Lệnh đã bị xoá';
+const RECIPIENT_NEEDS_DEPARTMENT = 'Người nhận phải thuộc một phòng ban';
 
 const WITH_RELATIONS = {
   fromUser: true,
@@ -97,7 +98,11 @@ export class DeviceTransfersService {
       throw new BadRequestException('Người nhận phải khác người đang giữ');
     }
     await this.requireUser(dto.fromUserId);
-    await this.requireUser(dto.toUserId);
+    const toUser = await this.requireUser(dto.toUserId);
+    // Chỉ chặn người NHẬN; người giao không phòng ban (máy cũ) vẫn chuyển đi được.
+    if (toUser.departmentId === null) {
+      throw new BadRequestException(RECIPIENT_NEEDS_DEPARTMENT);
+    }
     const devicesById = await this.requireEligibleDevices(
       dto.deviceIds,
       dto.fromUserId,

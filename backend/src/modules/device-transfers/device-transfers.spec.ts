@@ -301,6 +301,24 @@ describe('Device transfers: /device-transfers', () => {
         'Bạn không có quyền thực hiện thao tác này',
       );
     });
+    it('người nhận không thuộc phòng ban (Quản trị viên): 400', async () => {
+      const deviceId = await createAllocatedDevice(staffA);
+      const res = await http()
+        .post('/device-transfers')
+        .set('Authorization', tokenOf(collab))
+        .send({ fromUserId: staffA.id, toUserId: admin.id, deviceIds: [deviceId] })
+        .expect(400);
+      expect(res.body.message).toBe('Người nhận phải thuộc một phòng ban');
+    });
+
+    it('người giao không thuộc phòng ban vẫn được', async () => {
+      const deviceId = await createAllocatedDevice(admin);
+      await http()
+        .post('/device-transfers')
+        .set('Authorization', tokenOf(collab))
+        .send({ fromUserId: admin.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .expect(201);
+    });
   });
 
   describe('GET /device-transfers', () => {

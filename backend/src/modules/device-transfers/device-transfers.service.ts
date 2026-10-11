@@ -24,6 +24,8 @@ import type {
 
 export const TRANSFER_NOT_FOUND = 'Đơn không tồn tại';
 const TRANSFER_ALREADY_DECIDED = 'Đơn đã được xử lý';
+const TRANSFER_PENDING_DELETE = 'Không thể xoá lệnh đang chờ duyệt';
+const TRANSFER_ALREADY_DELETED = 'Lệnh đã bị xoá';
 
 const WITH_RELATIONS = {
   fromUser: true,
@@ -77,7 +79,8 @@ export class DeviceTransfersService {
 
   async list(q: ListDeviceTransfersQuery) {
     const transfers = await this.prisma.deviceTransfer.findMany({
-      where: { status: q.status },
+      // Mặc định ẩn thùng rác; lọc "Đã xóa" mới thấy.
+      where: { status: q.status ?? { not: TRANSFER_STATUS.DELETED } },
       include: WITH_RELATIONS,
       orderBy: { id: 'desc' },
     });
@@ -168,6 +171,31 @@ export class DeviceTransfersService {
       await this.decide(tx, id, decidedById, TRANSFER_STATUS.REJECTED, reason);
     });
     return this.getById(id);
+  }
+
+  /** Xoá mềm: chỉ lệnh Đã duyệt / Từ chối. Không đụng Device. Ghi có điều kiện (xem device-orders). */
+  async remove(id: number) {
+    const transfer = await this.findTransfer(id);
+    if (transfer.status === TRANSFER_STATUS.PENDING) {
+      throw new BadRequestException(TRANSFER_PENDING_DELETE);
+    }
+    const { count } = await this.prisma.deviceTransfer.updateMany({
+      where: {
+        id,
+        status: { in: [TRANSFER_STATUS.APPROVED, TRANSFER_STATUS.REJECTED] },
+      },
+      data: { status: TRANSFER_STATUS.DELETED },
+    });
+    if (count === 0) throw new BadRequestException(TRANSFER_ALREADY_DELETED);
+    return this.getById(id);
+  }
+
+  /** Dọn thùng rác: xoá cứng lệnh "Đã xóa" trong ids (item đi theo cascade); id khác bỏ qua lặng lẽ. */
+  async purge(ids: number[]) {
+    const { count } = await this.prisma.deviceTransfer.deleteMany({
+      where: { id: { in: ids }, status: TRANSFER_STATUS.DELETED },
+    });
+    return { count };
   }
 
   // --- helpers ---------------------------------------------------------

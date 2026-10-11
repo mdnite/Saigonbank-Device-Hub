@@ -84,6 +84,23 @@ describe('Device transfers: /device-transfers', () => {
     return allocate(await createDevice(over), holder);
   }
 
+  /** Tạo lệnh staffA → staffB qua API rồi duyệt hoặc từ chối — trả id lệnh. */
+  async function decidedTransfer(decision: 'approve' | 'reject'): Promise<number> {
+    const deviceId = await createAllocatedDevice(staffA);
+    const created = await http()
+      .post('/device-transfers')
+      .set('Authorization', tokenOf(collab))
+      .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+      .expect(201);
+    const id = created.body.data.id as number;
+    await http()
+      .patch(`/device-transfers/${id}/${decision}`)
+      .set('Authorization', tokenOf(techHead))
+      .send(decision === 'reject' ? { reason: 'Không cần' } : undefined)
+      .expect(200);
+    return id;
+  }
+
   let admin: User;
   let techHead: User;
   let financeHead: User;
@@ -553,6 +570,76 @@ describe('Device transfers: /device-transfers', () => {
         .patch(`/device-transfers/${created.body.data.id}/approve`)
         .set('Authorization', tokenOf(collab))
         .expect(403);
+    });
+  });
+
+  describe('DELETE /device-transfers/:id, POST /device-transfers/purge', () => {
+    it('TP Kỹ thuật xoá lệnh Từ chối → "Đã xóa", ẩn khỏi danh sách mặc định, hiện ở lọc "Đã xóa"', async () => {
+      const id = await decidedTransfer('reject');
+      const res = await http()
+        .delete(`/device-transfers/${id}`)
+        .set('Authorization', tokenOf(techHead))
+        .expect(200);
+      expect(res.body.data.status).toBe('Đã xóa');
+      expect(res.body.data.rejectReason).toBe('Không cần');
+      expect(res.body.message).toBe('Đã xoá lệnh điều chuyển');
+
+      const list = await http().get('/device-transfers').set('Authorization', tokenOf(admin)).expect(200);
+      expect(list.body.data.map((t: { id: number }) => t.id)).not.toContain(id);
+      const trash = await http()
+        .get('/device-transfers')
+        .query({ status: 'Đã xóa' })
+        .set('Authorization', tokenOf(collab))
+        .expect(200);
+      expect(trash.body.data.map((t: { id: number }) => t.id)).toEqual([id]);
+    });
+
+    it('xoá lệnh Chờ duyệt: 400', async () => {
+      const deviceId = await createAllocatedDevice(staffA);
+      const created = await http()
+        .post('/device-transfers')
+        .set('Authorization', tokenOf(collab))
+        .send({ fromUserId: staffA.id, toUserId: staffB.id, deviceIds: [deviceId] })
+        .expect(201);
+      const res = await http()
+        .delete(`/device-transfers/${created.body.data.id}`)
+        .set('Authorization', tokenOf(techHead))
+        .expect(400);
+      expect(res.body.message).toBe('Không thể xoá lệnh đang chờ duyệt');
+    });
+
+    it('xoá 2 lần: lần 2 trả 400 "Lệnh đã bị xoá"', async () => {
+      const id = await decidedTransfer('approve');
+      await http().delete(`/device-transfers/${id}`).set('Authorization', tokenOf(techHead)).expect(200);
+      const res = await http().delete(`/device-transfers/${id}`).set('Authorization', tokenOf(techHead)).expect(400);
+      expect(res.body.message).toBe('Lệnh đã bị xoá');
+    });
+
+    it('Quản trị viên và Chuyên viên Kỹ thuật không được xoá / dọn thùng rác: 403', async () => {
+      const id = await decidedTransfer('reject');
+      for (const actor of [admin, collab]) {
+        await http().delete(`/device-transfers/${id}`).set('Authorization', tokenOf(actor)).expect(403);
+        await http()
+          .post('/device-transfers/purge')
+          .set('Authorization', tokenOf(actor))
+          .send({ ids: [id] })
+          .expect(403);
+      }
+    });
+
+    it('dọn thùng rác: chỉ xoá cứng lệnh "Đã xóa" (kèm item), bỏ qua id khác', async () => {
+      const trashed = await decidedTransfer('reject');
+      const kept = await decidedTransfer('approve');
+      await http().delete(`/device-transfers/${trashed}`).set('Authorization', tokenOf(techHead)).expect(200);
+
+      const res = await http()
+        .post('/device-transfers/purge')
+        .set('Authorization', tokenOf(techHead))
+        .send({ ids: [trashed, kept] })
+        .expect(201);
+      expect(res.body.data).toEqual({ count: 1 });
+      expect(prisma.deviceTransfers.map((t) => t.id)).toEqual([kept]);
+      expect(prisma.deviceTransferItems.some((i) => i.transferId === trashed)).toBe(false);
     });
   });
 });

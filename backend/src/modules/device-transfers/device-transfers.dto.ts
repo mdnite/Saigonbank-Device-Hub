@@ -60,3 +60,13 @@ export class RejectDeviceTransferDto {
   @MaxLength(255)
   reason!: string;
 }
+
+export class PurgeDeviceTransfersDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @Type(() => Number)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @Max(MAX_INT32, { each: true })
+  ids!: number[];
+}

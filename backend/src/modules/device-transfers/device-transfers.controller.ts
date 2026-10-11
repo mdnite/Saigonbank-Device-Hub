@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
@@ -17,6 +18,7 @@ import { ResponseMessage } from '../../shared/http/api-response';
 import {
   CreateDeviceTransferDto,
   ListDeviceTransfersQuery,
+  PurgeDeviceTransfersDto,
   RejectDeviceTransferDto,
 } from './device-transfers.dto';
 import {
@@ -71,5 +73,19 @@ export class DeviceTransfersController {
     @Req() req: AuthedRequest,
   ) {
     return this.transfers.reject(id, req.user.id, dto.reason);
+  }
+
+  @Post('purge')
+  @Allow(ACTOR.TECH_HEAD)
+  @ResponseMessage('Đã dọn thùng rác')
+  purge(@Body() dto: PurgeDeviceTransfersDto) {
+    return this.transfers.purge(dto.ids);
+  }
+
+  @Delete(':id')
+  @Allow(ACTOR.TECH_HEAD)
+  @ResponseMessage('Đã xoá lệnh điều chuyển')
+  remove(@TransferId() id: number) {
+    return this.transfers.remove(id);
   }
 }

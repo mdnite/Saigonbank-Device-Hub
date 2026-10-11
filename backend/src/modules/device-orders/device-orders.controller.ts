@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
@@ -17,6 +18,7 @@ import { ResponseMessage } from '../../shared/http/api-response';
 import {
   CreateDeviceOrderDto,
   ListDeviceOrdersQuery,
+  PurgeDeviceOrdersDto,
   RejectDeviceOrderDto,
 } from './device-orders.dto';
 import { DeviceOrdersService, ORDER_NOT_FOUND } from './device-orders.service';
@@ -68,5 +70,19 @@ export class DeviceOrdersController {
     @Req() req: AuthedRequest,
   ) {
     return this.orders.reject(id, req.user.id, dto.reason);
+  }
+
+  @Delete(':id')
+  @Allow(ACTOR.TECH_HEAD)
+  @ResponseMessage('Đã xoá đơn')
+  remove(@OrderId() id: number) {
+    return this.orders.remove(id);
+  }
+
+  @Post('purge')
+  @Allow(ACTOR.TECH_HEAD)
+  @ResponseMessage('Đã dọn thùng rác')
+  purge(@Body() dto: PurgeDeviceOrdersDto) {
+    return this.orders.purge(dto.ids);
   }
 }

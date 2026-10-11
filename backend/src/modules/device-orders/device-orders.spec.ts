@@ -77,6 +77,23 @@ describe('Device orders: /device-orders', () => {
     return deviceId;
   }
 
+  /** Tạo đơn Cấp phát qua API rồi duyệt hoặc từ chối — trả id đơn. */
+  async function decidedOrder(decision: 'approve' | 'reject'): Promise<number> {
+    const deviceId = await createDevice();
+    const created = await http()
+      .post('/device-orders')
+      .set('Authorization', tokenOf(collab))
+      .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+      .expect(201);
+    const id = created.body.data.id as number;
+    await http()
+      .patch(`/device-orders/${id}/${decision}`)
+      .set('Authorization', tokenOf(techHead))
+      .send(decision === 'reject' ? { reason: 'Không cần' } : undefined)
+      .expect(200);
+    return id;
+  }
+
   let admin: User;
   let techHead: User;
   let financeHead: User;
@@ -626,6 +643,92 @@ describe('Device orders: /device-orders', () => {
       ).body.data;
       expect(device.status).toBe('Đang chờ duyệt');
       expect(device.currentUser).toBeNull();
+    });
+  });
+
+  describe('DELETE /device-orders/:id, POST /device-orders/purge', () => {
+    it('TP Kỹ thuật xoá đơn Từ chối → "Đã xóa", ẩn khỏi danh sách mặc định, hiện ở lọc "Đã xóa"', async () => {
+      const id = await decidedOrder('reject');
+      const res = await http()
+        .delete(`/device-orders/${id}`)
+        .set('Authorization', tokenOf(techHead))
+        .expect(200);
+      expect(res.body.data.status).toBe('Đã xóa');
+      expect(res.body.data.rejectReason).toBe('Không cần');
+      expect(res.body.message).toBe('Đã xoá đơn');
+
+      const list = await http().get('/device-orders').set('Authorization', tokenOf(admin)).expect(200);
+      expect(list.body.data.map((o: { id: number }) => o.id)).not.toContain(id);
+      const trash = await http()
+        .get('/device-orders')
+        .query({ status: 'Đã xóa' })
+        .set('Authorization', tokenOf(collab))
+        .expect(200);
+      expect(trash.body.data.map((o: { id: number }) => o.id)).toEqual([id]);
+    });
+
+    it('xoá đơn Đã duyệt: không đổi trạng thái thiết bị', async () => {
+      const id = await decidedOrder('approve');
+      const deviceId = prisma.deviceOrderItems.find((i) => i.orderId === id)!.deviceId;
+      await http().delete(`/device-orders/${id}`).set('Authorization', tokenOf(techHead)).expect(200);
+      expect(prisma.devices.find((d) => d.id === deviceId)!.status).toBe('Đã cấp phát');
+    });
+
+    it('xoá đơn Chờ duyệt: 400', async () => {
+      const deviceId = await createDevice();
+      const created = await http()
+        .post('/device-orders')
+        .set('Authorization', tokenOf(collab))
+        .send({ type: 'Cấp phát', targetUserId: staff.id, deviceIds: [deviceId] })
+        .expect(201);
+      const res = await http()
+        .delete(`/device-orders/${created.body.data.id}`)
+        .set('Authorization', tokenOf(techHead))
+        .expect(400);
+      expect(res.body.message).toBe('Không thể xoá đơn đang chờ duyệt');
+    });
+
+    it('xoá 2 lần: lần 2 trả 400 "Đơn đã bị xoá"', async () => {
+      const id = await decidedOrder('reject');
+      await http().delete(`/device-orders/${id}`).set('Authorization', tokenOf(techHead)).expect(200);
+      const res = await http().delete(`/device-orders/${id}`).set('Authorization', tokenOf(techHead)).expect(400);
+      expect(res.body.message).toBe('Đơn đã bị xoá');
+    });
+
+    it('xoá đơn không tồn tại: 404', async () => {
+      await http().delete('/device-orders/9999').set('Authorization', tokenOf(techHead)).expect(404);
+    });
+
+    it('Quản trị viên và Chuyên viên Kỹ thuật không được xoá / dọn thùng rác: 403', async () => {
+      const id = await decidedOrder('reject');
+      for (const actor of [admin, collab]) {
+        await http().delete(`/device-orders/${id}`).set('Authorization', tokenOf(actor)).expect(403);
+        await http()
+          .post('/device-orders/purge')
+          .set('Authorization', tokenOf(actor))
+          .send({ ids: [id] })
+          .expect(403);
+      }
+    });
+
+    it('dọn thùng rác: chỉ xoá cứng đơn "Đã xóa" (kèm item), bỏ qua id khác', async () => {
+      const trashed = await decidedOrder('reject');
+      const kept = await decidedOrder('approve');
+      await http().delete(`/device-orders/${trashed}`).set('Authorization', tokenOf(techHead)).expect(200);
+
+      const res = await http()
+        .post('/device-orders/purge')
+        .set('Authorization', tokenOf(techHead))
+        .send({ ids: [trashed, kept] })
+        .expect(201);
+      expect(res.body.data).toEqual({ count: 1 });
+      expect(res.body.message).toBe('Đã dọn thùng rác');
+      expect(prisma.deviceOrders.map((o) => o.id)).toEqual([kept]);
+      expect(prisma.deviceOrderItems.some((i) => i.orderId === trashed)).toBe(false);
+    });
+
+    it('dọn thùng rác thiếu ids: 400', async () => {
+      await http().post('/device-orders/purge').set('Authorization', tokenOf(techHead)).send({ ids: [] }).expect(400);
     });
   });
 });

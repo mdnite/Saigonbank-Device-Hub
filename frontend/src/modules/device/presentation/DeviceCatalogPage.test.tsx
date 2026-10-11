@@ -5,6 +5,9 @@ import { SessionProvider } from '@/app/session/SessionContext';
 import { fakeJwt, inOneHour } from '@/test/fakeJwt';
 import { DeviceCatalogPage } from './DeviceCatalogPage';
 
+vi.mock('@/shared/lib/downloadCsv', () => ({ downloadCsv: vi.fn() }));
+import { downloadCsv } from '@/shared/lib/downloadCsv';
+
 afterEach(() => {
   localStorage.clear();
   vi.unstubAllGlobals();
@@ -148,4 +151,21 @@ it('Chuyên viên Kỹ thuật: không thấy "Tìm thấy" trên máy Thất l�
   );
   await screen.findByText('LT-000003');
   expect(screen.queryByRole('button', { name: 'Tìm thấy' })).toBeNull();
+});
+
+it.each(['Trưởng phòng', 'Chuyên viên'])('%s Kỹ thuật: "Xuất dữ liệu" tải CSV các dòng đang hiện', async (roleName) => {
+  vi.mocked(downloadCsv).mockClear();
+  renderPage(roleName, 'KYTHUAT');
+  await waitFor(() => expect(screen.getByText('LT-000001')).toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button', { name: 'Xuất dữ liệu' }));
+  expect(downloadCsv).toHaveBeenCalledTimes(1);
+  const [filename, content] = vi.mocked(downloadCsv).mock.calls[0];
+  expect(filename).toMatch(/^danh-sach-tai-san-\d{4}-\d{2}-\d{2}\.csv$/);
+  expect(content).toContain('LT-000001');
+});
+
+it('Quản trị viên / Nhân viên: không thấy "Xuất dữ liệu"', async () => {
+  renderPage('Quản trị viên');
+  await waitFor(() => expect(screen.getByText('LT-000001')).toBeInTheDocument());
+  expect(screen.queryByRole('button', { name: 'Xuất dữ liệu' })).toBeNull();
 });

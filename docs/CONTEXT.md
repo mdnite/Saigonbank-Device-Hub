@@ -479,12 +479,15 @@ bằng mắt với screenshot mà `get_design_context` trả về.
 8. **Đăng nhập có cần validate/hiển thị lỗi theo từng ô không?** — hiện chỉ 1 dòng lỗi chung,
    không có yêu cầu định dạng username, không "nhớ đăng nhập", không khoá sau N lần sai.
 
-9. **Độ phủ test** (2026-10-11: **223 test / 44 file**, `npm test` xanh; backend `pnpm test` 233 test / 8 suite) — `domain` (7 file:
-   `credentials`, `session`, `deviceDraft`, `userAccount`, `userSettings`, `validateOrderDraft`,
-   `validateTransferDraft`, cùng domain `audit`: `validateAuditDraft`, `isOverdue`, `auditCsv`), 6 `Http*Repository` (fetch giả lập), `apiClient`, `useCountdown`,
-   `SessionContext`, 2 `generateBienBan` (nội dung biên bản), test guard `RequireCan`, và test component `Sidebar`,
-   `DeviceCatalogPage`, `UserListPage`, `DeviceOrderListPage`, `DeviceTransferListPage`, `AuditHomePage`, `AuditDetailPage`, `AuditSummaryPage` (+ 2 `generateAuditReport` / `generateSummaryReport`). Các page
-   auth và 2 trang tạo đơn/lệnh chưa có test component.
+9. **Độ phủ test** (2026-10-11: **223 test / 44 file**, `npm test` xanh; backend `pnpm test` 233 test / 8 suite) — `domain` (12 file:
+   `credentials`, `session`, `deviceDraft`, `devicesCsv`, `filterDevices`, `userAccount`, `userSettings`, `validateOrderDraft`,
+   `validateTransferDraft`, cùng domain `audit`: `validateAuditDraft`, `audit` (`isOverdue`…), `auditCsv`), 6 `Http*Repository` (fetch giả lập), `shared/lib`
+   (`apiClient`, `csv`, `useCountdown`), `SessionContext`, test guard `RequireCan`, 4 file in PDF (`generateBienBan` × 2,
+   `generateAuditReport`, `generateSummaryReport`), và test component: `Sidebar`, `Modal`, `DepartmentUserSelect`,
+   `LoginPage`, `DeviceCatalogPage`, `DeviceChecklist`, `UserListPage`, `CreateUserPage`, `CreateOrderPage`,
+   `DeviceOrderListPage`, `OrderDetailModal`, `DeviceTransferListPage`, `TransferDetailModal`, `AuditHomePage`,
+   `AuditDetailPage`, `AuditMemberPicker`, `AuditSummaryPage`. Chưa có test component: `ForgotPasswordPage`, `OtpPage`,
+   `ResetPasswordPage`, `CreateTransferPage`.
 
 10. **Các module chưa dựng**: Kiểm kê số lượng (tab placeholder ở `/audit`), QR thiết bị; ngoài phạm vi Kiểm kê: máy thừa, ghi `DeviceAccessory` từ kết quả, luồng thanh lý cho `Chờ xử lý`, thông báo nhắc lịch. Approvals Center (Figma cũ Group 13)
     không làm riêng — duyệt nằm trên bảng `/allocation`, `/transfers`. Chưa rõ mức độ thay đổi ở

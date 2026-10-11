@@ -1,5 +1,5 @@
 import { hasErrors, validateTransferDraft, type TransferDraft } from '../domain/validateTransferDraft';
-import type { DeviceTransfer, DeviceTransferDetail, UserRef } from '../domain/deviceTransfer';
+import type { DeviceTransfer, DeviceTransferDetail, UserRef, DepartmentRef } from '../domain/deviceTransfer';
 
 export interface DeviceTransferQuery {
   status?: string;
@@ -13,6 +13,11 @@ export interface DeviceTransferRepository {
   reject(id: number, reason: string): Promise<DeviceTransferDetail>;
   /** Danh sách rút gọn cho dropdown người giao/người nhận — cùng /users/lookup module device dùng. */
   users(): Promise<UserRef[]>;
+  /** Xoá mềm (chỉ TP Kỹ thuật, lệnh Đã duyệt / Từ chối). */
+  remove(id: number): Promise<DeviceTransferDetail>;
+  /** Xoá cứng các lệnh "Đã xóa" trong ids. */
+  purge(ids: number[]): Promise<{ count: number }>;
+  departments(): Promise<DepartmentRef[]>;
 }
 
 export class TransferValidationError extends Error {
@@ -38,6 +43,9 @@ export function makeDeviceTransferService(repo: DeviceTransferRepository) {
     approve: (id: number) => repo.approve(id),
     reject: (id: number, reason: string) => repo.reject(id, reason),
     users: () => repo.users(),
+    remove: (id: number) => repo.remove(id),
+    purge: (ids: number[]) => repo.purge(ids),
+    departments: () => repo.departments(),
   };
 }
 

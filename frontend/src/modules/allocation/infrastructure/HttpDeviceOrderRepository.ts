@@ -1,5 +1,5 @@
-import { apiGet, apiPatch, apiPost } from '@/shared/lib/apiClient';
-import type { DeviceOrder, DeviceOrderDetail, UserRef } from '../domain/deviceOrder';
+import { apiDelete, apiGet, apiPatch, apiPost } from '@/shared/lib/apiClient';
+import type { DeviceOrder, DeviceOrderDetail, UserRef, DepartmentRef } from '../domain/deviceOrder';
 import type { OrderDraft } from '../domain/validateOrderDraft';
 import type { DeviceOrderQuery, DeviceOrderRepository } from '../application/DeviceOrderRepository';
 
@@ -31,5 +31,14 @@ export class HttpDeviceOrderRepository implements DeviceOrderRepository {
   }
   users(): Promise<UserRef[]> {
     return apiGet<UserRef[]>('/users/lookup');
+  }
+  remove(id: number): Promise<DeviceOrderDetail> {
+    return apiDelete<DeviceOrderDetail>(`/device-orders/${id}`);
+  }
+  purge(ids: number[]): Promise<{ count: number }> {
+    return apiPost<{ count: number }>('/device-orders/purge', { ids });
+  }
+  departments(): Promise<DepartmentRef[]> {
+    return apiGet<DepartmentRef[]>('/departments');
   }
 }

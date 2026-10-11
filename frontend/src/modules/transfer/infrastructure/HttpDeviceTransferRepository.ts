@@ -1,5 +1,5 @@
-import { apiGet, apiPatch, apiPost } from '@/shared/lib/apiClient';
-import type { DeviceTransfer, DeviceTransferDetail, UserRef } from '../domain/deviceTransfer';
+import { apiDelete, apiGet, apiPatch, apiPost } from '@/shared/lib/apiClient';
+import type { DeviceTransfer, DeviceTransferDetail, UserRef, DepartmentRef } from '../domain/deviceTransfer';
 import type { TransferDraft } from '../domain/validateTransferDraft';
 import type { DeviceTransferQuery, DeviceTransferRepository } from '../application/DeviceTransferRepository';
 
@@ -34,5 +34,14 @@ export class HttpDeviceTransferRepository implements DeviceTransferRepository {
   }
   users(): Promise<UserRef[]> {
     return apiGet<UserRef[]>('/users/lookup');
+  }
+  remove(id: number): Promise<DeviceTransferDetail> {
+    return apiDelete<DeviceTransferDetail>(`/device-transfers/${id}`);
+  }
+  purge(ids: number[]): Promise<{ count: number }> {
+    return apiPost<{ count: number }>('/device-transfers/purge', { ids });
+  }
+  departments(): Promise<DepartmentRef[]> {
+    return apiGet<DepartmentRef[]>('/departments');
   }
 }

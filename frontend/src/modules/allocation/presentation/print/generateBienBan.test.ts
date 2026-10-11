@@ -32,7 +32,7 @@ const order = (over: Partial<DeviceOrderDetail> = {}): DeviceOrderDetail => ({
   rejectReason: null,
   decidedAt: '2026-09-24T00:00:00.000Z',
   createdAt: '2026-09-20T00:00:00.000Z',
-  targetUser: { id: 5, fullName: 'Nguyễn Văn A', username: 'a' },
+  targetUser: { id: 5, fullName: 'Nguyễn Văn A', username: 'a', departmentId: 1 },
   createdBy: { id: 2, fullName: 'Trưởng phòng Kỹ thuật' },
   decidedBy: { id: 1, fullName: 'Quản trị viên' },
   deviceCount: 1,

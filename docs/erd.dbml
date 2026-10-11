@@ -84,7 +84,7 @@ Table DeviceAccessory {
 Table DeviceOrder {
   Id int [pk, increment]
   Type varchar(20) [not null, note: 'Cấp phát | Thu hồi']
-  Status varchar(20) [not null, default: 'Chờ duyệt', note: 'Chờ duyệt | Đã duyệt | Từ chối']
+  Status varchar(20) [not null, default: 'Chờ duyệt', note: 'Chờ duyệt | Đã duyệt | Từ chối | Đã xóa']
   TargetUserId int [not null]
   Note varchar(255)
   CreatedById int [not null]
@@ -102,7 +102,7 @@ Table DeviceOrderItem {
 
 Table DeviceTransfer {
   Id int [pk, increment]
-  Status varchar(20) [not null, default: 'Chờ duyệt', note: 'Chờ duyệt | Đã duyệt | Từ chối']
+  Status varchar(20) [not null, default: 'Chờ duyệt', note: 'Chờ duyệt | Đã duyệt | Từ chối | Đã xóa']
   FromUserId int [not null]
   ToUserId int [not null]
   Note varchar(255)

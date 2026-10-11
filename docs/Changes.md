@@ -340,6 +340,18 @@ Spec `docs/superpowers/specs/2026-10-08-phong-ban-chuc-vu-xoa-kiem-ke-design.md`
 - **Đổi nhãn:** trạng thái thiết bị "Chờ thanh lý" → **"Chờ xử lý"** (migration
   `20261008100000_rename_pending_disposal`); "Đơn vị kiểm kê" → **"Đơn vị được kiểm kê"**.
 
+## 6f. Xoá đơn/lệnh, chi tiết đơn/lệnh, người nhận có phòng ban (2026-10-11)
+Spec `docs/superpowers/specs/2026-10-11-xoa-don-chi-tiet-login-xuat-csv-design.md`.
+- **Xoá đơn Cấp phát - Thu hồi / lệnh Điều chuyển (xoá mềm):** chỉ Trưởng phòng Kỹ thuật; chỉ đơn/lệnh
+  **Đã duyệt** hoặc **Từ chối** → trạng thái mới **"Đã xóa"** (Chờ duyệt → 400). Không đổi trạng thái thiết bị,
+  không khôi phục. Danh sách mặc định ẩn "Đã xóa".
+- **Thùng rác:** lọc "Đã xóa" — Quản trị viên, Trưởng phòng, Chuyên viên Kỹ thuật đều xem; chỉ Trưởng phòng
+  có **Dọn thùng rác** (xoá cứng, kèm danh sách thiết bị của đơn/lệnh).
+- **Chi tiết đơn/lệnh:** xem được người tạo, người duyệt, ngày duyệt, danh sách thiết bị và **lý do từ chối**.
+- **Người nhận phải thuộc một phòng ban:** đơn Cấp phát và lệnh Điều chuyển không nhận người không có phòng
+  ban (Quản trị viên) → 400 "Người nhận phải thuộc một phòng ban". Thu hồi / người giao không bị kiểm.
+- **Xuất danh sách tài sản (CSV):** Trưởng phòng + Chuyên viên Kỹ thuật, theo bộ lọc đang áp.
+
 ## 7. Còn treo
 - `Department.DepartmentCode`: **chốt giữ unique** (2026-09-21). Schema `backend/prisma/schema.prisma`
   và DB thật đã có ràng buộc này từ migration `20260917140549_init_user_login`, khớp icon khoá trên

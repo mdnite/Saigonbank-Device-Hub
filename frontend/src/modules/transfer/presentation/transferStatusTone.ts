@@ -5,4 +5,5 @@ export const TRANSFER_STATUS_TONE: Record<TransferStatus, BadgeTone> = {
   [TRANSFER_STATUS.PENDING]: 'warn',
   [TRANSFER_STATUS.APPROVED]: 'ok',
   [TRANSFER_STATUS.REJECTED]: 'danger',
+  [TRANSFER_STATUS.DELETED]: 'neutral',
 };

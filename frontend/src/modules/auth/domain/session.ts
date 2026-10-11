@@ -54,6 +54,12 @@ export const canCreateTransfer = isTechSpecialist;
 /** Duyệt/từ chối lệnh điều chuyển: CHỈ Trưởng phòng Kỹ thuật. */
 export const canDecideTransfer = isTechHead;
 
+/** Xoá đơn Cấp phát - Thu hồi (Đã duyệt / Từ chối) và dọn thùng rác: chỉ Trưởng phòng Kỹ thuật. */
+export const canDeleteOrder = isTechHead;
+
+/** Xoá lệnh Điều chuyển (Đã duyệt / Từ chối) và dọn thùng rác: chỉ Trưởng phòng Kỹ thuật. */
+export const canDeleteTransfer = isTechHead;
+
 export const isAcctHead: Can = (session) =>
   session?.roleName === HEAD_ROLE && session?.departmentCode === ACCT_DEPARTMENT_CODE;
 

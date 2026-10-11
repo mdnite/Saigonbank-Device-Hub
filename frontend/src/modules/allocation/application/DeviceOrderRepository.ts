@@ -1,5 +1,5 @@
 import { hasErrors, validateOrderDraft, type OrderDraft } from '../domain/validateOrderDraft';
-import type { DeviceOrder, DeviceOrderDetail, UserRef } from '../domain/deviceOrder';
+import type { DeviceOrder, DeviceOrderDetail, UserRef, DepartmentRef } from '../domain/deviceOrder';
 
 export interface DeviceOrderQuery {
   type?: string;
@@ -14,6 +14,11 @@ export interface DeviceOrderRepository {
   reject(id: number, reason: string): Promise<DeviceOrderDetail>;
   /** Danh sách rút gọn cho dropdown "Người liên quan" — cùng /users/lookup module device dùng. */
   users(): Promise<UserRef[]>;
+  /** Xoá mềm (chỉ TP Kỹ thuật, đơn Đã duyệt / Từ chối). */
+  remove(id: number): Promise<DeviceOrderDetail>;
+  /** Xoá cứng các đơn "Đã xóa" trong ids. */
+  purge(ids: number[]): Promise<{ count: number }>;
+  departments(): Promise<DepartmentRef[]>;
 }
 
 export class OrderValidationError extends Error {
@@ -39,6 +44,9 @@ export function makeDeviceOrderService(repo: DeviceOrderRepository) {
     approve: (id: number) => repo.approve(id),
     reject: (id: number, reason: string) => repo.reject(id, reason),
     users: () => repo.users(),
+    remove: (id: number) => repo.remove(id),
+    purge: (ids: number[]) => repo.purge(ids),
+    departments: () => repo.departments(),
   };
 }
 

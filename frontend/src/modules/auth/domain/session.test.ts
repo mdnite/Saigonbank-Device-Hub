@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { fakeJwt } from '@/test/fakeJwt';
-import { canWriteDevices, canDeleteDevices, canAccessOrders, canCreateOrder, canDecideOrder, canAccessTransfers, canCreateTransfer, canDecideTransfer, isAdmin, isTokenExpired, canAccessAudits, canCreateAudit, canDecideAudit, canDeleteAudits, canMarkDeviceFound, type AuthSession } from './session';
+import { canWriteDevices, canDeleteDevices, canAccessOrders, canCreateOrder, canDecideOrder, canAccessTransfers, canCreateTransfer, canDecideTransfer, canDeleteOrder, canDeleteTransfer, isAdmin, isTokenExpired, canAccessAudits, canCreateAudit, canDecideAudit, canDeleteAudits, canMarkDeviceFound, type AuthSession } from './session';
 
 const base: AuthSession = {
   userId: '1',
@@ -47,6 +47,8 @@ it.each([
   ['canAccessTransfers', canAccessTransfers, true, true, true],
   ['canCreateTransfer', canCreateTransfer, false, false, true],
   ['canDecideTransfer', canDecideTransfer, false, true, false],
+  ['canDeleteOrder', canDeleteOrder, false, true, false],
+  ['canDeleteTransfer', canDeleteTransfer, false, true, false],
 ])('%s: Admin / TP Kỹ thuật / CTV Kỹ thuật', (_name, can, forAdmin, forHead, forCollab) => {
   expect(can(admin)).toBe(forAdmin);
   expect(can(techHead)).toBe(forHead);

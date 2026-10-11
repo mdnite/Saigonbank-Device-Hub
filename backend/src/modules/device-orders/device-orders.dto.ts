@@ -61,3 +61,13 @@ export class RejectDeviceOrderDto {
   @MaxLength(255)
   reason!: string;
 }
+
+export class PurgeDeviceOrdersDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @Type(() => Number)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @Max(MAX_INT32, { each: true })
+  ids!: number[];
+}

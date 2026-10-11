@@ -63,4 +63,24 @@ describe('HttpDeviceOrderRepository', () => {
     await new HttpDeviceOrderRepository().users();
     expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:3000/users/lookup');
   });
+
+  it('remove: gọi DELETE /device-orders/:id', async () => {
+    await new HttpDeviceOrderRepository().remove(5);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:3000/device-orders/5');
+    expect((fetchMock.mock.calls[0][1] as RequestInit).method).toBe('DELETE');
+  });
+
+  it('purge: POST /device-orders/purge với ids', async () => {
+    fetchMock.mockImplementation(async () => envelope({ count: 2 }));
+    const res = await new HttpDeviceOrderRepository().purge([3, 4]);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:3000/device-orders/purge');
+    expect(sentBody(fetchMock)).toEqual({ ids: [3, 4] });
+    expect(res).toEqual({ count: 2 });
+  });
+
+  it('departments: gọi GET /departments', async () => {
+    fetchMock.mockImplementation(async () => envelope([]));
+    await new HttpDeviceOrderRepository().departments();
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:3000/departments');
+  });
 });

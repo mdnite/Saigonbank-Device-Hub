@@ -1,39 +1,46 @@
-import { useState } from 'react';
+import { forwardRef, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { User } from 'lucide-react';
+import { Eye, EyeOff, User } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { useSession } from '@/app/session/SessionContext';
 import { authService } from '../infrastructure/container';
 
 /** Underline-style field, specific to the login screen. */
-function LineField({
-  label,
-  type = 'text',
-  value,
-  onChange,
-}: {
-  label: string;
-  type?: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
+const LineField = forwardRef<
+  HTMLInputElement,
+  {
+    label: string;
+    type?: string;
+    value: string;
+    onChange: (v: string) => void;
+    onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
+    trailing?: ReactNode;
+  }
+>(function LineField({ label, type = 'text', value, onChange, onKeyDown, trailing }, ref) {
   return (
     <label className="block">
       <span className="text-sm font-semibold text-ink">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full border-0 border-b border-ink/30 bg-transparent pb-1.5 text-sm outline-none focus:border-brand"
-      />
+      <span className="mt-2 flex items-center border-b border-ink/30 focus-within:border-brand">
+        <input
+          ref={ref}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          className="w-full border-0 bg-transparent pb-1.5 text-sm outline-none"
+        />
+        {trailing}
+      </span>
     </label>
   );
-}
+});
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const { signIn, notice } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
@@ -60,8 +67,36 @@ export function LoginPage() {
       </h1>
 
       <div className="space-y-6">
-        <LineField label="Username" value={username} onChange={setUsername} />
-        <LineField label="Password" type="password" value={password} onChange={setPassword} />
+        <LineField
+          label="Username"
+          value={username}
+          onChange={setUsername}
+          onKeyDown={(e) => {
+            // Enter ở ô Username: sang ô Password thay vì gửi form ngay.
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              passwordRef.current?.focus();
+            }
+          }}
+        />
+        <LineField
+          ref={passwordRef}
+          label="Password"
+          type={showPassword ? 'text' : 'password'}
+          value={password}
+          onChange={setPassword}
+          trailing={
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              onClick={() => setShowPassword((v) => !v)}
+              className="pb-1.5 pl-2 text-ink-muted hover:text-ink"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          }
+        />
       </div>
 
       {notice && !error && <p className="mt-3 text-sm text-status-warnFg">{notice}</p>}

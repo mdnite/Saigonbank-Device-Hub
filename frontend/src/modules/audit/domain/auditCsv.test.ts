@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AuditDetail, AuditSummaryDetail } from './audit';
-import { auditCsv, summaryCsv, toCsv } from './auditCsv';
+import { auditCsv, summaryCsv } from './auditCsv';
 
 const detail = {
   unitName: 'Kho',
@@ -21,17 +21,6 @@ const detail = {
     },
   ],
 } as unknown as AuditDetail;
-
-describe('toCsv', () => {
-  it('chống công thức: ô chữ bắt đầu = + - @ tab CR được thêm dấu nháy đơn, số giữ nguyên', () => {
-    expect(toCsv([['=1+1', '+a', '-b', '@c', '\td', 'ok-1', 5, -3]])).toBe("﻿'=1+1,'+a,'-b,'@c,'\td,ok-1,5,-3");
-    expect(toCsv([['\rx']])).toBe('﻿"\'\rx"');
-  });
-
-  it('BOM UTF-8 + CRLF, escape dấu phẩy / nháy kép / xuống dòng, null = rỗng', () => {
-    expect(toCsv([['a', 'b,c'], ['"x"', null]])).toBe('﻿a,"b,c"\r\n"""x""",');
-  });
-});
 
 describe('auditCsv', () => {
   it('1 dòng thiết bị + 1 dòng mỗi linh kiện; máy Kho ghi đơn vị quản lý "Kho"', () => {

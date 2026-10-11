@@ -24,6 +24,9 @@ import type {
 
 export const ORDER_NOT_FOUND = 'Đơn không tồn tại';
 const ORDER_ALREADY_DECIDED = 'Đơn đã được xử lý';
+const ORDER_PENDING_DELETE = 'Không thể xoá đơn đang chờ duyệt';
+const ORDER_ALREADY_DELETED = 'Đơn đã bị xoá';
+const RECIPIENT_NEEDS_DEPARTMENT = 'Người nhận phải thuộc một phòng ban';
 
 // Cùng cách devices.service.ts làm với DEVICE_WITH_RELATIONS: include lồng nhau tới tận Device
 // dùng lại đúng hằng số đó, nên Prisma.DeviceOrderGetPayload ở dưới suy ra field `device` khớp
@@ -75,7 +78,8 @@ export class DeviceOrdersService {
 
   async list(q: ListDeviceOrdersQuery) {
     const orders = await this.prisma.deviceOrder.findMany({
-      where: { type: q.type, status: q.status },
+      // Mặc định ẩn thùng rác; lọc "Đã xóa" mới thấy.
+      where: { type: q.type, status: q.status ?? { not: ORDER_STATUS.DELETED } },
       include: WITH_RELATIONS,
       orderBy: { id: 'desc' },
     });
@@ -89,6 +93,10 @@ export class DeviceOrdersService {
 
   async create(dto: CreateDeviceOrderDto, createdById: number) {
     const targetUser = await this.requireUser(dto.targetUserId);
+    // Chỉ chặn người NHẬN; Thu hồi từ tài khoản không phòng ban (máy cũ) vẫn phải làm được.
+    if (dto.type === ORDER_TYPE.ALLOCATE && targetUser.departmentId === null) {
+      throw new BadRequestException(RECIPIENT_NEEDS_DEPARTMENT);
+    }
     const devicesById = await this.requireEligibleDevices(
       dto.type,
       dto.deviceIds,
@@ -175,6 +183,32 @@ export class DeviceOrdersService {
       await this.decide(tx, id, decidedById, ORDER_STATUS.REJECTED, reason);
     });
     return this.getById(id);
+  }
+
+  /** Xoá mềm: chỉ đơn Đã duyệt / Từ chối. Không đụng Device. Ghi có điều kiện để đơn vừa bị xoá
+   *  bởi request khác (giữa lúc đọc và lúc ghi) trả 400 thay vì ghi đè. */
+  async remove(id: number) {
+    const order = await this.findOrder(id);
+    if (order.status === ORDER_STATUS.PENDING) {
+      throw new BadRequestException(ORDER_PENDING_DELETE);
+    }
+    const { count } = await this.prisma.deviceOrder.updateMany({
+      where: {
+        id,
+        status: { in: [ORDER_STATUS.APPROVED, ORDER_STATUS.REJECTED] },
+      },
+      data: { status: ORDER_STATUS.DELETED },
+    });
+    if (count === 0) throw new BadRequestException(ORDER_ALREADY_DELETED);
+    return this.getById(id);
+  }
+
+  /** Dọn thùng rác: xoá cứng đơn "Đã xóa" trong ids (item đi theo cascade); id khác bỏ qua lặng lẽ. */
+  async purge(ids: number[]) {
+    const { count } = await this.prisma.deviceOrder.deleteMany({
+      where: { id: { in: ids }, status: ORDER_STATUS.DELETED },
+    });
+    return { count };
   }
 
   // --- helpers ---------------------------------------------------------

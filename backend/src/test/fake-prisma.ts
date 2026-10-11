@@ -708,6 +708,17 @@ export function createFakePrisma() {
           return { count: hit.length };
         },
       ),
+      // Chỉ /device-orders/purge dùng — DeviceOrderItem onDelete: Cascade trong schema.
+      deleteMany: jest.fn(async ({ where }: { where: Where }) => {
+        const toRemove = deviceOrders.filter((o) => matches(o, where));
+        for (const o of toRemove) {
+          deviceOrders.splice(deviceOrders.indexOf(o), 1);
+          for (let i = deviceOrderItems.length - 1; i >= 0; i--) {
+            if (deviceOrderItems[i].orderId === o.id) deviceOrderItems.splice(i, 1);
+          }
+        }
+        return { count: toRemove.length };
+      }),
       delete: jest.fn(forbidden),
     },
     // Chỉ /devices/purge dùng — RESTRICT thật trong schema (DeviceOrderItem.deviceId) nên phải
@@ -788,6 +799,17 @@ export function createFakePrisma() {
           return { count: hit.length };
         },
       ),
+      // Chỉ /device-transfers/purge dùng — DeviceTransferItem onDelete: Cascade trong schema.
+      deleteMany: jest.fn(async ({ where }: { where: Where }) => {
+        const toRemove = deviceTransfers.filter((t) => matches(t, where));
+        for (const t of toRemove) {
+          deviceTransfers.splice(deviceTransfers.indexOf(t), 1);
+          for (let i = deviceTransferItems.length - 1; i >= 0; i--) {
+            if (deviceTransferItems[i].transferId === t.id) deviceTransferItems.splice(i, 1);
+          }
+        }
+        return { count: toRemove.length };
+      }),
       delete: jest.fn(forbidden),
     },
     // Chỉ /devices/purge dùng — RESTRICT thật trong schema (DeviceTransferItem.deviceId).

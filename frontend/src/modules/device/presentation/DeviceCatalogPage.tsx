@@ -11,7 +11,9 @@ import { DataTable, type Column } from '@/shared/ui/DataTable';
 import { SearchInput } from '@/shared/ui/SearchInput';
 import { Select } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
+import { downloadCsv } from '@/shared/lib/downloadCsv';
 import { DEVICE_STATUS, DEVICE_STATUS_OPTIONS, type Device, type DeviceStatus } from '../domain/device';
+import { devicesCsv } from '../domain/devicesCsv';
 import type { DeviceQuery } from '../application/DeviceRepository';
 import { deviceService } from '../infrastructure/container';
 import { useDevices } from './useDevices';
@@ -52,6 +54,13 @@ export function DeviceCatalogPage() {
     await deviceService.purge(ids);
     setReloadKey((k) => k + 1);
   });
+
+  const exportCsv = () => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    downloadCsv(`danh-sach-tai-san-${stamp}.csv`, devicesCsv(devices ?? []));
+  };
 
   const columns: Array<Column<Device>> = [
     {
@@ -116,9 +125,17 @@ export function DeviceCatalogPage() {
         title="Danh mục thiết bị"
         actions={
           <>
-            <Button variant="outline" size="sm" aria-label="Xuất dữ liệu">
-              <Upload className="h-4 w-4" />
-            </Button>
+            {canWrite && (
+              <Button
+                variant="outline"
+                size="sm"
+                leadingIcon={<Upload className="h-4 w-4" />}
+                disabled={(devices?.length ?? 0) === 0}
+                onClick={exportCsv}
+              >
+                Xuất dữ liệu
+              </Button>
+            )}
             {canWrite && (
               <Button
                 size="sm"

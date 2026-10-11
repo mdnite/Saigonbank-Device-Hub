@@ -50,6 +50,7 @@ function renderPage(roleName: string, departmentCode: string | null, orders = [o
     }
     if (init?.method === 'DELETE') return envelope({ ...order(1, 'Đã xóa') });
     if (url.includes('status=')) return envelope(purged ? [] : [order(9, 'Đã xóa')]);
+    if (/\/device-orders\/\d+$/.test(url)) return envelope({ ...order(1), items: [] });
     return envelope(orders);
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -148,4 +149,11 @@ it('Dọn thùng rác không hiện khi danh sách "Đã xóa" chưa tải xong 
   expect(screen.queryByRole('button', { name: 'Dọn thùng rác' })).toBeNull();
   resolve();
   expect(await screen.findByRole('button', { name: 'Dọn thùng rác' })).toBeInTheDocument();
+});
+
+it('Quản trị viên: mọi dòng có nút "Chi tiết", bấm thì mở modal', async () => {
+  renderPage('Quản trị viên', null, [order(1, 'Chờ duyệt'), order(2, 'Từ chối')]);
+  await waitFor(() => expect(screen.getAllByRole('button', { name: 'Chi tiết' })).toHaveLength(2));
+  fireEvent.click(screen.getAllByRole('button', { name: 'Chi tiết' })[0]);
+  expect(await screen.findByText('Chi tiết đơn #1')).toBeInTheDocument();
 });

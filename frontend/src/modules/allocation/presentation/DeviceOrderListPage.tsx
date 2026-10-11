@@ -12,6 +12,7 @@ import { Select } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { isOrderDeletable, ORDER_STATUS, ORDER_TYPE, type DeviceOrder, type OrderStatus, type OrderType } from '../domain/deviceOrder';
 import { deviceOrderService } from '../infrastructure/container';
+import { OrderDetailModal } from './OrderDetailModal';
 import { useDeviceOrders } from './useDeviceOrders';
 import { ORDER_STATUS_TONE } from './orderStatusTone';
 
@@ -25,6 +26,7 @@ export function DeviceOrderListPage() {
   const [type, setType] = useState<OrderType | ''>('');
   const [status, setStatus] = useState<OrderStatus | ''>('');
   const [reloadKey, setReloadKey] = useState(0);
+  const [detailId, setDetailId] = useState<number | null>(null);
   const { data: orders, loading, error } = useDeviceOrders(
     { type: type || undefined, status: status || undefined },
     reloadKey,
@@ -83,6 +85,9 @@ export function DeviceOrderListPage() {
       align: 'right',
       cell: (o) => (
         <div className="flex justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={() => setDetailId(o.id)}>
+            Chi tiết
+          </Button>
           {canDecide && o.status === ORDER_STATUS.PENDING && (
             <>
               <Button size="sm" variant="outline" disabled={approve.pending} onClick={() => void approve.run(o)}>
@@ -162,6 +167,7 @@ export function DeviceOrderListPage() {
           empty={loading ? 'Đang tải…' : 'Không có đơn nào'}
         />
       </Card>
+      <OrderDetailModal id={detailId} onClose={() => setDetailId(null)} />
     </>
   );
 }

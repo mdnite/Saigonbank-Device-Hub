@@ -12,6 +12,7 @@ import { Select } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
 import { isTransferDeletable, TRANSFER_STATUS, type DeviceTransfer, type TransferStatus } from '../domain/deviceTransfer';
 import { deviceTransferService } from '../infrastructure/container';
+import { TransferDetailModal } from './TransferDetailModal';
 import { useDeviceTransfers } from './useDeviceTransfers';
 import { TRANSFER_STATUS_TONE } from './transferStatusTone';
 
@@ -24,6 +25,7 @@ export function DeviceTransferListPage() {
   const [purgedCount, setPurgedCount] = useState<number | null>(null);
   const [status, setStatus] = useState<TransferStatus | ''>('');
   const [reloadKey, setReloadKey] = useState(0);
+  const [detailId, setDetailId] = useState<number | null>(null);
   const { data: transfers, loading, error } = useDeviceTransfers(
     { status: status || undefined },
     reloadKey,
@@ -80,6 +82,9 @@ export function DeviceTransferListPage() {
       align: 'right',
       cell: (t) => (
         <div className="flex justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={() => setDetailId(t.id)}>
+            Chi tiết
+          </Button>
           {canDecide && t.status === TRANSFER_STATUS.PENDING && (
             <>
               <Button size="sm" variant="outline" disabled={approve.pending} onClick={() => void approve.run(t)}>
@@ -154,6 +159,7 @@ export function DeviceTransferListPage() {
           empty={loading ? 'Đang tải…' : 'Không có lệnh nào'}
         />
       </Card>
+      <TransferDetailModal id={detailId} onClose={() => setDetailId(null)} />
     </>
   );
 }

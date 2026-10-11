@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useSession } from '@/app/session/SessionContext';
-import { canCreateTransfer, canDecideTransfer } from '@/modules/auth/domain/session';
+import { canCreateTransfer, canDecideTransfer, canDeleteTransfer } from '@/modules/auth/domain/session';
 import { PageHeader } from '@/shared/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
@@ -10,7 +10,7 @@ import { Badge } from '@/shared/ui/Badge';
 import { DataTable, type Column } from '@/shared/ui/DataTable';
 import { Select } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
-import { TRANSFER_STATUS, type DeviceTransfer, type TransferStatus } from '../domain/deviceTransfer';
+import { isTransferDeletable, TRANSFER_STATUS, type DeviceTransfer, type TransferStatus } from '../domain/deviceTransfer';
 import { deviceTransferService } from '../infrastructure/container';
 import { useDeviceTransfers } from './useDeviceTransfers';
 import { TRANSFER_STATUS_TONE } from './transferStatusTone';
@@ -20,6 +20,8 @@ export function DeviceTransferListPage() {
   const { session } = useSession();
   const canCreate = canCreateTransfer(session);
   const canDecide = canDecideTransfer(session);
+  const canDelete = canDeleteTransfer(session);
+  const [purgedCount, setPurgedCount] = useState<number | null>(null);
   const [status, setStatus] = useState<TransferStatus | ''>('');
   const [reloadKey, setReloadKey] = useState(0);
   const { data: transfers, loading, error } = useDeviceTransfers(
@@ -44,6 +46,21 @@ export function DeviceTransferListPage() {
     const detail = await deviceTransferService.get(t.id);
     const { downloadBienBan } = await import('./print/generateBienBan');
     downloadBienBan(detail);
+  });
+
+  const remove = useAsyncAction(async (t: DeviceTransfer) => {
+    if (!window.confirm(`Xoá lệnh #${t.id}?`)) return;
+    await deviceTransferService.remove(t.id);
+    setReloadKey((k) => k + 1);
+  });
+
+  const canPurge = canDelete && status === TRANSFER_STATUS.DELETED && (transfers?.length ?? 0) > 0;
+  const purge = useAsyncAction(async () => {
+    const ids = (transfers ?? []).map((t) => t.id);
+    if (!window.confirm(`Xoá vĩnh viễn ${ids.length} lệnh? Không thể khôi phục.`)) return;
+    const { count } = await deviceTransferService.purge(ids);
+    setPurgedCount(count);
+    setReloadKey((k) => k + 1);
   });
 
   const columns: Array<Column<DeviceTransfer>> = [
@@ -78,6 +95,11 @@ export function DeviceTransferListPage() {
               In biên bản
             </Button>
           )}
+          {canDelete && isTransferDeletable(t.status) && (
+            <Button size="sm" variant="outline" disabled={remove.pending} onClick={() => void remove.run(t)}>
+              Xoá
+            </Button>
+          )}
         </div>
       ),
     },
@@ -99,17 +121,29 @@ export function DeviceTransferListPage() {
 
       <Card className="p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-          <Select className="sm:w-56" value={status} onChange={(e) => setStatus(e.target.value as TransferStatus | '')}>
+          <Select className="sm:w-56" value={status} aria-label="Lọc trạng thái"
+            onChange={(e) => {
+              setStatus(e.target.value as TransferStatus | '');
+              setPurgedCount(null);
+            }}
+          >
             <option value="">Trạng thái (Tất cả)</option>
             <option value={TRANSFER_STATUS.PENDING}>{TRANSFER_STATUS.PENDING}</option>
             <option value={TRANSFER_STATUS.APPROVED}>{TRANSFER_STATUS.APPROVED}</option>
             <option value={TRANSFER_STATUS.REJECTED}>{TRANSFER_STATUS.REJECTED}</option>
+            <option value={TRANSFER_STATUS.DELETED}>{TRANSFER_STATUS.DELETED}</option>
           </Select>
+          {canPurge && (
+            <Button variant="outline" size="sm" disabled={purge.pending} onClick={() => void purge.run()}>
+              Dọn thùng rác
+            </Button>
+          )}
         </div>
 
-        {(approve.error ?? reject.error ?? print.error ?? error) && (
+        {purgedCount !== null && <p className="mb-3 text-sm text-status-okFg">Đã xoá {purgedCount} lệnh</p>}
+        {(approve.error ?? reject.error ?? print.error ?? remove.error ?? purge.error ?? error) && (
           <p className="mb-3 text-sm text-status-dangerFg">
-            {approve.error ?? reject.error ?? print.error ?? error}
+            {approve.error ?? reject.error ?? print.error ?? remove.error ?? purge.error ?? error}
           </p>
         )}
 

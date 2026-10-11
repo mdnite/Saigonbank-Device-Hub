@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import { SessionProvider } from '@/app/session/SessionContext';
@@ -42,7 +42,17 @@ function renderPage(roleName: string, departmentCode: string | null, transfers =
       departmentCode,
     }),
   );
-  vi.stubGlobal('fetch', vi.fn().mockImplementation(() => envelope(transfers)));
+  let purged = false;
+  const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+    if (url.endsWith('/device-transfers/purge')) {
+      purged = true;
+      return envelope({ count: 1 });
+    }
+    if (init?.method === 'DELETE') return envelope({ ...transfer(1, 'Đã xóa') });
+    if (url.includes('status=')) return envelope(purged ? [] : [transfer(9, 'Đã xóa')]);
+    return envelope(transfers);
+  });
+  vi.stubGlobal('fetch', fetchMock);
   render(
     <SessionProvider>
       <MemoryRouter>
@@ -50,6 +60,7 @@ function renderPage(roleName: string, departmentCode: string | null, transfers =
       </MemoryRouter>
     </SessionProvider>,
   );
+  return fetchMock;
 }
 
 it('Chuyên viên Kỹ thuật: thấy nút "Tạo lệnh", không thấy Duyệt/Từ chối', async () => {
@@ -79,4 +90,42 @@ it('Trưởng phòng Kỹ thuật: lệnh "Đã duyệt" hiện nút "In biên b
   await waitFor(() => expect(screen.getByText('Nhân viên A')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'In biên bản' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Duyệt' })).toBeNull();
+});
+
+it('TP Kỹ thuật: lệnh Từ chối có nút Xoá → DELETE /device-transfers/:id; lệnh Chờ duyệt không có', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  const fetchMock = renderPage('Trưởng phòng', 'KYTHUAT', [transfer(1, 'Từ chối'), transfer(2, 'Chờ duyệt')]);
+  await waitFor(() => expect(screen.getAllByText('Nhân viên A')).toHaveLength(2));
+  const deleteButtons = screen.getAllByRole('button', { name: 'Xoá' });
+  expect(deleteButtons).toHaveLength(1);
+  fireEvent.click(deleteButtons[0]);
+  await waitFor(() =>
+    expect(
+      fetchMock.mock.calls.some(
+        (c) => (c[0] as string).endsWith('/device-transfers/1') && (c[1] as RequestInit)?.method === 'DELETE',
+      ),
+    ).toBe(true),
+  );
+});
+
+it('Chuyên viên Kỹ thuật: không có nút Xoá; lọc "Đã xóa" xem được nhưng không có "Dọn thùng rác"', async () => {
+  renderPage('Chuyên viên', 'KYTHUAT', [transfer(1, 'Từ chối')]);
+  await waitFor(() => expect(screen.getByText('Nhân viên A')).toBeInTheDocument());
+  expect(screen.queryByRole('button', { name: 'Xoá' })).toBeNull();
+  fireEvent.change(screen.getByLabelText('Lọc trạng thái'), { target: { value: 'Đã xóa' } });
+  // "Đã xóa" có cả trong <option> lẫn Badge của dòng → chờ tới khi có hơn 1 chỗ.
+  await waitFor(() => expect(screen.getAllByText('Đã xóa').length).toBeGreaterThan(1));
+  expect(screen.queryByRole('button', { name: 'Dọn thùng rác' })).toBeNull();
+});
+
+it('TP Kỹ thuật lọc "Đã xóa": Dọn thùng rác gửi ids đang hiện, báo số đã xoá', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  const fetchMock = renderPage('Trưởng phòng', 'KYTHUAT');
+  await waitFor(() => expect(screen.getByText('Nhân viên A')).toBeInTheDocument());
+  expect(screen.queryByRole('button', { name: 'Dọn thùng rác' })).toBeNull();
+  fireEvent.change(screen.getByLabelText('Lọc trạng thái'), { target: { value: 'Đã xóa' } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Dọn thùng rác' }));
+  await waitFor(() => expect(screen.getByText('Đã xoá 1 lệnh')).toBeInTheDocument());
+  const call = fetchMock.mock.calls.find((c) => (c[0] as string).endsWith('/device-transfers/purge'))!;
+  expect(JSON.parse((call[1] as RequestInit).body as string)).toEqual({ ids: [9] });
 });

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useSession } from '@/app/session/SessionContext';
-import { canCreateOrder, canDecideOrder } from '@/modules/auth/domain/session';
+import { canCreateOrder, canDecideOrder, canDeleteOrder } from '@/modules/auth/domain/session';
 import { PageHeader } from '@/shared/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
@@ -10,7 +10,7 @@ import { Badge } from '@/shared/ui/Badge';
 import { DataTable, type Column } from '@/shared/ui/DataTable';
 import { Select } from '@/shared/ui/inputs';
 import { useAsyncAction } from '@/shared/lib/useAsyncAction';
-import { ORDER_STATUS, ORDER_TYPE, type DeviceOrder, type OrderStatus, type OrderType } from '../domain/deviceOrder';
+import { isOrderDeletable, ORDER_STATUS, ORDER_TYPE, type DeviceOrder, type OrderStatus, type OrderType } from '../domain/deviceOrder';
 import { deviceOrderService } from '../infrastructure/container';
 import { useDeviceOrders } from './useDeviceOrders';
 import { ORDER_STATUS_TONE } from './orderStatusTone';
@@ -20,6 +20,8 @@ export function DeviceOrderListPage() {
   const { session } = useSession();
   const canCreate = canCreateOrder(session);
   const canDecide = canDecideOrder(session);
+  const canDelete = canDeleteOrder(session);
+  const [purgedCount, setPurgedCount] = useState<number | null>(null);
   const [type, setType] = useState<OrderType | ''>('');
   const [status, setStatus] = useState<OrderStatus | ''>('');
   const [reloadKey, setReloadKey] = useState(0);
@@ -47,6 +49,21 @@ export function DeviceOrderListPage() {
     // chỉ tải khi thực sự bấm in biên bản.
     const { downloadBienBan } = await import('./print/generateBienBan');
     downloadBienBan(detail);
+  });
+
+  const remove = useAsyncAction(async (o: DeviceOrder) => {
+    if (!window.confirm(`Xoá đơn #${o.id}?`)) return;
+    await deviceOrderService.remove(o.id);
+    setReloadKey((k) => k + 1);
+  });
+
+  const canPurge = canDelete && status === ORDER_STATUS.DELETED && (orders?.length ?? 0) > 0;
+  const purge = useAsyncAction(async () => {
+    const ids = (orders ?? []).map((o) => o.id);
+    if (!window.confirm(`Xoá vĩnh viễn ${ids.length} đơn? Không thể khôi phục.`)) return;
+    const { count } = await deviceOrderService.purge(ids);
+    setPurgedCount(count);
+    setReloadKey((k) => k + 1);
   });
 
   const columns: Array<Column<DeviceOrder>> = [
@@ -81,6 +98,11 @@ export function DeviceOrderListPage() {
               In biên bản
             </Button>
           )}
+          {canDelete && isOrderDeletable(o.status) && (
+            <Button size="sm" variant="outline" disabled={remove.pending} onClick={() => void remove.run(o)}>
+              Xoá
+            </Button>
+          )}
         </div>
       ),
     },
@@ -107,17 +129,29 @@ export function DeviceOrderListPage() {
             <option value={ORDER_TYPE.ALLOCATE}>{ORDER_TYPE.ALLOCATE}</option>
             <option value={ORDER_TYPE.RECOVER}>{ORDER_TYPE.RECOVER}</option>
           </Select>
-          <Select className="sm:w-56" value={status} onChange={(e) => setStatus(e.target.value as OrderStatus | '')}>
+          <Select className="sm:w-56" value={status} aria-label="Lọc trạng thái"
+            onChange={(e) => {
+              setStatus(e.target.value as OrderStatus | '');
+              setPurgedCount(null);
+            }}
+          >
             <option value="">Trạng thái (Tất cả)</option>
             <option value={ORDER_STATUS.PENDING}>{ORDER_STATUS.PENDING}</option>
             <option value={ORDER_STATUS.APPROVED}>{ORDER_STATUS.APPROVED}</option>
             <option value={ORDER_STATUS.REJECTED}>{ORDER_STATUS.REJECTED}</option>
+            <option value={ORDER_STATUS.DELETED}>{ORDER_STATUS.DELETED}</option>
           </Select>
+          {canPurge && (
+            <Button variant="outline" size="sm" disabled={purge.pending} onClick={() => void purge.run()}>
+              Dọn thùng rác
+            </Button>
+          )}
         </div>
 
-        {(approve.error ?? reject.error ?? print.error ?? error) && (
+        {purgedCount !== null && <p className="mb-3 text-sm text-status-okFg">Đã xoá {purgedCount} đơn</p>}
+        {(approve.error ?? reject.error ?? print.error ?? remove.error ?? purge.error ?? error) && (
           <p className="mb-3 text-sm text-status-dangerFg">
-            {approve.error ?? reject.error ?? print.error ?? error}
+            {approve.error ?? reject.error ?? print.error ?? remove.error ?? purge.error ?? error}
           </p>
         )}
 
